@@ -1,0 +1,224 @@
+rules_version = '2';
+
+/**
+ * SportBuddy78 (sportbuddy-spb) — Firestore Security Rules
+ *
+ * The web API key is public by design; THESE RULES are what actually protect
+ * the data. Deploy with:  firebase deploy --only firestore:rules
+ */
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /* ----------------------------- helpers ----------------------------- */
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      // Email alone is not enough: every app login requires the server-issued
+      // 4-digit OTP session created by verifyAdminOtp Cloud Function.
+      return isSignedIn()
+        && request.auth.token.email == 'support@sportbuddy78.ru'
+        && exists(/databases/$(database)/documents/adminSessions/$(request.auth.uid))
+        && get(/databases/$(database)/documents/adminSessions/$(request.auth.uid)).data.expiresAt > request.time;
+    }
+
+    // Blocks tampering with progression fields from the client
+    function protectedUserFieldsUnchanged() {
+      let locked = [
+        'totalWorkouts', 'totalDailyMedals', 'medalTier',
+        'claimedBoxTiers', 'rewardItems', 'ratingSum', 'ratingCount',
+        'subscriptionPlan', 'premiumUntil', 'isVerified', 'verifiedAt',
+        'verificationMethod', 'name'
+      ];
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(locked);
+    }
+
+    function isValidString(field, maxLen) {
+      return request.resource.data[field] is string
+        && request.resource.data[field].size() <= maxLen;
+    }
+
+    /* ------------------------------ users ------------------------------ */
+
+    match /users/{userId} {
+      // Any signed-in athlete can browse profiles (discovery, leaderboard)
+      allow read: if isSignedIn();
+
+      allow create: if isSelf(userId)
+        && isValidString('name', 60)
+        && isValidString('bio', 500)
+        // A client can never self-verify on initial profile creation.
+        && (!request.resource.data.keys().hasAny(['isVerified'])
+            || request.resource.data.isVerified != true);
+
+      // Users edit their own profile, but cannot inflate their own stats
+      allow update: if (isSelf(userId) && protectedUserFieldsUnchanged())
+        || isAdmin();
+
+      allow delete: if isSelf(userId) || isAdmin();
+    }
+
+    /* ---------------------------- trainings ---------------------------- */
+
+    match /trainings/{trainingId} {
+      allow read: if isSignedIn();
+
+      allow create: if isSignedIn()
+        && request.resource.data.createdBy == request.auth.uid
+        && isValidString('title', 120)
+        && request.resource.data.participantsMax is int
+        && request.resource.data.participantsMax >= 2
+        && request.resource.data.participantsMax <= 100;
+
+      // Organizer edits everything; participants may only join/leave
+      allow update: if isSignedIn() && (
+        resource.data.createdBy == request.auth.uid
+        || request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['participantIds', 'checkedInUserIds', 'ratedParticipantIds', 'organizerRatedByParticipantIds'])
+      );
+
+      allow delete: if isSignedIn()
+        && (resource.data.createdBy == request.auth.uid || isAdmin());
+    }
+
+    /* ------------------------ official events -------------------------- */
+
+    match /events/{eventId} {
+      allow read: if true;                  // public marketing content
+
+      // Creation / deletion / field edits run only through the
+      // `adminMutateEvent` callable (Admin SDK, OTP-validated). Participants
+      // may only join / leave / check in via these two array fields.
+      allow create, delete: if false;
+      allow update: if isSignedIn() && request.resource.data.diff(resource.data)
+        .affectedKeys().hasOnly(['participantIds', 'checkedInUserIds']);
+    }
+
+    /* ------------------------------ feed ------------------------------- */
+
+    match /feed/{postId} {
+      allow read: if isSignedIn();
+
+      allow create: if isSignedIn()
+        && request.resource.data.authorId == request.auth.uid
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isVerified == true
+        && isValidString('content', 2000);
+
+      // Author edits own post; others may only like or comment
+      allow update: if isSignedIn() && (
+        resource.data.authorId == request.auth.uid
+        || request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['likes', 'comments', 'commentsCount'])
+      );
+
+      allow delete: if isSignedIn()
+        && (resource.data.authorId == request.auth.uid || isAdmin());
+    }
+
+    /* ---------------------------- payments ----------------------------- */
+
+    // Payments are created and fulfilled only by trusted server functions.
+    // The athlete can read their own payment status for the success screen.
+    match /payments/{paymentId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create, update, delete: if false;
+    }
+
+    /* -------------------------- friendships ---------------------------- */
+
+    match /friendRequests/{requestId} {
+      allow read: if isSignedIn()
+        && (resource.data.fromId == request.auth.uid || resource.data.toId == request.auth.uid);
+      allow create: if isSignedIn()
+        && request.resource.data.fromId == request.auth.uid
+        && request.resource.data.toId != request.auth.uid
+        && request.resource.data.status == 'pending';
+      // Only the invited athlete can accept or decline.
+      allow update: if isSignedIn()
+        && resource.data.toId == request.auth.uid
+        && request.resource.data.fromId == resource.data.fromId
+        && request.resource.data.toId == resource.data.toId
+        && request.resource.data.status in ['accepted', 'declined'];
+      allow delete: if isSignedIn()
+        && (resource.data.fromId == request.auth.uid || resource.data.toId == request.auth.uid);
+    }
+
+    match /friendships/{friendshipId} {
+      allow read: if isSignedIn() && request.auth.uid in resource.data.participantIds;
+      // Created only by one of the two participants after accepting a request.
+      allow create: if isSignedIn()
+        && request.auth.uid in request.resource.data.participantIds
+        && request.resource.data.participantIds.size() == 2;
+      allow delete: if isSignedIn() && request.auth.uid in resource.data.participantIds;
+      allow update: if false;
+    }
+
+    /* ------------------------------ chats ------------------------------ */
+
+    match /chats/{chatId} {
+      // Strictly private: only the two participants
+      allow read, update: if isSignedIn()
+        && request.auth.uid in resource.data.participantIds;
+
+      allow create: if isSignedIn()
+        && request.auth.uid in request.resource.data.participantIds
+        && request.resource.data.participantIds.size() == 2;
+
+      allow delete: if false;               // chats are never hard-deleted
+    }
+
+    /* --------------------------- check-ins ----------------------------- */
+
+    match /checkins/{checkinId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if false;       // immutable audit trail
+    }
+
+    /* ---------------------------- ratings ------------------------------ */
+
+    match /ratings/{ratingId} {
+      allow read: if isSignedIn();
+
+      // Organizer rates attendees; GPS-confirmed attendees rate the organizer.
+      allow create: if isSignedIn()
+        && (
+          request.resource.data.organizerId == request.auth.uid
+          || request.resource.data.participantId == request.auth.uid
+        )
+        && request.resource.data.organizerId != request.resource.data.participantId
+        && request.resource.data.stars is int
+        && request.resource.data.stars >= 1
+        && request.resource.data.stars <= 5;
+
+      allow update, delete: if false;       // reviews are immutable
+    }
+
+    /* ----------------------- goals & promo codes ----------------------- */
+
+    match /goals/{goalId} {
+      allow create: if isSignedIn()
+        && request.resource.data.ownerId == request.auth.uid;
+      allow read, update, delete: if isSignedIn()
+        && resource.data.ownerId == request.auth.uid;
+    }
+
+    match /promoCodes/{code} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin();  // issued server-side only
+    }
+
+    /* ------------------------- default: deny --------------------------- */
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
