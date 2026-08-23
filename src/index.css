@@ -1,0 +1,386 @@
+@import "tailwindcss";
+
+/* ---------------- Theme tokens (overridden by the theme service) ---------------- */
+:root {
+  --sb-accent: #34d399;
+  --sb-accent-soft: #6ee7b7;
+  --sb-accent-deep: #059669;
+  --sb-accent-glow: 16, 185, 129;
+
+  --sb-bg: #020617;
+  --sb-surface: #0f172a;
+  --sb-surface-alt: #020617;
+  --sb-border: #1e293b;
+
+  --sb-font-display: 'Unbounded', 'Manrope', ui-sans-serif, system-ui, sans-serif;
+  --sb-font-body: 'Manrope', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+/* Recolour the emerald palette used across the app to the chosen accent */
+[data-accent]:not([data-accent="emerald"]) {
+  --color-emerald-300: var(--sb-accent-soft);
+  --color-emerald-400: var(--sb-accent);
+  --color-emerald-500: var(--sb-accent);
+  --color-emerald-600: var(--sb-accent-deep);
+  --color-teal-400: var(--sb-accent-soft);
+  --color-teal-500: var(--sb-accent);
+  --color-teal-600: var(--sb-accent-deep);
+}
+
+/* Recolour the slate surfaces for non-default backgrounds */
+[data-surface]:not([data-surface="midnight"]) {
+  --color-slate-950: var(--sb-bg);
+  --color-slate-900: var(--sb-surface);
+  --color-slate-800: var(--sb-border);
+}
+
+[data-surface]:not([data-surface="midnight"]) body {
+  background-color: var(--sb-bg);
+}
+
+/* Accessibility / density preferences */
+.sb-reduced-motion *,
+.sb-reduced-motion *::before,
+.sb-reduced-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+}
+
+.sb-compact main {
+  font-size: 0.94em;
+}
+.sb-compact main .space-y-5 > * + * { margin-top: 0.85rem; }
+.sb-compact main .space-y-4 > * + * { margin-top: 0.7rem; }
+
+/* ------------------------- Mobile performance & feel ------------------------- */
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+
+body {
+  /* Kill the 300ms tap delay and the grey flash on Android */
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  overscroll-behavior-y: none;
+  text-rendering: optimizeLegibility;
+  font-family: var(--sb-font-body);
+}
+
+/* Display typeface for headlines and scoreboard numbers — sporty and distinct */
+h1, h2, .sb-display {
+  font-family: var(--sb-font-display);
+  letter-spacing: -0.02em;
+}
+
+::selection {
+  background: rgba(52, 211, 153, 0.35);
+  color: #f8fafc;
+}
+
+/* Focus rings that match the brand */
+:focus-visible {
+  outline: 2px solid rgba(52, 211, 153, 0.6);
+  outline-offset: 2px;
+}
+
+/* ---------------- Ambient SPb backdrop (layered, not aurora) ---------------- */
+.sb-backdrop {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Soft brand glow anchored to the top — the "white night" horizon */
+.sb-backdrop-glow {
+  position: absolute;
+  inset: -30% -20% auto -20%;
+  height: 55%;
+  background:
+    radial-gradient(60% 70% at 50% 0%, rgba(52, 211, 153, 0.14), transparent 70%),
+    radial-gradient(40% 55% at 78% 8%, rgba(56, 189, 248, 0.10), transparent 70%);
+  animation: sb-glow-drift 14s ease-in-out infinite alternate;
+}
+
+@keyframes sb-glow-drift {
+  from { transform: translateX(-3%); opacity: 0.8; }
+  to { transform: translateX(3%); opacity: 1; }
+}
+
+/* Neva shimmer — a slow horizontal light sweep along the river line */
+.sb-backdrop-river {
+  position: absolute;
+  left: -20%;
+  right: -20%;
+  bottom: 18%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(52, 211, 153, 0.5), rgba(56, 189, 248, 0.4), transparent);
+  background-size: 200% 100%;
+  animation: sb-river-flow 7s linear infinite;
+  opacity: 0.5;
+  filter: blur(0.5px);
+}
+
+@keyframes sb-river-flow {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+/* City skyline silhouette anchored to the bottom */
+.sb-backdrop-skyline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  opacity: 0.55;
+  -webkit-mask-image: linear-gradient(to top, rgba(0,0,0,0.9), transparent 85%);
+  mask-image: linear-gradient(to top, rgba(0,0,0,0.9), transparent 85%);
+}
+
+/* Faint tactical grid — the "playbook" texture */
+.sb-backdrop-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(148, 163, 184, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.04) 1px, transparent 1px);
+  background-size: 34px 34px;
+  -webkit-mask-image: radial-gradient(120% 90% at 50% 0%, black 30%, transparent 80%);
+  mask-image: radial-gradient(120% 90% at 50% 0%, black 30%, transparent 80%);
+}
+
+/* ---------------- Header accent line ---------------- */
+.sb-header-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(52, 211, 153, 0.7), rgba(56, 189, 248, 0.5), transparent);
+  background-size: 200% 100%;
+  animation: sb-river-flow 9s linear infinite;
+  opacity: 0.6;
+}
+
+/* ---------------- Hover micro-interactions (pointer devices) ---------------- */
+@media (hover: hover) {
+  .sb-hover-lift {
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+  .sb-hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 14px 34px -18px rgba(0, 0, 0, 0.9);
+    border-color: rgba(52, 211, 153, 0.35);
+  }
+}
+
+/* Living stat numbers — scoreboard style */
+.sb-score {
+  font-family: var(--sb-font-display);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* Floating particles for the auth scene (white-night sparks) */
+.sb-particle {
+  position: absolute;
+  border-radius: 9999px;
+  background: rgba(110, 231, 183, 0.5);
+  animation: sb-float-up linear infinite;
+}
+
+@keyframes sb-float-up {
+  0% { transform: translateY(0) translateX(0); opacity: 0; }
+  12% { opacity: 0.7; }
+  85% { opacity: 0.5; }
+  100% { transform: translateY(-46vh) translateX(14px); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sb-backdrop-glow,
+  .sb-backdrop-river,
+  .sb-header-line,
+  .sb-particle {
+    animation: none !important;
+  }
+}
+
+button, a, [role="button"] {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Momentum scrolling + GPU compositing for horizontal chip rows and lists */
+.no-scrollbar {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+  overscroll-behavior-x: contain;
+}
+
+/* Snappier feedback on press instead of slow hover transitions */
+@media (hover: none) {
+  .active\:scale-95:active { transform: scale(0.95); }
+  .active\:scale-90:active { transform: scale(0.90); }
+}
+
+/* Promote animated layers to the GPU to avoid repaints on scroll */
+.animate-like-pulse,
+.animate-ping,
+.animate-bounce {
+  will-change: transform, opacity;
+}
+
+/* Images: reserve space and decode off the main thread */
+img {
+  content-visibility: auto;
+  -webkit-user-drag: none;
+}
+
+/* Leaflet performance on low-end devices */
+.leaflet-container {
+  contain: layout paint;
+}
+.leaflet-tile {
+  will-change: transform;
+}
+
+/* Respect the OS-level reduced motion setting automatically */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Prevent iOS zoom on focus — inputs must be at least 16px */
+input, select, textarea {
+  font-size: max(16px, 1em);
+}
+@media (min-width: 640px) {
+  input, select, textarea { font-size: inherit; }
+}
+
+/* ------------------------ SportBuddy78 auth experience ----------------------- */
+
+.sb-brand-wordmark {
+  font-family: 'Unbounded', 'Arial Black', sans-serif;
+  letter-spacing: -0.075em;
+  font-feature-settings: 'ss01' 1, 'ss02' 1;
+}
+
+.sb-auth-shell {
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 18% 18%, rgba(16, 185, 129, 0.16), transparent 30%),
+    radial-gradient(circle at 92% 72%, rgba(56, 189, 248, 0.14), transparent 32%),
+    #020617;
+}
+
+.sb-auth-grid {
+  background-image:
+    linear-gradient(rgba(148, 163, 184, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.055) 1px, transparent 1px);
+  background-size: 30px 30px;
+  mask-image: linear-gradient(to bottom, transparent, black 20%, black 78%, transparent);
+}
+
+.sb-auth-aurora {
+  background: conic-gradient(
+    from 210deg at 50% 50%,
+    rgba(16, 185, 129, 0),
+    rgba(16, 185, 129, 0.2),
+    rgba(56, 189, 248, 0.12),
+    rgba(16, 185, 129, 0)
+  );
+  filter: blur(34px);
+  animation: sb-aurora 12s ease-in-out infinite alternate;
+}
+
+.sb-auth-card {
+  background: linear-gradient(145deg, rgba(15, 23, 42, 0.88), rgba(2, 6, 23, 0.76));
+  box-shadow: 0 32px 70px -34px rgba(0, 0, 0, 0.95);
+}
+
+.sb-auth-river {
+  stroke-dasharray: 14 12;
+  animation: sb-river 2.4s linear infinite;
+}
+
+.sb-auth-lighthouse {
+  transform-origin: 50% 100%;
+  animation: sb-spire-breathe 4.5s ease-in-out infinite;
+}
+
+.sb-auth-sportline {
+  filter: drop-shadow(0 0 8px rgba(52, 211, 153, 0.5));
+}
+
+.sb-auth-greeting {
+  background-size: 200% auto;
+  animation: sb-greeting-shift 5.5s ease-in-out infinite;
+}
+
+@keyframes sb-aurora {
+  from { transform: rotate(-12deg) scale(0.9); opacity: 0.55; }
+  to { transform: rotate(14deg) scale(1.12); opacity: 0.9; }
+}
+
+@keyframes sb-river {
+  to { stroke-dashoffset: -52; }
+}
+
+@keyframes sb-spire-breathe {
+  0%, 100% { transform: translateY(0); opacity: 0.78; }
+  50% { transform: translateY(-3px); opacity: 1; }
+}
+
+@keyframes sb-greeting-shift {
+  0%, 100% { background-position: 0% center; filter: brightness(1); }
+  50% { background-position: 100% center; filter: brightness(1.16); }
+}
+
+@layer utilities {
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 20px);
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 20px);
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* Custom styles for Leaflet popups in dark mode */
+.leaflet-popup-content-wrapper, .leaflet-popup-tip {
+  background: #0f172a !important;
+  color: #f8fafc !important;
+  border: 1px solid #334155 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5) !important;
+}
+
+.leaflet-container {
+  font-family: 'Inter', sans-serif !important;
+  background-color: #020617 !important;
+}
+
+/* Custom Pulse Animation for Discovery Like button */
+@keyframes heart-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); box-shadow: 0 0 25px rgba(16, 185, 129, 0.6); }
+}
+
+.animate-like-pulse {
+  animation: heart-pulse 2s infinite ease-in-out;
+}

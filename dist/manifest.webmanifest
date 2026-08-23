@@ -1,0 +1,33 @@
+{
+  "name": "SportBuddy78 — спортивные напарники в Санкт-Петербурге",
+  "short_name": "SportBuddy78",
+  "description": "Поиск спортивных напарников в Санкт-Петербурге: бег, футбол, теннис, баскетбол, падел, хоккей и велопрогулки.",
+  "lang": "ru-RU",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#020617",
+  "theme_color": "#020617",
+  "categories": ["health", "fitness", "social", "sports"],
+  "icons": [
+    {
+      "src": "/store-assets/icon/icon-1024.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/store-assets/icon/icon-1024.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/store-assets/icon/icon-1024.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

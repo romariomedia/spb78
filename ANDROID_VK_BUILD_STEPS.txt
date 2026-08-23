@@ -1,0 +1,34 @@
+SportBuddy — Android VK callback build
+
+This archive keeps the working browser VK flow and only adds Android callback handling.
+
+1) In project root:
+   npm install
+   npm run build
+
+2) If android/ does not exist:
+   npx cap add android
+
+3) Sync and patch Android callback:
+   npx cap sync android
+   npm run android:vk-callback
+
+4) Set the local Android SDK path on Windows (do NOT commit local.properties):
+   android/local.properties
+   sdk.dir=C:\\Users\\zvk12\\AppData\\Local\\Android\\Sdk
+
+5) Build debug APK:
+   cd android
+   gradlew.bat clean assembleDebug
+
+6) Get the debug certificate SHA-256:
+   gradlew.bat signingReport
+
+7) The current Debug SHA-256 is already configured in assetlinks.json:
+   E3:92:11:AD:F7:09:27:D8:15:C4:B1:77:9C:CF:1C:CF:D2:5D:0B:2D:4E:B9:BE:1A:96:DE:71:90:B2:27:6D:CE
+   If you later sign the APK with another certificate, add that certificate fingerprint to assetlinks.json and redeploy the web build.
+
+Important:
+- Do not restore Firebase Cloud Functions for this Android callback fix.
+- Do not change the working web VK redirect.
+- The Android callback is https://sportbuddy78.pro/vk-callback.

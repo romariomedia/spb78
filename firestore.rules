@@ -1,0 +1,157 @@
+rules_version = '2';
+
+/**
+ * SportBuddy78 (sportbuddy-spb) — Firestore Security Rules
+ *
+ * The web API key is public by design; THESE RULES are what actually protect
+ * the data. Deploy with:  firebase deploy --only firestore:rules
+ */
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /* ----------------------------- helpers ----------------------------- */
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      // Email alone is not enough: every app login requires the server-issued
+      // 4-digit OTP session created by verifyAdminOtp Cloud Function.
+      return isSignedIn()
+        && request.auth.token.email == 'support@sportbuddy78.ru'
+        && exists(/databases/$(database)/documents/adminSessions/$(request.auth.uid))
+        && get(/databases/$(database)/documents/adminSessions/$(request.auth.uid)).data.expiresAt > request.time;
+    }
+
+    // Blocks tampering with progression fields from the client
+    function protectedUserFieldsUnchanged() {
+      let locked = [
+        'totalWorkouts', 'totalDailyMedals', 'medalTier',
+        'claimedBoxTiers', 'rewardItems', 'ratingSum', 'ratingCount',
+        'subscriptionPlan', 'premiumUntil', 'isVerified', 'verifiedAt',
+        'verificationMethod', 'name'
+      ];
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(locked);
+    }
+
+    function safeInitialUser() {
+      return !request.resource.data.keys().hasAny(['premiumUntil','claimedBoxTiers','rewardItems','totalWorkouts','totalDailyMedals','dailyMedalStreak','medalTier','ratingSum','ratingCount','isVerified','verifiedAt'])
+        || (request.resource.data.subscriptionPlan == 'free'
+          && request.resource.data.totalWorkouts == 0
+          && request.resource.data.totalDailyMedals == 0
+          && request.resource.data.dailyMedalStreak == 0
+          && request.resource.data.isVerified == false);
+    }
+
+    function isValidString(field, maxLen) {
+      return request.resource.data[field] is string
+        && request.resource.data[field].size() <= maxLen;
+    }
+
+    /* ------------------------------ users ------------------------------ */
+
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false;
+    }
+
+    match /usersPrivate/{userId} {
+      allow read: if isSelf(userId);
+      allow create, update, delete: if false;
+    }
+
+    /* ---------------------------- trainings ---------------------------- */
+
+    match /trainings/{trainingId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false;
+    }
+
+    /* ------------------------ official events -------------------------- */
+
+    match /events/{eventId} {
+      allow read: if true;
+      allow create, update, delete: if false;
+    }
+
+    /* ------------------------------ feed ------------------------------- */
+
+    match /feed/{postId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false;
+    }
+
+    /* ---------------------------- payments ----------------------------- */
+
+    // Payments are created and fulfilled only by trusted server functions.
+    // The athlete can read their own payment status for the success screen.
+    match /payments/{paymentId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create, update, delete: if false;
+    }
+
+    /* -------------------------- friendships ---------------------------- */
+
+    match /friendRequests/{requestId} {
+      allow read: if isSignedIn() && (resource.data.fromId == request.auth.uid || resource.data.toId == request.auth.uid);
+      allow create, update, delete: if false;
+    }
+
+    match /friendships/{friendshipId} {
+      allow read: if isSignedIn() && request.auth.uid in resource.data.participantIds;
+      allow create, update, delete: if false;
+    }
+
+    /* ------------------------------ chats ------------------------------ */
+
+    match /chats/{chatId} {
+      allow read: if isSignedIn() && request.auth.uid in resource.data.participantIds;
+      allow create, update, delete: if false;
+    }
+
+    /* --------------------------- check-ins ----------------------------- */
+
+    match /checkins/{checkinId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false;
+    }
+
+    /* ---------------------------- ratings ------------------------------ */
+
+    match /ratings/{ratingId} {
+      allow read: if isSignedIn();
+      // Ratings and profile aggregates are written atomically by the server.
+      allow create, update, delete: if false;
+    }
+
+    /* ----------------------- goals & promo codes ----------------------- */
+
+    match /goals/{goalId} {
+      allow create: if isSignedIn()
+        && request.resource.data.ownerId == request.auth.uid;
+      allow read, update, delete: if isSignedIn()
+        && resource.data.ownerId == request.auth.uid;
+    }
+
+    match /promoCodes/{code} {
+      allow read: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /workoutCredits/{creditId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create, update, delete: if false;
+    }
+
+    /* ------------------------- default: deny --------------------------- */
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

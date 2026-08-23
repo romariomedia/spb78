@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "ru.sportbuddy.mobile",
+      "sha256_cert_fingerprints": [
+        "E3:92:11:AD:F7:09:27:D8:15:C4:B1:77:9C:CF:1C:CF:D2:5D:0B:2D:4E:B9:BE:1A:96:DE:71:90:B2:27:6D:CE"
+      ]
+    }
+  }
+]
