@@ -10,7 +10,8 @@
     "typecheck": "node node_modules/typescript/bin/tsc --noEmit",
     "android:vk-callback": "node scripts/patch-android-vk-callback.mjs",
     "start": "node server.js",
-    "test:server": "node --test tests/server.test.js"
+    "test:server": "node --test tests/server.test.js",
+    "test": "node --test tests/*.test.js"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.0",

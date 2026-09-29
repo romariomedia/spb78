@@ -27,6 +27,7 @@ import {
   avatarUrl, photoUrl, cldUrl, videoPoster, CloudinaryUploadError
 } from './services/cloudinary';
 import { compressImage } from './services/media';
+import { joinedTrainingIds } from './services/dataLoading';
 import { subscribeAppInvalidation } from './services/realtime';
 import { 
   triggerHapticImpact, triggerHapticNotification, takeAvatarPhoto,
@@ -40,7 +41,7 @@ import { getSessionAccount, logout as clearLocalAuthSession, removeLocalAccount 
 import { signOutTransport, ensureTransportSession } from './lib/firebase';
 import { authReady, getFirebaseUid, signOutFirebase } from './services/firebaseAuth';
 import { createFreshProfile } from './services/reset';
-import { getJoinedTrainingIds, setJoinedTraining, clearJoinedTrainings } from './services/memberships';
+import { setJoinedTraining, clearJoinedTrainings } from './services/memberships';
 import { syncSubscriptionPlan, isPremiumActive } from './services/promo';
 import { AuthScreen } from './components/AuthScreen';
 import { SuccessScreen } from './components/SuccessScreen';
@@ -159,6 +160,8 @@ export default function App(): JSX.Element {
   // Auth State
   const [account, setAccount] = useState<AuthAccount | null>(() => getSessionAccount());
   const [authNotice, setAuthNotice] = useState('');
+  const [loadError, setLoadError] = useState('');
+  const [loadWarning, setLoadWarning] = useState('');
   const [paymentSuccess, setPaymentSuccess] = useState(() => window.location.pathname === '/success');
   const [welcomeTrialShown, setWelcomeTrialShown] = useState<boolean>(false);
   // Set before async loading starts so a fresh registration can never inherit
@@ -210,7 +213,6 @@ export default function App(): JSX.Element {
   const [trainingLevelFilter, setTrainingLevelFilter] = useState<'all' | 'amateur' | 'semi-pro' | 'pro'>('all');
   const [calendarDay, setCalendarDay] = useState<string | null>(null);
   // Bumps whenever the authenticated athlete joins/leaves a real training.
-  const [membershipVersion, setMembershipVersion] = useState(0);
   const [onlyMyTrainings, setOnlyMyTrainings] = useState<boolean>(false);
   const [selectedTraining, setSelectedTraining] = useState<Training | null>(null);
   const [isCreateTrainingOpen, setIsCreateTrainingOpen] = useState<boolean>(false);
@@ -309,6 +311,7 @@ export default function App(): JSX.Element {
       if (firebaseUid) setCurrentUserId(firebaseUid);
       else if (activeSession) setCurrentUserId(activeSession.firebaseUid ?? activeSession.id);
       const data = await loadAppData();
+      if (getSessionAccount()?.id !== activeSession?.id) return;
       void refreshWorkoutCredits(CURRENT_USER_ID).catch(() => {});
       void refreshRatings(CURRENT_USER_ID).catch(() => {});
       void refreshMyCheckIns(CURRENT_USER_ID).catch(() => {});
@@ -319,7 +322,7 @@ export default function App(): JSX.Element {
       const freshAccount = freshAccountRef.current;
       const isFreshAccount = Boolean(freshAccount);
 
-      if (freshAccount) {
+      if (freshAccount && data.profileMissing) {
         // A brand-new athlete has no historical workouts, medals, ratings,
         // rewards, friends, chats or pre-existing training attendance.
         profile = createFreshProfile(CURRENT_USER_ID, {
@@ -346,7 +349,6 @@ export default function App(): JSX.Element {
             : {})
         });
         clearJoinedTrainings(freshAccount.account.id);
-        freshAccountRef.current = null;
       }
 
       if (session) {
@@ -387,33 +389,26 @@ export default function App(): JSX.Element {
 
       // Create the new account profile through Vercel. The server returns the
       // authoritative profile, including the one-time 30-day welcome Premium.
-      if (freshAccount) {
-        (profile as UserProfile & { provider?: string }).provider = freshAccount.account.provider === 'vk' ? 'vk' : 'email';
+      if (freshAccount || data.profileMissing) {
+        (profile as UserProfile & { provider?: string }).provider = session?.provider === 'vk' ? 'vk' : 'email';
         profile = await persistFreshProfile(profile);
+        freshAccountRef.current = null;
         profile = initFriendsState(profile, data.allUsers);
         profile = syncProfileMedals(profile);
       }
 
       setCurrentUser(profile);
       setAllUsers(data.allUsers.map(u => (u.id === profile.id ? profile : u)));
-      // Participant ids from pre-account caches used a shared demo id.
-      // The per-account membership journal is therefore the source of truth
-      // for the signed-in athlete; all other attendees remain untouched.
-      const accountMemberships = getJoinedTrainingIds(session?.id);
-      const safeTrainings = data.trainings.map((t) => ({
-        ...t,
-        participantIds: accountMemberships.has(t.id)
-          ? (t.participantIds.includes(CURRENT_USER_ID)
-              ? t.participantIds
-              : [...t.participantIds, CURRENT_USER_ID])
-          : t.participantIds.filter((id) => id !== CURRENT_USER_ID)
-      }));
-      setTrainings(getActiveTrainings(safeTrainings));
+      // Server participantIds are shared across devices; local journals cannot override them.
+      setTrainings(getActiveTrainings(data.trainings));
+      setLoadError('');
+      setLoadWarning(data.loadWarning ?? '');
       setFeedPosts(data.feedPosts);
       setIsOffline(data.isOffline);
       setPendingSyncCount(getOfflineQueue().length);
     } catch (err) {
       console.error('Data loading failure:', err);
+      setLoadError('Не удалось загрузить данные. Проверьте соединение и повторите попытку.');
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -818,10 +813,10 @@ export default function App(): JSX.Element {
     [allUsers]
   );
 
-  /** Only ids written after an explicit join count as "my trainings". */
+  /** Membership comes from server data, including joins from another device. */
   const actualJoinedTrainingIds = useMemo(
-    () => getJoinedTrainingIds(account?.id),
-    [account?.id, membershipVersion]
+    () => joinedTrainingIds(trainings, currentUser?.id),
+    [trainings, currentUser?.id]
   );
 
   const actualJoinedTrainings = useMemo(
@@ -972,7 +967,6 @@ export default function App(): JSX.Element {
     setTrainings(prev => [created, ...prev]);
     // Creating an event means the organizer is genuinely registered for it.
     setJoinedTraining(account?.id, created.id, true);
-    setMembershipVersion((v) => v + 1);
     setIsCreateTrainingOpen(false);
     setSelectedTraining(created);
 
@@ -996,15 +990,13 @@ export default function App(): JSX.Element {
   // Toggle Join Training
   const handleJoinTraining = async (tr: Training) => {
     const isJoined = await toggleJoinTraining(tr.id);
-    // The membership ledger is account-specific and powers the Profile timer.
+    // Keep the legacy local journal as a cache; render the server-confirmed result.
     setJoinedTraining(account?.id, tr.id, isJoined);
-    setMembershipVersion((v) => v + 1);
     setTrainings(prev => prev.map(t => {
       if (t.id === tr.id) {
-        const exists = t.participantIds.includes(CURRENT_USER_ID);
-        const nextIds = exists 
-          ? t.participantIds.filter(id => id !== CURRENT_USER_ID) 
-          : [...t.participantIds, CURRENT_USER_ID];
+        const nextIds = isJoined
+          ? [...new Set([...t.participantIds, CURRENT_USER_ID])]
+          : t.participantIds.filter(id => id !== CURRENT_USER_ID);
         return { ...t, participantIds: nextIds };
       }
       return t;
@@ -1406,6 +1398,15 @@ export default function App(): JSX.Element {
     return <AuthScreen initialNotice={authNotice} onAuthenticated={handleAuthenticated} />;
   }
 
+  if (loadError && !currentUser && !isLoading) {
+    return <div className="min-h-[100svh] bg-slate-950 text-slate-100 flex flex-col items-center justify-center gap-4 p-6 text-center">
+      <p role="alert">{loadError}</p>
+      <button disabled={isRefreshing} onClick={() => void fetchAllData()} className="rounded-xl bg-emerald-500 px-5 py-3 text-slate-950 disabled:opacity-50">
+        {isRefreshing ? 'Загрузка…' : 'Повторить попытку'}
+      </button>
+    </div>;
+  }
+
   // Gender onboarding gate: mandatory once, immutable afterwards. It drives
   // the opposite-gender discovery feed, so it must be set before entry.
   if (needsGenderGate && currentUser) {
@@ -1542,6 +1543,9 @@ export default function App(): JSX.Element {
           </div>
         </div>
       </header>
+      {(loadError || loadWarning) && <div role="status" className="mx-4 my-2 rounded-xl bg-amber-500/15 p-3 text-sm text-amber-200">
+        {loadError || loadWarning}
+      </div>}
 
       {/* Offline Pending Action Toast */}
       {pendingSyncCount > 0 && (

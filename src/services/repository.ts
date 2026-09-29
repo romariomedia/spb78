@@ -1,10 +1,8 @@
 import { 
   collection, 
   doc, 
-  getDocs,
-  getDoc,
-  query, 
-  orderBy 
+  getDocsFromServer,
+  getDocFromServer 
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { 
@@ -18,6 +16,7 @@ import { triggerHapticImpact } from './native';
 import { getActiveTrainings } from './schedule';
 import { createFreshProfile } from './reset';
 import { callServer } from './serverApi';
+import { readSection } from './dataLoading';
 
 /**
  * Runtime identity of the signed-in local account.
@@ -49,6 +48,8 @@ export interface AppData {
   comments: Record<string, PostComment[]>;
   isOffline: boolean;
   hasPendingQueue: boolean;
+  loadWarning?: string;
+  profileMissing?: boolean;
 }
 
 /** Thrown when a Free account attempts to create a community training. */
@@ -528,29 +529,6 @@ export function clearOfflineQueue(): void {
 // it retries the connection forever. Without this guard the initial loading screen hangs.
 export const FIRESTORE_TIMEOUT_MS = 3500;
 
-class TimeoutError extends Error {
-  constructor() {
-    super('Firestore request timed out');
-    this.name = 'TimeoutError';
-  }
-}
-
-function withTimeout<T>(promise: Promise<T>, ms: number = FIRESTORE_TIMEOUT_MS): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new TimeoutError()), ms);
-    promise.then(
-      (value) => {
-        clearTimeout(timer);
-        resolve(value);
-      },
-      (error) => {
-        clearTimeout(timer);
-        reject(error);
-      }
-    );
-  });
-}
-
 /**
  * Replaces the active profile in the local mirror with a zero-progress one.
  * Used exactly once after registration, before any UI reads statistics.
@@ -604,126 +582,67 @@ export async function persistFreshProfile(profile: UserProfile): Promise<UserPro
   return authoritative;
 }
 
-/**
- * Checks Firestore availability.
- *
- * PRODUCTION RULE: demo profiles are NEVER written to Firestore. They exist
- * only in the local mirror so the Discovery screen is not empty on a fresh
- * install. Seeding bots into the real database would corrupt the leaderboard
- * and show fake athletes to real users.
- */
-async function ensureFirestoreSeeded(): Promise<boolean> {
-  const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
-  if (!isOnline) return false;
-
-  try {
-    // A single lightweight read confirms connectivity and rule access
-    await withTimeout(getDocs(collection(db, 'users')));
-    return true;
-  } catch (err) {
-    console.warn('Firestore unreachable — using local SportBuddy СПб mirror:', err);
-    return false;
-  }
-}
-
-// 1. loadAppData — load everything cleanly from Firestore (with automatic fail-safe to initial realistic cache)
+/** Load collections independently, scoped to the account that began the request. */
 export async function loadAppData(): Promise<AppData> {
-  const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
+  const uid = CURRENT_USER_ID;
+  const rawCache = getOfflineCache();
+  const cached = rawCache?.currentUser.id === uid ? rawCache : null;
   const hasPendingQueue = getOfflineQueue().length > 0;
-  
-  // If offline, serve directly from offline cache
-  if (!isOnline) {
-    const cached = getOfflineCache();
-    if (cached && cached.currentUser.id === CURRENT_USER_ID) {
-      return { ...cached, isOffline: true, hasPendingQueue };
-    }
+  const online = typeof navigator === 'undefined' || navigator.onLine;
+  if (!online) {
+    if (cached) return { ...cached, isOffline: true, hasPendingQueue, profileMissing: false };
+    throw new Error('Нет соединения. Подключитесь к интернету, чтобы загрузить профиль.');
   }
-
-  try {
-    const canConnect = await ensureFirestoreSeeded();
-    if (canConnect) {
-      // Fetch all collections from Firestore (bounded — never hangs the splash screen)
-      const [usersSnap, trainingsSnap, feedSnap, privateSnap] = await withTimeout(
-        Promise.all([
-          getDocs(query(collection(db, 'users'))),
-          getDocs(query(collection(db, 'trainings'), orderBy('createdAt', 'desc'))),
-          getDocs(query(collection(db, 'feed'), orderBy('id', 'desc'))),
-          getDoc(doc(db, 'usersPrivate', CURRENT_USER_ID))
-        ]),
-        FIRESTORE_TIMEOUT_MS * 2
-      );
-
-      const allUsers: UserProfile[] = [];
-      usersSnap.forEach((docSnap) => {
-        allUsers.push(normalizeUserProfile(docSnap.data()));
-      });
-
-      const trainings: Training[] = [];
-      trainingsSnap.forEach((docSnap) => {
-        trainings.push(docSnap.data() as Training);
-      });
-      const activeTrainings = getActiveTrainings(trainings);
-
-      const feedPosts: FeedPost[] = [];
-      feedSnap.forEach((docSnap) => {
-        feedPosts.push(docSnap.data() as FeedPost);
-      });
-
-      // Sort feed posts by date roughly or maintain list
-      let currentUser = allUsers.find(u => u.id === CURRENT_USER_ID);
-      if (!currentUser) {
-        // Do not create the account directly from the client. A fresh profile
-        // is persisted by App through /api/sportbuddy-mutation, where the
-        // Firebase UID is taken from the verified ID token and the one-time
-        // welcome Premium is granted transactionally.
-        currentUser = createFreshProfile(CURRENT_USER_ID);
-        allUsers.unshift(currentUser);
-      } else {
-        // VK/email authentication may create the identity document before the
-        // full profile bootstrap. Merge safe defaults so old/partial records
-        // cannot crash discovery, feed, rewards or matching.
-        currentUser = createFreshProfile(CURRENT_USER_ID, currentUser);
-        if (privateSnap.exists()) currentUser = { ...currentUser, ...(privateSnap.data() as Partial<UserProfile>) };
+  const timeout = FIRESTORE_TIMEOUT_MS * 2;
+  const [profile, users, trainings, feed, privateFields] = await Promise.all([
+    readSection(
+      getDocFromServer(doc(db, 'users', uid)).then(snap => ({
+        user: snap.exists() ? normalizeUserProfile({ ...snap.data(), id: uid }) : createFreshProfile(uid),
+        missing: !snap.exists()
+      })),
+      () => {
+        if (!cached) throw new Error('Не удалось загрузить профиль. Повторите попытку.');
+        return { user: cached.currentUser, missing: false };
+      }, timeout
+    ),
+    readSection(getDocsFromServer(collection(db, 'users')).then(snap => snap.docs.map(item =>
+      normalizeUserProfile({ ...item.data(), id: item.id })
+    )), () => cached?.allUsers ?? [], timeout),
+    // No orderBy: legacy records without createdAt must remain visible.
+    readSection(getDocsFromServer(collection(db, 'trainings')).then(snap => snap.docs.map(item =>
+      ({ ...item.data(), id: item.id }) as Training
+    )), () => cached?.trainings ?? INITIAL_TRAININGS, timeout),
+    readSection(getDocsFromServer(collection(db, 'feed')).then(snap => snap.docs.map(item =>
+      ({ ...item.data(), id: item.id }) as FeedPost
+    ).sort((a, b) => b.id.localeCompare(a.id))), () => cached?.feedPosts ?? [], timeout),
+    readSection(getDocFromServer(doc(db, 'usersPrivate', uid)).then(snap =>
+      snap.exists() ? snap.data() as Partial<UserProfile> : {}
+    ), () => {
+      // Never merge cached public progress over a freshly loaded public profile.
+      const privateCache: Partial<UserProfile> = {};
+      for (const key of ['email', 'phone', 'birthDate', 'hideBirthDate', 'hidePhone', 'deviceId'] as const) {
+        if (cached?.currentUser[key] !== undefined) Object.assign(privateCache, { [key]: cached.currentUser[key] });
       }
-
-      if (currentUser) {
-        const result: AppData = {
-          currentUser,
-          allUsers: allUsers.length > 0 ? allUsers : INITIAL_USERS,
-          trainings: activeTrainings,
-          feedPosts: feedPosts.length > 0 ? feedPosts : INITIAL_FEED,
-          comments: {},
-          isOffline: false,
-          hasPendingQueue
-        };
-        saveOfflineCache(result);
-        return result;
-      }
-    }
-  } catch (error) {
-    console.warn('Error loading from Firestore, serving fallback/offline persistence:', error);
-  }
-
-  // Fallback / Simulated Firestore memory if offline or unconfigured API keys
-  const cached = getOfflineCache();
-  if (cached && cached.allUsers.length > 0) {
-    // Never hand another account's cached profile to the signed-in athlete.
-    if (cached.currentUser.id === CURRENT_USER_ID) {
-      return { ...cached, isOffline: !isOnline, hasPendingQueue };
-    }
-  }
-
-  const defaultData: AppData = {
-    currentUser: createFreshProfile(CURRENT_USER_ID),
-    allUsers: [createFreshProfile(CURRENT_USER_ID)],
-    trainings: getActiveTrainings(INITIAL_TRAININGS),
-    feedPosts: INITIAL_FEED,
-    comments: {},
-    isOffline: !isOnline,
-    hasPendingQueue
+      return privateCache;
+    }, timeout)
+  ]);
+  if (CURRENT_USER_ID !== uid) throw new Error('Аккаунт изменился во время загрузки.');
+  const currentUser = { ...profile.value.user, ...privateFields.value, id: uid };
+  const stale = [profile, users, trainings, feed, privateFields].some(section => section.stale);
+  const result: AppData = {
+    currentUser,
+    allUsers: [currentUser, ...users.value.filter(user => user.id !== uid)],
+    trainings: getActiveTrainings(trainings.value),
+    feedPosts: feed.value,
+    comments: cached?.comments ?? {},
+    isOffline: false,
+    hasPendingQueue,
+    profileMissing: profile.value.missing,
+    loadWarning: stale ? 'Не все данные удалось обновить. Часть информации может быть устаревшей.' : undefined
   };
-  saveOfflineCache(defaultData);
-  return defaultData;
+  // A failed read never creates or caches a fabricated replacement profile.
+  if (!profile.value.missing) saveOfflineCache(result);
+  return result;
 }
 
 // 2. createTraining — Premium-only at repository level, not just UI level
