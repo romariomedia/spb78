@@ -396,19 +396,9 @@ export default function App(): JSX.Element {
 
       setCurrentUser(profile);
       setAllUsers(data.allUsers.map(u => (u.id === profile.id ? profile : u)));
-      // Participant ids from pre-account caches used a shared demo id.
-      // The per-account membership journal is therefore the source of truth
-      // for the signed-in athlete; all other attendees remain untouched.
-      const accountMemberships = getJoinedTrainingIds(session?.id);
-      const safeTrainings = data.trainings.map((t) => ({
-        ...t,
-        participantIds: accountMemberships.has(t.id)
-          ? (t.participantIds.includes(CURRENT_USER_ID)
-              ? t.participantIds
-              : [...t.participantIds, CURRENT_USER_ID])
-          : t.participantIds.filter((id) => id !== CURRENT_USER_ID)
-      }));
-      setTrainings(getActiveTrainings(safeTrainings));
+      // Firestore is authoritative for membership across devices. Never
+      // overwrite participantIds with a device-local membership journal.
+      setTrainings(getActiveTrainings(data.trainings));
       setFeedPosts(data.feedPosts);
       setIsOffline(data.isOffline);
       setPendingSyncCount(getOfflineQueue().length);
@@ -818,10 +808,10 @@ export default function App(): JSX.Element {
     [allUsers]
   );
 
-  /** Only ids written after an explicit join count as "my trainings". */
+  /** Derive memberships from server-backed training participantIds. */
   const actualJoinedTrainingIds = useMemo(
-    () => getJoinedTrainingIds(account?.id),
-    [account?.id, membershipVersion]
+    () => new Set(trainings.filter((t) => t.participantIds.includes(CURRENT_USER_ID)).map((t) => t.id)),
+    [trainings]
   );
 
   const actualJoinedTrainings = useMemo(
