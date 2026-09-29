@@ -99,8 +99,9 @@ export const ProfileEditor: React.FC<ProfileEditorProps> = ({ user, onUpdateUser
         onProgress: setPhotoProgress
       });
       const next: UserProfile = { ...user, avatar: uploaded, hasRealPhoto: true };
+      // Show the uploaded avatar only after the server persisted its URL.
+      await updateProfile({ avatar: uploaded });
       onUpdateUser(next);
-      await updateProfile({ avatar: uploaded, hasRealPhoto: true });
       const verified = await syncVerification(next);
       onUpdateUser(verified);
       triggerHapticNotification('success');
@@ -133,8 +134,9 @@ export const ProfileEditor: React.FC<ProfileEditorProps> = ({ user, onUpdateUser
         onProgress: setPhotoProgress
       });
       const next = addPortfolioPhoto(user, uploaded);
-      onUpdateUser(next);
+      // Avoid presenting unsaved photos as completed verification steps.
       await updateProfile({ photoPortfolio: next.photoPortfolio });
+      onUpdateUser(next);
       const verified = await syncVerification(next);
       onUpdateUser(verified);
       triggerHapticNotification('success');
