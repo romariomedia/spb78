@@ -66,7 +66,7 @@ function hasActivePremium(profile: UserProfile): boolean {
     const until = new Date(profile.premiumUntil).getTime();
     return Number.isFinite(until) && until > Date.now();
   }
-  return profile.subscriptionPlan === 'premium';
+  return false;
 }
 
 function normalizeUserProfile(raw: Record<string, unknown>): UserProfile {

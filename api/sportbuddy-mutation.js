@@ -12,7 +12,7 @@ function init() {
 }
 function iso(v) { return v?.toDate ? v.toDate().toISOString() : String(v || ''); }
 function premiumActive(u) { const t = Date.parse(iso(u.premiumUntil)); return Number.isFinite(t) && t > Date.now(); }
-function dayKey() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function dayKey() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Moscow', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()); }
 function cleanArray(v) { return Array.isArray(v) ? v.filter(x => typeof x === 'string') : []; }
 async function verifyCaller(req) {
   const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
@@ -92,7 +92,7 @@ async function friendMutation(db, uid, body) {
     const me=meS.data(), tar=tarS.data(), friends=cleanArray(me.friendIds), sent=cleanArray(me.friendRequestsSent), received=cleanArray(me.friendRequestsReceived), targetFriends=cleanArray(tar.friendIds);
     const now=Date.now();
     if(op==='send'){
-      if(frS.exists) return {friendIds:friends,friendRequestsSent:sent,friendRequestsReceived:received};
+      if(frS.exists || (reqS.exists && reqS.data().status === 'pending')) return {friendIds:friends,friendRequestsSent:sent,friendRequestsReceived:received};
       if(revS.exists && revS.data().status==='pending'){
         const nf=[...new Set([...friends,target])], nt=[...new Set([...targetFriends,uid])];
         tx.update(meRef,{friendIds:nf,friendRequestsReceived:received.filter(x=>x!==target),friendRequestsSent:sent.filter(x=>x!==target)});
@@ -100,7 +100,7 @@ async function friendMutation(db, uid, body) {
         tx.update(reverseRef,{status:'accepted',updatedAt:now}); tx.create(friendshipRef,{participantIds:[uid,target],createdAt:now});
         return {friendIds:nf,friendRequestsSent:sent.filter(x=>x!==target),friendRequestsReceived:received.filter(x=>x!==target)};
       }
-      tx.create(reqRef,{id:reqRef.id,fromId:uid,toId:target,status:'pending',createdAt:now});
+      tx.set(reqRef,{id:reqRef.id,fromId:uid,toId:target,status:'pending',createdAt:now});
       const ns=[...new Set([...sent,target])]; tx.update(meRef,{friendRequestsSent:ns});
       const nr=[...new Set([...cleanArray(tar.friendRequestsReceived),uid])]; tx.update(targetRef,{friendRequestsReceived:nr});
       return {friendIds:friends,friendRequestsSent:ns,friendRequestsReceived:received};
@@ -115,12 +115,16 @@ async function friendMutation(db, uid, body) {
     }
     if(op==='decline'||op==='cancel'){
       const r=op==='decline'?revS:reqS; if(r.exists) tx.update(r.ref,{status:'declined',updatedAt:now});
-      if(op==='decline') tx.update(meRef,{friendRequestsReceived:received.filter(x=>x!==target)}); else tx.update(meRef,{friendRequestsSent:sent.filter(x=>x!==target)});
+      if(op==='decline') { tx.update(meRef,{friendRequestsReceived:received.filter(x=>x!==target)}); tx.update(targetRef,{friendRequestsSent:cleanArray(tar.friendRequestsSent).filter(x=>x!==uid)}); } else { tx.update(meRef,{friendRequestsSent:sent.filter(x=>x!==target)}); tx.update(targetRef,{friendRequestsReceived:cleanArray(tar.friendRequestsReceived).filter(x=>x!==uid)}); }
       return {friendIds:friends,friendRequestsSent:op==='cancel'?sent.filter(x=>x!==target):sent,friendRequestsReceived:op==='decline'?received.filter(x=>x!==target):received};
     }
     if(op==='remove'){
-      const nf=friends.filter(x=>x!==target), nt=targetFriends.filter(x=>x!==uid); if(frS.exists) tx.delete(frS.ref); if(revS.exists) tx.delete(revS.ref); if(frS.exists||revS.exists||frS.exists||revS.exists) tx.delete(friendshipRef);
-      tx.update(meRef,{friendIds:nf}); tx.update(targetRef,{friendIds:nt}); return {friendIds:nf,friendRequestsSent:sent.filter(x=>x!==target),friendRequestsReceived:received.filter(x=>x!==target)};
+      const nf=friends.filter(x=>x!==target), nt=targetFriends.filter(x=>x!==uid);
+      if(reqS.exists) tx.delete(reqRef); if(revS.exists) tx.delete(reverseRef); if(frS.exists) tx.delete(friendshipRef);
+      const ns=sent.filter(x=>x!==target), nr=received.filter(x=>x!==target);
+      tx.update(meRef,{friendIds:nf,friendRequestsSent:ns,friendRequestsReceived:nr});
+      tx.update(targetRef,{friendIds:nt,friendRequestsSent:cleanArray(tar.friendRequestsSent).filter(x=>x!==uid),friendRequestsReceived:cleanArray(tar.friendRequestsReceived).filter(x=>x!==uid)});
+      return {friendIds:nf,friendRequestsSent:ns,friendRequestsReceived:nr};
     }
     throw Object.assign(new Error('Неизвестная операция друзей'),{status:400});
   });
@@ -168,6 +172,9 @@ async function matchMutation(db, uid, targetUserId) {
     if (mutual && !myMatches.includes(targetUserId) && !premiumActive(me) && history.length >= 5) {
       throw Object.assign(new Error('Бесплатный тариф: максимум 5 взаимных мэтчей за 7 дней'), { status: 409, code: 'MATCH_LIMIT' });
     }
+    if (mutual && !targetMatches.includes(uid) && !premiumActive(target) && targetHistory.length >= 5) {
+      throw Object.assign(new Error('У второго участника исчерпан лимит мэтчей за 7 дней'), { status: 409, code: 'MATCH_LIMIT' });
+    }
     const nextLiked = [...liked, targetUserId];
     if (!mutual) {
       tx.update(meRef, { likedUserIds: nextLiked, matchHistory: history });
@@ -192,10 +199,19 @@ async function trainingMutation(db, uid, body) {
     if (typeof data.title !== 'string' || data.title.trim().length < 2 || data.title.length > 120) throw Object.assign(new Error('Некорректное название тренировки'), { status: 400 });
     if (!Number.isInteger(max) || max < 2 || max > 100) throw Object.assign(new Error('Некорректный лимит участников'), { status: 400 });
     const id = `tr_${randomUUID()}`;
-    const training = { ...data, id, createdBy: uid, participantIds: [uid], createdAt: new Date().toISOString() };
+    const lat=Number(data.lat), lng=Number(data.lng), dateKey=String(data.dateKey || ''), time=String(data.time || '');
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat)>90 || Math.abs(lng)>180) throw Object.assign(new Error('Некорректные координаты'),{status:400});
+    const parsedDate = new Date(dateKey + 'T00:00:00Z');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey) || !Number.isFinite(parsedDate.getTime()) || parsedDate.toISOString().slice(0,10)!==dateKey || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) throw Object.assign(new Error('Некорректная дата или время тренировки'),{status:400});
+    const training = { id, title:data.title.trim(), sport:String(data.sport || ''), dateKey, time,
+      dateLabel:String(data.dateLabel || dateKey), locationName:String(data.locationName || ''), address:String(data.address || ''),
+      lat, lng, level:['amateur','semi-pro','pro'].includes(data.level)?data.level:'amateur', participantsMax:max,
+      description:String(data.description || '').slice(0,2000), createdBy:uid, participantIds:[uid],
+      isCompleted:false, checkedInUserIds:[], ratedParticipantIds:[], organizerRatedByParticipantIds:[], createdAt:new Date().toISOString() };
     await db.collection('trainings').doc(id).create(training);
     return { training };
   }
+  if (body.operation !== 'toggleJoinTraining') throw Object.assign(new Error('Неизвестная операция тренировки'),{status:400});
   const trainingId = String(body.trainingId || '');
   if (!trainingId) throw Object.assign(new Error('Не указана тренировка'), { status: 400 });
   const ref = db.collection('trainings').doc(trainingId);
@@ -203,6 +219,7 @@ async function trainingMutation(db, uid, body) {
     const snap = await tx.get(ref);
     if (!snap.exists) throw Object.assign(new Error('Тренировка не найдена'), { status: 404 });
     const t = snap.data(), participants = cleanArray(t.participantIds), joined = participants.includes(uid);
+    if (t.isCompleted) throw Object.assign(new Error('Тренировка уже завершена'),{status:409});
     if (joined) {
       if (t.createdBy === uid) throw Object.assign(new Error('Организатор не может выйти из собственной тренировки'), { status: 409 });
       const next = participants.filter(id => id !== uid); tx.update(ref, { participantIds: next }); return { joined: false, participantIds: next };
@@ -244,7 +261,7 @@ async function dailyMedal(db, uid) {
     const user = snap.data(), today = dayKey();
     const p = user.medalProgress || { tier: 'bronze', cycleDays: 0, cycleWorkouts: 0, totals: { bronze: 0, silver: 0, gold: 0 }, cyclesCompleted: { bronze: 0, silver: 0, gold: 0 }, lastClaimDayKey: null, lastClaimTimestamp: null, hasWorkoutEver: Number(user.totalWorkouts || 0) > 0 };
     if (p.lastClaimDayKey === today) throw Object.assign(new Error('Медаль за сегодня уже получена'), { status: 409 });
-    const y = new Date(); y.setDate(y.getDate() - 1); const yesterday = `${y.getFullYear()}-${String(y.getMonth()+1).padStart(2,'0')}-${String(y.getDate()).padStart(2,'0')}`;
+    const yesterday = new Date(Date.parse(today + 'T00:00:00Z') - 86400000).toISOString().slice(0,10);
     const base = p.lastClaimDayKey === yesterday ? { ...p } : { ...p, cycleDays: 0, cycleWorkouts: 0 };
     const cfgs = { bronze: { days: 7, workouts: 0, rewardDays: 5 }, silver: { days: 7, workouts: 3, rewardDays: 7 }, gold: { days: 7, workouts: 5, rewardDays: 30 } };
     const cfg = cfgs[base.tier] || cfgs.bronze;
@@ -264,11 +281,12 @@ async function dailyMedal(db, uid) {
 }
 
 async function checkinMutation(db, uid, body) {
-  const trainingId=String(body.trainingId||''), lat=Number(body.lat), lng=Number(body.lng); if(!trainingId||!Number.isFinite(lat)||!Number.isFinite(lng))throw Object.assign(new Error('Некорректные координаты'),{status:400});
+  const trainingId=String(body.trainingId||''), lat=Number(body.lat), lng=Number(body.lng); if(!trainingId||!Number.isFinite(lat)||!Number.isFinite(lng)||Math.abs(lat)>90||Math.abs(lng)>180)throw Object.assign(new Error('Некорректные координаты'),{status:400});
   const trainingRef=db.collection('trainings').doc(trainingId),checkRef=db.collection('checkins').doc(`chk_${trainingId}_${uid}`);
   return db.runTransaction(async tx=>{const tSnap=await tx.get(trainingRef),cSnap=await tx.get(checkRef);if(!tSnap.exists)throw Object.assign(new Error('Тренировка не найдена'),{status:404});if(cSnap.exists)throw Object.assign(new Error('Вы уже отметились на этой тренировке'),{status:409});const t=tSnap.data();if(t.isCompleted)throw Object.assign(new Error('Тренировка уже завершена — отметка недоступна'),{status:409});if(String(t.dateKey||'')!==dayKey())throw Object.assign(new Error('Отметиться можно только в календарный день тренировки'),{status:409});if(uid!==t.createdBy&&!cleanArray(t.participantIds).includes(uid))throw Object.assign(new Error('Отметка доступна только записанным участникам и организатору'),{status:403});
-    const toRad=x=>x*Math.PI/180, dLat=toRad(Number(t.lat)-lat), dLng=toRad(Number(t.lng)-lng), a=Math.sin(dLat/2)**2+Math.cos(toRad(lat))*Math.cos(toRad(Number(t.lat)))*Math.sin(dLng/2)**2, distance=Math.round(6371000*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a))); if(distance>300)throw Object.assign(new Error(`Вы слишком далеко от места тренировки — ${distance} м. Подойдите ближе (не более 300 м).`),{status:409});
-    const userSnap=await tx.get(db.collection('users').doc(uid));const user=userSnap.data()||{};const timestamp=Date.now(),check={id:checkRef.id,trainingId,userId:uid,userName:String(user.name||''),userAvatar:String(user.avatar||''),lat,lng,distanceMeters:distance,arrivedAt:new Date(timestamp).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}),timestamp,note:String(body.note||'').trim()||undefined,verified:true};const checked=[...cleanArray(t.checkedInUserIds),uid];tx.create(checkRef,check);tx.update(trainingRef,{checkedInUserIds:checked});return {checkIn:check,training:{...t,checkedInUserIds:checked},distanceMeters:distance};});
+    if(!Number.isFinite(Number(t.lat))||!Number.isFinite(Number(t.lng))||Math.abs(Number(t.lat))>90||Math.abs(Number(t.lng))>180)throw Object.assign(new Error('У тренировки не заданы корректные координаты'),{status:409});
+    const toRad=x=>x*Math.PI/180, dLat=toRad(Number(t.lat)-lat), dLng=toRad(Number(t.lng)-lng), a=Math.sin(dLat/2)**2+Math.cos(toRad(lat))*Math.cos(toRad(Number(t.lat)))*Math.sin(dLng/2)**2, distance=Math.round(6371000*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a))); if(!Number.isFinite(distance)||distance>300)throw Object.assign(new Error(`Вы слишком далеко от места тренировки — ${distance} м. Подойдите ближе (не более 300 м).`),{status:409});
+    const userSnap=await tx.get(db.collection('users').doc(uid));const user=userSnap.data()||{};const timestamp=Date.now(),check={id:checkRef.id,trainingId,userId:uid,userName:String(user.name||''),userAvatar:String(user.avatar||''),lat,lng,distanceMeters:distance,arrivedAt:new Date(timestamp).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}),timestamp,...(String(body.note||'').trim()?{note:String(body.note).trim()}:{}),verified:true};const checked=[...cleanArray(t.checkedInUserIds),uid];tx.create(checkRef,check);tx.update(trainingRef,{checkedInUserIds:checked});return {checkIn:check,training:{...t,checkedInUserIds:checked},distanceMeters:distance};});
 }
 
 async function completeTraining(db, uid, trainingId) {
@@ -283,7 +301,7 @@ async function ratingMutation(db,uid,body){
     const tSnap=await tx.get(trainingRef); const targetSnap=await tx.get(targetRef); const reviewerSnap=await tx.get(reviewerRef); const existing=await tx.get(ratingRef); if(!tSnap.exists||!targetSnap.exists||!reviewerSnap.exists)throw Object.assign(new Error('Данные оценки не найдены'),{status:404}); if(existing.exists)throw Object.assign(new Error('Оценка уже выставлена'),{status:409}); const t=tSnap.data(),target=targetSnap.data(),reviewer=reviewerSnap.data(); const organizerSnap=uid===String(t.createdBy)?null:await tx.get(db.collection('users').doc(String(t.createdBy))); const organizer=uid===String(t.createdBy)?reviewer:(organizerSnap?.data()||{});if(!t.isCompleted)throw Object.assign(new Error('Тренировка ещё не завершена'),{status:409});if(!cleanArray(t.participantIds).includes(uid))throw Object.assign(new Error('Вы не участник тренировки'),{status:403});if(!cleanArray(t.checkedInUserIds).includes(uid))throw Object.assign(new Error('Сначала подтвердите присутствие'),{status:403});
     const organizerToParticipant=uid===t.createdBy, allowedTarget=organizerToParticipant?cleanArray(t.participantIds).includes(targetId)&&targetId!==uid:targetId===t.createdBy; if(!allowedTarget)throw Object.assign(new Error('Недопустимый адресат оценки'),{status:403});
     if(organizerToParticipant&&cleanArray(t.ratedParticipantIds).includes(targetId))throw Object.assign(new Error('Участник уже оценён'),{status:409}); if(!organizerToParticipant&&cleanArray(t.organizerRatedByParticipantIds).includes(uid))throw Object.assign(new Error('Организатор уже оценён'),{status:409});
-    const rating={id:ratingRef.id,trainingId,trainingTitle:String(t.title||''),sport:String(t.sport||''),organizerId:String(t.createdBy),organizerName:String(organizer.name||''),organizerAvatar:String(organizer.avatar||''),participantId:organizerToParticipant?targetId:uid,stars,tags:Array.isArray(body.tags)?body.tags.slice(0,10):[],comment:String(body.comment||'').trim().slice(0,500)||undefined,createdAt:new Date().toLocaleDateString('ru-RU'),timestamp:Date.now(),kind:organizerToParticipant?'organizer_to_participant':'participant_to_organizer',reviewerId:uid,reviewerName:String(reviewer.name||''),reviewerAvatar:String(reviewer.avatar||''),targetUserId:targetId};
+    const rating={id:ratingRef.id,trainingId,trainingTitle:String(t.title||''),sport:String(t.sport||''),organizerId:String(t.createdBy),organizerName:String(organizer.name||''),organizerAvatar:String(organizer.avatar||''),participantId:organizerToParticipant?targetId:uid,stars,tags:Array.isArray(body.tags)?body.tags.slice(0,10):[],...(String(body.comment||'').trim()?{comment:String(body.comment).trim().slice(0,500)}:{}),createdAt:new Date().toLocaleDateString('ru-RU'),timestamp:Date.now(),kind:organizerToParticipant?'organizer_to_participant':'participant_to_organizer',reviewerId:uid,reviewerName:String(reviewer.name||''),reviewerAvatar:String(reviewer.avatar||''),targetUserId:targetId};
     const nextCount=Number(target.ratingCount||0)+1,nextSum=Number(target.ratingSum||0)+stars;const trainingUpdate=organizerToParticipant?{ratedParticipantIds:[...cleanArray(t.ratedParticipantIds),targetId]}:{organizerRatedByParticipantIds:[...cleanArray(t.organizerRatedByParticipantIds),uid]};tx.create(ratingRef,rating);tx.update(targetRef,{ratingCount:nextCount,ratingSum:nextSum,rating:Number((nextSum/nextCount).toFixed(1)),ratingsReceived:[rating,...(Array.isArray(target.ratingsReceived)?target.ratingsReceived:[])]});tx.update(trainingRef,trainingUpdate);return {rating,training:{...t,...trainingUpdate},target:{...target,ratingCount:nextCount,ratingSum:nextSum,rating:Number((nextSum/nextCount).toFixed(1))}};
   });
 }
@@ -352,5 +370,5 @@ export default async function handler(req,res) {
       default: throw Object.assign(new Error('Неизвестная операция'), { status:400 });
     }
     return res.status(200).json({ ok:true, ...result });
-  } catch(error) { console.error('[sportbuddy-mutation]',error); return res.status(error.status || 500).json({ error:error.message || 'Server error', code:error.code }); }
+  } catch(error) { console.error('[sportbuddy-mutation]',error); return res.status(error.code?.startsWith?.('auth/') ? 401 : error.status || 500).json({ error:error.message || 'Server error', code:error.code }); }
 }
