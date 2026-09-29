@@ -49,6 +49,8 @@ export interface AppData {
   comments: Record<string, PostComment[]>;
   isOffline: boolean;
   hasPendingQueue: boolean;
+  /** Firestore responded successfully but the authenticated user's document is absent. */
+  serverProfileMissing?: boolean;
 }
 
 /** Thrown when a Free account attempts to create a community training. */
@@ -671,6 +673,7 @@ export async function loadAppData(): Promise<AppData> {
 
       // Sort feed posts by date roughly or maintain list
       let currentUser = allUsers.find(u => u.id === CURRENT_USER_ID);
+      const serverProfileMissing = !currentUser;
       if (!currentUser) {
         // Do not create the account directly from the client. A fresh profile
         // is persisted by App through /api/sportbuddy-mutation, where the
@@ -694,7 +697,8 @@ export async function loadAppData(): Promise<AppData> {
           feedPosts: feedPosts.length > 0 ? feedPosts : INITIAL_FEED,
           comments: {},
           isOffline: false,
-          hasPendingQueue
+          hasPendingQueue,
+          serverProfileMissing
         };
         saveOfflineCache(result);
         return result;
