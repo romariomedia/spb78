@@ -369,6 +369,19 @@ export default function App(): JSX.Element {
       // Recalculate medal totals & tier (burns the cycle if a day was missed)
       profile = syncProfileMedals(profile);
 
+      // A successful Firestore read can reveal an Auth account whose profile
+      // bootstrap failed earlier. Recover it using the authenticated server
+      // endpoint rather than treating every return visit as a new signup.
+      // Do not attempt this for offline/cache fallbacks.
+      if (data.serverProfileMissing && !freshAccount && firebaseUid && session) {
+        profile = await persistFreshProfile({
+          ...profile,
+          name: session.name,
+          email: session.email
+        });
+        profile = syncSubscriptionPlan(profile);
+      }
+
       // Do not keep an expired unverified athlete in the application. This is
       // immediate on return to the app; Cloud Scheduler handles inactive users.
       if (getVerificationState(profile).expired) {
