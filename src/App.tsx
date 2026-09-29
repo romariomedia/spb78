@@ -334,16 +334,8 @@ export default function App(): JSX.Element {
           ...(freshAccount.account.gender
             ? { gender: freshAccount.account.gender, genderSet: true }
             : { genderSet: false }),
-          // VK ID accounts are fully verified on arrival: VK already proved
-          // identity and supplies a real photo. E-mail signups keep the
-          // standard photo + portfolio verification within 24 hours.
-          ...(freshAccount.account.provider === 'vk'
-            ? {
-                isVerified: true,
-                hasRealPhoto: true,
-                verifiedAt: new Date().toISOString()
-              }
-            : {})
+          // Verification is authoritative on the server, including VK claims.
+          // Do not invent verifiedAt or isVerified in the client.
         });
         clearJoinedTrainings(freshAccount.account.id);
         freshAccountRef.current = null;
@@ -351,15 +343,6 @@ export default function App(): JSX.Element {
 
       if (session) {
         profile = { ...profile, name: session.name, email: session.email };
-        // VK ID accounts arrive fully verified with a real photo attached.
-        if (session.provider === 'vk') {
-          profile = {
-            ...profile,
-            hasRealPhoto: true,
-            isVerified: true,
-            verifiedAt: profile.verifiedAt || new Date().toISOString()
-          };
-        }
         if (isFreshAccount) {
           setWelcomeTrialShown(true);
         }
