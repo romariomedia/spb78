@@ -40,7 +40,7 @@ import { getSessionAccount, logout as clearLocalAuthSession, removeLocalAccount 
 import { signOutTransport, ensureTransportSession } from './lib/firebase';
 import { authReady, getFirebaseUid, signOutFirebase } from './services/firebaseAuth';
 import { createFreshProfile } from './services/reset';
-import { getJoinedTrainingIds, setJoinedTraining, clearJoinedTrainings } from './services/memberships';
+import { setJoinedTraining, clearJoinedTrainings } from './services/memberships';
 import { syncSubscriptionPlan, isPremiumActive } from './services/promo';
 import { AuthScreen } from './components/AuthScreen';
 import { SuccessScreen } from './components/SuccessScreen';
@@ -210,7 +210,7 @@ export default function App(): JSX.Element {
   const [trainingLevelFilter, setTrainingLevelFilter] = useState<'all' | 'amateur' | 'semi-pro' | 'pro'>('all');
   const [calendarDay, setCalendarDay] = useState<string | null>(null);
   // Bumps whenever the authenticated athlete joins/leaves a real training.
-  const [membershipVersion, setMembershipVersion] = useState(0);
+  const [, setMembershipVersion] = useState(0);
   const [onlyMyTrainings, setOnlyMyTrainings] = useState<boolean>(false);
   const [selectedTraining, setSelectedTraining] = useState<Training | null>(null);
   const [isCreateTrainingOpen, setIsCreateTrainingOpen] = useState<boolean>(false);
