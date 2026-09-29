@@ -31,49 +31,16 @@ async function findUserByEmail(email) {
   try { return await adminAuth.getUserByEmail(email); } catch { return null; }
 }
 
-async function findProfileByEmail(email) {
-  if (!email) return [];
-  const snap = await db.collection('usersPrivate').where('email', '==', email).get();
-  return snap.docs;
-}
-
 async function findProfileByVkId(vkId) {
   if (!vkId) return [];
   const snap = await db.collection('users').where('vkId', '==', vkId).limit(10).get();
   return snap.docs;
 }
 
-async function mergeDuplicates(email, canonicalUid) {
-  const docs = await findProfileByEmail(email);
-  const duplicates = docs.filter(d => d.id !== canonicalUid);
-  if (!duplicates.length) return;
-  const canonicalRef = db.collection('users').doc(canonicalUid);
-  const canonicalPrivateRef = db.collection('usersPrivate').doc(canonicalUid);
-  const canonicalSnap = await canonicalRef.get();
-  const canonical = canonicalSnap.exists ? canonicalSnap.data() : {};
-  const merged = { ...canonical };
-  const privateKeys = new Set(['email','phone','birthDate','hideBirthDate','hidePhone','deviceId']);
-  for (const duplicate of duplicates) {
-    const data = duplicate.data();
-    for (const [key, value] of Object.entries(data)) {
-      if (privateKeys.has(key)) continue;
-      if (merged[key] === undefined || merged[key] === '' || merged[key] === null || (Array.isArray(merged[key]) && merged[key].length === 0)) merged[key] = value;
-    }
-    const duplicateUserRef = db.collection('users').doc(duplicate.id);
-    const duplicatePrivateRef = db.collection('usersPrivate').doc(duplicate.id);
-    await duplicateUserRef.delete().catch(() => {});
-    await duplicatePrivateRef.delete().catch(() => {});
-    await duplicate.ref.delete().catch(() => {});
-    await adminAuth.deleteUser(duplicate.id).catch(() => {});
-  }
-  await canonicalRef.set(merged, { merge: true });
-  await canonicalPrivateRef.set({uid:canonicalUid,email},{merge:true});
-}
-
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   try {
-    const { accessToken, vkUserId, email: suppliedEmail, name: suppliedName, avatar: suppliedAvatar } = req.body || {};
+    const { accessToken, vkUserId, name: suppliedName, avatar: suppliedAvatar } = req.body || {};
     if (!accessToken) return res.status(400).json({ error: 'VK access token is required' });
 
     const vkUser = await verifyVK(accessToken);
