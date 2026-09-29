@@ -1058,6 +1058,10 @@ export default function App(): JSX.Element {
     []
   );
 
+  useEffect(() => {
+    if (currentUser?.isVerified) setWelcomeTrialShown(false);
+  }, [currentUser?.isVerified]);
+
   // Revert to the free palette once Premium expires
   useEffect(() => {
     if (!currentUser || isPremium) return;
@@ -1316,9 +1320,7 @@ export default function App(): JSX.Element {
       notify('Публикация добавлена в ленту');
     } catch (error) {
       if (!ctrl.signal.aborted) {
-        notify(error instanceof CloudinaryUploadError
-          ? error.message
-          : 'Не удалось загрузить файл', 'err');
+        notify(error instanceof Error ? error.message : 'Не удалось опубликовать файл', 'err');
       }
     } finally {
       setUploadProgress(null);
@@ -1370,12 +1372,13 @@ export default function App(): JSX.Element {
         signal: ctrl.signal
       });
 
-      const next: UserProfile = { ...currentUser, avatar, hasRealPhoto: true };
+      const next = await updateProfile({ avatar }) ?? { ...currentUser, avatar };
       setCurrentUser(next);
       // Раньше allUsers не обновлялся — аватар оставался старым в списках
       setAllUsers(prev => prev.map(u => (u.id === next.id ? next : u)));
-      await updateProfile({ avatar, hasRealPhoto: true });
-      setCurrentUser(await syncVerification(next));
+      const verified = await syncVerification(next);
+      setCurrentUser(verified);
+      setAllUsers(prev => prev.map(u => u.id === verified.id ? verified : u));
       notify('Фото обновлено — верификация пересчитана');
     } catch (error) {
       if (!ctrl.signal.aborted) {

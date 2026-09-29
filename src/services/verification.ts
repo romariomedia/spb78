@@ -77,15 +77,15 @@ export function getVerificationState(user: UserProfile): VerificationState {
  * Server-side verification via the Vercel function `api/verify-profile.js`.
  * The server validates avatar + portfolio, sets the trusted `isVerified`
  * flag and grants the 30-day welcome trial (only when no premium exists).
- * On any network failure the client grants the trial locally so the user is
- * never blocked (offline-first).
+ * Failures remain visible; only a confirmed server response changes verification.
  */
 export async function syncVerification(user: UserProfile): Promise<UserProfile> {
   const state = getVerificationState(user);
   if (user.isVerified || state.requiredCompletedCount !== state.requiredCount) return user;
-  const result = await callServer<{ verifiedAt?:string; premiumUntil?:string }>('/api/verify-profile', {});
+  const result = await callServer<{ ok?:boolean; verifiedAt?:string; premiumUntil?:string }>('/api/verify-profile', {});
+  if (result.ok !== true) throw new Error('Сервер не подтвердил верификацию. Повторите попытку.');
   const premiumUntil = result.premiumUntil ? String(result.premiumUntil) : user.premiumUntil;
-  const verified: UserProfile = { ...user, isVerified:true, verifiedAt:String(result.verifiedAt || new Date().toISOString()), hasRealPhoto:true, ...(premiumUntil ? { subscriptionPlan:'premium', premiumUntil, trialPremiumEndsAt:premiumUntil, rewardPremiumEndsAt:premiumUntil } : {}) };
+  const verified: UserProfile = { ...user, isVerified:true, verifiedAt:String(result.verifiedAt || new Date().toISOString()), hasRealPhoto:true, ...(premiumUntil ? { subscriptionPlan: Date.parse(premiumUntil) > Date.now() ? 'premium' as const : 'free' as const, premiumUntil } : {}) };
   triggerHapticNotification('success'); launchMatchConfetti(); return verified;
 }
 

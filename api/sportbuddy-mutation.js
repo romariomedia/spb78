@@ -1,3 +1,4 @@
+import { photoVerificationPatch } from '../server/profile-verification.js';
 import { cert, getApps, initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
@@ -74,8 +75,11 @@ async function profileMutation(db, uid, updates) {
   return db.runTransaction(async tx=>{
     const ref=db.collection('users').doc(uid), privateRef=db.collection('usersPrivate').doc(uid); const snap=await tx.get(ref), ps=await tx.get(privateRef);
     if(!snap.exists) throw Object.assign(new Error('Профиль не найден'),{status:404});
+    const verifiedPatch = photoVerificationPatch({ ...snap.data(), ...pub });
+    if (verifiedPatch.premiumUntil) verifiedPatch.premiumUntil = Timestamp.fromDate(new Date(verifiedPatch.premiumUntil));
+    Object.assign(pub, verifiedPatch);
     if(Object.keys(pub).length) tx.update(ref,pub); if(Object.keys(priv).length) tx.set(privateRef,{uid,...(ps.exists?ps.data():{}),...priv},{merge:true});
-    return {profile:{id:uid,...snap.data(),...pub,...(Object.keys(priv).length?priv:(ps.exists?ps.data():{}))}};
+    return {profile:{id:uid,...snap.data(),...pub,...(ps.exists?ps.data():{}),...priv}};
   });
 }
 

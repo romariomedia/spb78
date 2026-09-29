@@ -33,6 +33,7 @@ export const ProfileEditor: React.FC<ProfileEditorProps> = ({ user, onUpdateUser
   const [activeLooking, setActiveLooking] = useState(user.activeLooking);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [verifying, setVerifying] = useState(false);
   const [photoBusy, setPhotoBusy] = useState<'avatar' | 'portfolio' | null>(null);
   const [photoProgress, setPhotoProgress] = useState<number | null>(null);
 
@@ -67,16 +68,15 @@ export const ProfileEditor: React.FC<ProfileEditorProps> = ({ user, onUpdateUser
     };
 
     try {
-      const next = { ...user, ...updates };
-      await updateProfile(updates);
+      const next = await updateProfile(updates) ?? { ...user, ...updates };
       onUpdateUser(next);
       const verified = await syncVerification(next);
       onUpdateUser(verified);
       triggerHapticNotification('success');
       setSaved(true);
       setTimeout(() => setSaved(false), 2200);
-    } catch {
-      setError('Не удалось сохранить изменения. Проверьте соединение и повторите.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось сохранить изменения.');
     }
   };
 
@@ -98,9 +98,8 @@ export const ProfileEditor: React.FC<ProfileEditorProps> = ({ user, onUpdateUser
         tags: ['avatar', user.id],
         onProgress: setPhotoProgress
       });
-      const next: UserProfile = { ...user, avatar: uploaded, hasRealPhoto: true };
+      const next = await updateProfile({ avatar: uploaded }) ?? { ...user, avatar: uploaded };
       onUpdateUser(next);
-      await updateProfile({ avatar: uploaded, hasRealPhoto: true });
       const verified = await syncVerification(next);
       onUpdateUser(verified);
       triggerHapticNotification('success');
@@ -132,9 +131,9 @@ export const ProfileEditor: React.FC<ProfileEditorProps> = ({ user, onUpdateUser
         tags: ['portfolio', user.id],
         onProgress: setPhotoProgress
       });
-      const next = addPortfolioPhoto(user, uploaded);
+      const draft = addPortfolioPhoto(user, uploaded);
+      const next = await updateProfile({ photoPortfolio: draft.photoPortfolio }) ?? draft;
       onUpdateUser(next);
-      await updateProfile({ photoPortfolio: next.photoPortfolio });
       const verified = await syncVerification(next);
       onUpdateUser(verified);
       triggerHapticNotification('success');
@@ -156,6 +155,15 @@ export const ProfileEditor: React.FC<ProfileEditorProps> = ({ user, onUpdateUser
       setError('Не удалось удалить фото. Проверьте соединение и повторите.');
     }
   };
+
+  const retryVerification = async () => {
+    setVerifying(true);
+    setError(null);
+    try { onUpdateUser(await syncVerification(user)); }
+    catch (err) { setError(err instanceof Error ? err.message : 'Не удалось подтвердить профиль.'); }
+    finally { setVerifying(false); }
+  };
+  const photosComplete = verification.requiredCompletedCount === verification.requiredCount;
 
   return (
     <div className="space-y-5">
@@ -180,11 +188,11 @@ export const ProfileEditor: React.FC<ProfileEditorProps> = ({ user, onUpdateUser
             </div>
           </div>
           <button
-            onClick={photoOk ? handleAddPortfolio : handleSetAvatar}
-            disabled={photoBusy !== null}
+            onClick={photosComplete ? retryVerification : photoOk ? handleAddPortfolio : handleSetAvatar}
+            disabled={photoBusy !== null || verifying}
             className="w-full py-3 bg-rose-500 hover:bg-rose-400 text-white font-black rounded-2xl text-xs transition active:scale-95 flex items-center justify-center gap-2"
           >
-            <Camera className={`w-4 h-4 ${photoBusy ? 'animate-pulse' : ''}`} /> {photoBusy ? (photoProgress !== null ? `Загрузка ${photoProgress}%` : 'Загрузка фото…') : photoOk ? 'Добавить фото в портфолио' : 'Загрузить личную фотографию'}
+            <Camera className={`w-4 h-4 ${photoBusy ? 'animate-pulse' : ''}`} /> {verifying ? 'Проверяем профиль…' : photosComplete ? 'Повторить проверку' : photoBusy ? (photoProgress !== null ? `Загрузка ${photoProgress}%` : 'Загрузка фото…') : photoOk ? 'Добавить фото в портфолио' : 'Загрузить личную фотографию'}
           </button>
         </motion.div>
       )}
@@ -389,7 +397,7 @@ export const ProfileEditor: React.FC<ProfileEditorProps> = ({ user, onUpdateUser
           {canAddPhoto(user) && (
             <button
               onClick={handleAddPortfolio}
-              disabled={photoBusy !== null}
+              disabled={photoBusy !== null || verifying}
               className="aspect-square rounded-2xl border-2 border-dashed border-slate-700 hover:border-emerald-500 bg-slate-950 flex flex-col items-center justify-center gap-1 text-slate-500 hover:text-emerald-400 transition active:scale-95 disabled:opacity-50"
             >
               <Plus className={`w-6 h-6 ${photoBusy ? 'animate-pulse' : ''}`} />

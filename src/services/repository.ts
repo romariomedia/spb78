@@ -713,12 +713,18 @@ export async function incrementWorkout(): Promise<number> {
   throw new Error('Прямое начисление тренировки отключено. Тренировка должна быть подтверждена сервером.');
 }
 
-export async function updateProfile(updates: Partial<UserProfile>): Promise<void> {
+export async function updateProfile(updates: Partial<UserProfile>): Promise<UserProfile | null> {
+  const uid = CURRENT_USER_ID;
   const result = await callServer<{ profile: UserProfile | null }>('/api/sportbuddy-mutation', { action: 'profile', updates });
-  const safe = updates as Record<string, unknown>;
+  if (CURRENT_USER_ID !== uid) throw new Error('Аккаунт изменился во время сохранения.');
+  const profile = result.profile ? normalizeUserProfile({ ...result.profile, id: uid }) : null;
   const cached = getOfflineCache();
-  if (cached?.currentUser) { cached.currentUser = { ...cached.currentUser, ...safe } as UserProfile; saveOfflineCache(cached); }
-  void result;
+  if (profile && cached?.currentUser.id === uid) {
+    cached.currentUser = profile;
+    cached.allUsers = cached.allUsers.map(user => user.id === uid ? profile : user);
+    saveOfflineCache(cached);
+  }
+  return profile;
 }
 
 // Offline queue sync replay when reconnected
