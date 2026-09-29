@@ -338,7 +338,6 @@ export default function App(): JSX.Element {
           // Do not invent verifiedAt or isVerified in the client.
         });
         clearJoinedTrainings(freshAccount.account.id);
-        freshAccountRef.current = null;
       }
 
       if (session) {
@@ -386,6 +385,8 @@ export default function App(): JSX.Element {
       if (freshAccount) {
         (profile as UserProfile & { provider?: string }).provider = freshAccount.account.provider === 'vk' ? 'vk' : 'email';
         profile = await persistFreshProfile(profile);
+        // Retain the pending bootstrap on failure so a later refresh can retry.
+        freshAccountRef.current = null;
         profile = initFriendsState(profile, data.allUsers);
         profile = syncProfileMedals(profile);
       }
