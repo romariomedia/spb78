@@ -80,23 +80,50 @@ export default async function handler(req, res) {
     const verifiedVkId = String(vkUser.user_id || vkUser.id || '');
     if (!verifiedVkId || (vkUserId && String(vkUserId) !== verifiedVkId)) return res.status(401).json({ error: 'VK ID не совпадает с подтверждённым пользователем' });
 
-    const email = String(vkUser.email || suppliedEmail || `vk_${verifiedVkId}@sportbuddy78.pro`).trim().toLowerCase();
+    // Only VK's verified user ID can establish identity. Client-provided
+    // email is display-only and must never select another Firebase account.
+    const emailFromVk = String(vkUser.email || '').trim().toLowerCase();
+    const fallbackEmail = `vk_${verifiedVkId}@sportbuddy78.pro`;
     const name = `${vkUser.first_name || ''} ${vkUser.last_name || ''}`.trim() || suppliedName || 'Спортсмен VK';
     const avatar = String(vkUser.avatar || vkUser.photo_200 || suppliedAvatar || '');
 
+    const identityRef = db.collection('vkIdentities').doc(verifiedVkId);
+    const identitySnap = await identityRef.get();
     const vkProfiles = await findProfileByVkId(verifiedVkId);
-    let firebaseUser = vkProfiles[0] ? await adminAuth.getUser(vkProfiles[0].id).catch(() => null) : null;
-    if (!firebaseUser) firebaseUser = await findUserByEmail(email);
+    let firebaseUser = identitySnap.exists
+      ? await adminAuth.getUser(String(identitySnap.data()?.uid || '')).catch(() => null)
+      : null;
+    if (!firebaseUser && vkProfiles.length) {
+      firebaseUser = await adminAuth.getUser(vkProfiles[0].id).catch(() => null);
+    }
     let isNewAccount = false;
     if (!firebaseUser) {
-      try { firebaseUser = await adminAuth.getUser(`vk_${verifiedVkId}`); }
-      catch { firebaseUser = await adminAuth.createUser({ uid:`vk_${verifiedVkId}`, email, displayName:name, photoURL:avatar||undefined, emailVerified:true }); isNewAccount = true; }
+      try {
+        firebaseUser = await adminAuth.getUser(`vk_${verifiedVkId}`);
+      } catch {
+        // Never attach a VK login to an unrelated email/password account.
+        // Existing email accounts need an explicit authenticated linking flow.
+        let safeEmail = fallbackEmail;
+        if (emailFromVk) {
+          const existing = await findUserByEmail(emailFromVk);
+          if (!existing) safeEmail = emailFromVk;
+        }
+        firebaseUser = await adminAuth.createUser({
+          uid: `vk_${verifiedVkId}`,
+          email: safeEmail,
+          displayName: name,
+          photoURL: avatar || undefined,
+          emailVerified: Boolean(emailFromVk && safeEmail === emailFromVk)
+        });
+        isNewAccount = true;
+      }
     }
-    const token = await adminAuth.createCustomToken(firebaseUser.uid,{vkId:verifiedVkId,vkVerified:true});
+    const email = String(firebaseUser.email || fallbackEmail);
+    const token = await adminAuth.createCustomToken(firebaseUser.uid, {vkId:verifiedVkId,vkVerified:true});
     await db.collection('usersPrivate').doc(firebaseUser.uid).set({uid:firebaseUser.uid,email},{merge:true});
-    await db.collection('vkIdentities').doc(verifiedVkId).set({uid:firebaseUser.uid,updatedAt:new Date().toISOString()},{merge:true});
-    await mergeDuplicates(email,firebaseUser.uid);
-    for (const duplicate of vkProfiles) if (duplicate.id !== firebaseUser.uid) await duplicate.ref.delete();
+    await identityRef.set({uid:firebaseUser.uid,updatedAt:new Date().toISOString()},{merge:true});
+    // Do not delete or merge other accounts during login. Account linking
+    // must require explicit proof of control over both identities.
 
     return res.status(200).json({
       ok: true,
