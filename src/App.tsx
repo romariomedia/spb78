@@ -367,7 +367,11 @@ export default function App(): JSX.Element {
       // Do not keep an expired unverified athlete in the application. This is
       // immediate on return to the app; Cloud Scheduler handles inactive users.
       if (getVerificationState(profile).expired) {
-        await deleteExpiredUnverifiedProfile(profile);
+        const deleted = await deleteExpiredUnverifiedProfile(profile);
+        if (!deleted) {
+          // Never discard the session if the server did not confirm deletion.
+          throw new Error('Server did not confirm expired-profile deletion');
+        }
         // Remove the local mirror too so the person can register again as a
         // brand-new user with the same e-mail afterwards.
         if (session) removeLocalAccount(session.id);
