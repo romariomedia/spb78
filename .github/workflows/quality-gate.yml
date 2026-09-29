@@ -23,6 +23,8 @@ jobs:
       - name: Validate server JavaScript syntax
         run: |
           find api -name '*.js' -type f -print0 | xargs -0 -n1 node --check
+      - name: Run VK identity regression tests
+        run: npm run test:auth
       - name: Check TypeScript and build web app
         run: npm run build
       - name: Check dependency vulnerabilities
