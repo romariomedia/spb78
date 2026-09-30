@@ -102,3 +102,32 @@ test('welcome bootstrap gives 30 days once',async()=>{
   assert.equal((await f.request('a',{action:'bootstrapProfile',profile:{name:'Other'}})).body.profile.premiumUntil,expiry);
   assert.equal(f.records.get('users/a').name,'Athlete');
 });
+
+test('chat requires active Premium and mutual relationship',async()=>{
+  for(const mode of ['free','one-sided']) {
+    const a={...premium(),friendIds:['b']},b={...premium(),friendIds:mode==='one-sided'?[]:['a']};
+    if(mode==='free')a.premiumUntil='2020-01-01';
+    const f=fixture({'users/a':a,'users/b':b});
+    assert.equal((await f.request('a',{action:'chat',chatId:'chat_a__b',companionId:'b',text:'Hi'})).statusCode,403);
+  }
+});
+test('chat message starts unread and read markers belong to participants',async()=>{
+  const f=fixture({'users/a':{...premium(),friendIds:['b']},'users/b':{...premium(),friendIds:['a']}});
+  const message=await f.request('a',{action:'chat',chatId:'chat_a__b',companionId:'b',text:'Hi'});
+  assert.equal(message.statusCode,200);assert.equal(message.body.message.read,false);
+  const time=message.body.message.timestamp;
+  assert.equal((await f.request('outsider',{action:'chat',operation:'read',chatId:'chat_a__b',throughTimestamp:time})).statusCode,403);
+  assert.equal((await f.request('b',{action:'chat',operation:'read',chatId:'chat_a__b',throughTimestamp:time})).body.readAt,time);
+  assert.equal(f.records.get('chats/chat_a__b').readAt.b,time);
+  assert.equal((await f.request('a',{action:'chat',chatId:'arbitrary',companionId:'b',text:'Hi'})).statusCode,400);
+});
+test('event registration accepts only published events with space',async()=>{
+  for(const status of ['draft','finished']) {
+    const f=fixture({'users/a':premium(),'events/e':{status,participantIds:[],participantsMax:2}});
+    assert.equal((await f.request('a',{action:'event',eventId:'e'})).statusCode,409);
+  }
+  const f=fixture({'users/a':premium(),'users/b':premium(),'events/e':{status:'published',participantIds:[],participantsMax:1}});
+  assert.equal((await f.request('a',{action:'event',eventId:'e'})).body.registered,true);
+  assert.equal((await f.request('b',{action:'event',eventId:'e'})).statusCode,409);
+  assert.equal((await f.request('a',{action:'event',eventId:'e'})).body.registered,false);
+});

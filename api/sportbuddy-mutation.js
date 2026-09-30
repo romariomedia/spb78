@@ -131,8 +131,23 @@ async function friendMutation(db, uid, body) {
 }
 
 async function eventMutation(db, uid, body) {
-  const eventId=String(body.eventId||''); if(!eventId) throw Object.assign(new Error('Мероприятие не найдено'),{status:400});
-  const ref=db.collection('events').doc(eventId); return db.runTransaction(async tx=>{const snap=await tx.get(ref);if(!snap.exists)throw Object.assign(new Error('Мероприятие не найдено'),{status:404});const e=snap.data(), ids=cleanArray(e.participantIds), joined=ids.includes(uid);if(joined){const next=ids.filter(x=>x!==uid);tx.update(ref,{participantIds:next});return {registered:false,event:{...e,participantIds:next}};}if(ids.length>=Number(e.participantsMax))throw Object.assign(new Error('Все места уже заняты'),{status:409});const next=[...ids,uid];tx.update(ref,{participantIds:next});return {registered:true,event:{...e,participantIds:next}};});
+  const eventId=String(body.eventId||'');
+  if(!eventId) throw Object.assign(new Error('Мероприятие не найдено'),{status:400});
+  const ref=db.collection('events').doc(eventId);
+  return db.runTransaction(async tx=>{
+    const snap=await tx.get(ref), user=await tx.get(db.collection('users').doc(uid));
+    if(!snap.exists || !user.exists) throw Object.assign(new Error('Мероприятие или профиль не найдены'),{status:404});
+    const event=snap.data(), ids=cleanArray(event.participantIds);
+    if(event.status!=='published') throw Object.assign(new Error('Регистрация на мероприятие закрыта'),{status:409});
+    if(ids.includes(uid)) {
+      const next=ids.filter(id=>id!==uid);tx.update(ref,{participantIds:next});
+      return {registered:false,event:{...event,participantIds:next}};
+    }
+    const max=Number(event.participantsMax);
+    if(!Number.isInteger(max)||max<1||ids.length>=max) throw Object.assign(new Error('Нет доступных мест'),{status:409});
+    const next=[...ids,uid];tx.update(ref,{participantIds:next});
+    return {registered:true,event:{...event,participantIds:next}};
+  });
 }
 
 async function feedMutation(db, uid, body) {
@@ -146,9 +161,42 @@ async function feedMutation(db, uid, body) {
 }
 
 async function chatMutation(db, uid, body) {
-  const chatId=String(body.chatId||''), companionId=String(body.companionId||''), text=String(body.text||'').trim().slice(0,2000); if(!chatId||!companionId||!text)throw Object.assign(new Error('Некорректное сообщение'),{status:400});
-  const meRef=db.collection('users').doc(uid), otherRef=db.collection('users').doc(companionId), chatRef=db.collection('chats').doc(chatId);
-  return db.runTransaction(async tx=>{const meS=await tx.get(meRef),oS=await tx.get(otherRef),cS=await tx.get(chatRef);if(!meS.exists||!oS.exists)throw Object.assign(new Error('Пользователь не найден'),{status:404});const me=meS.data(),other=oS.data();const allowed=cleanArray(me.matchIds).includes(companionId)||cleanArray(me.friendIds).includes(companionId);if(!allowed)throw Object.assign(new Error('Чат доступен только после мэтча или дружбы'),{status:403});const ts=Date.now(),message={id:`msg_${randomUUID()}`,chatId,senderId:uid,text,timestamp:ts,createdAt:new Date(ts).toISOString(),read:true};const current=cS.exists?cS.data():{id:chatId,participantIds:[uid,companionId],messages:[],createdAt:new Date(ts).toISOString()};if(!cleanArray(current.participantIds).includes(uid)||!cleanArray(current.participantIds).includes(companionId))throw Object.assign(new Error('Некорректный чат'),{status:403});const messages=Array.isArray(current.messages)?current.messages:[];tx.set(chatRef,{...current,participantIds:[uid,companionId],messages:[...messages,message],lastMessageAt:ts},{merge:true});return {message,thread:{...current,participantIds:[uid,companionId],messages:[...messages,message],lastMessageAt:ts}};});
+  const chatId=String(body.chatId||'');
+  if(!chatId || chatId.includes('/')) throw Object.assign(new Error('Некорректный чат'),{status:400});
+  const chatRef=db.collection('chats').doc(chatId);
+  if(body.operation==='read') {
+    return db.runTransaction(async tx=>{
+      const snap=await tx.get(chatRef);
+      if(!snap.exists) return {readAt:0};
+      const thread=snap.data();
+      if(!cleanArray(thread.participantIds).includes(uid)) throw Object.assign(new Error('Нет доступа к чату'),{status:403});
+      const through=Number(body.throughTimestamp);
+      if(!Number.isFinite(through)||through<0) throw Object.assign(new Error('Некорректная отметка прочтения'),{status:400});
+      const readAt=Math.max(Number(thread.readAt?.[uid]||0),Math.min(through,Number(thread.lastMessageAt||0)));
+      tx.update(chatRef,{readAt:{...(thread.readAt||{}),[uid]:readAt}});
+      return {readAt};
+    });
+  }
+  if(body.operation && body.operation!=='send') throw Object.assign(new Error('Неизвестная операция чата'),{status:400});
+  const companionId=String(body.companionId||''), text=String(body.text||'').trim();
+  if(!companionId||companionId===uid||!text||text.length>2000) throw Object.assign(new Error('Некорректное сообщение'),{status:400});
+  if(chatId!==`chat_${[uid,companionId].sort().join('__')}`) throw Object.assign(new Error('Некорректный идентификатор чата'),{status:400});
+  return db.runTransaction(async tx=>{
+    const meS=await tx.get(db.collection('users').doc(uid)),otherS=await tx.get(db.collection('users').doc(companionId)),chatS=await tx.get(chatRef);
+    if(!meS.exists||!otherS.exists) throw Object.assign(new Error('Пользователь не найден'),{status:404});
+    const me=meS.data(),other=otherS.data();
+    if(!premiumActive(me)) throw Object.assign(new Error('Переписка доступна только Premium'),{status:403});
+    const matched=cleanArray(me.matchIds).includes(companionId)&&cleanArray(other.matchIds).includes(uid);
+    const friends=cleanArray(me.friendIds).includes(companionId)&&cleanArray(other.friendIds).includes(uid);
+    if(!matched&&!friends) throw Object.assign(new Error('Чат доступен после взаимного мэтча или дружбы'),{status:403});
+    const current=chatS.exists?chatS.data():{id:chatId,participantIds:[uid,companionId],messages:[],createdAt:new Date().toISOString()};
+    const participants=cleanArray(current.participantIds);
+    if(participants.length!==2||!participants.includes(uid)||!participants.includes(companionId)) throw Object.assign(new Error('Нет доступа к чату'),{status:403});
+    const ts=Math.max(Date.now(),Number(current.lastMessageAt||0)+1);
+    const message={id:`msg_${randomUUID()}`,chatId,senderId:uid,text,timestamp:ts,createdAt:new Date(ts).toISOString(),read:false};
+    const thread={...current,messages:[...(Array.isArray(current.messages)?current.messages:[]),message],lastMessageAt:ts};
+    tx.set(chatRef,thread,{merge:true});return {message,thread};
+  });
 }
 
 async function matchMutation(db, uid, targetUserId) {

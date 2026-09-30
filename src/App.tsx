@@ -686,6 +686,9 @@ export default function App(): JSX.Element {
     const thread = chatThreads.find(t => t.id === openChatId);
     const last = thread?.messages[thread.messages.length - 1];
     if (!last || last.senderId === CURRENT_USER_ID) return;
+    if (!last.read && document.visibilityState === 'visible') {
+      void markThreadAsRead(openChatId).catch(() => undefined);
+    }
 
     if (checkMessageForUnsafeSuggestion(last.text)) {
       setSafetyWarning(UNSAFE_SUGGESTION_WARNING);
@@ -722,7 +725,7 @@ export default function App(): JSX.Element {
 
   const handleOpenChat = (chatId: string) => {
     triggerHapticImpact('light');
-    markThreadAsRead(chatId);
+    void markThreadAsRead(chatId).catch(() => notify('Не удалось сохранить прочтение сообщений', 'err'));
     setOpenChatId(chatId);
     if (currentUser) setChatThreads(loadChatThreads(currentUser, allUsers, chatCategory));
   };
@@ -734,7 +737,7 @@ export default function App(): JSX.Element {
     setChatDraft('');
     void sendChatMessage(openChatThread.id, openChatCompanion.id, text)
       .then(() => setChatThreads(loadChatThreads(currentUser, allUsers, chatCategory)))
-      .catch((error) => { setChatDraft(text); setAuthNotice(error instanceof Error ? error.message : 'Не удалось отправить сообщение'); });
+      .catch((error) => { setChatDraft(text); notify(error instanceof Error ? error.message : 'Не удалось отправить сообщение', 'err'); });
   };
 
   // Open a chat with a matched partner (used from the match celebration modal)

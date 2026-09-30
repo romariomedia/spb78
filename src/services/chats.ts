@@ -144,7 +144,7 @@ export function subscribeChatThreads(
     (snapshot) => {
       const stored = readAllThreads();
       snapshot.docs.forEach((chatDoc) => {
-        const data = chatDoc.data() as ChatThread;
+        const data = chatDoc.data() as ChatThread & { readAt?: Record<string, number> };
         const companionId = data.participantIds.find((id) => id !== currentUser.id);
         if (!companionId) return;
         stored[chatDoc.id] = {
@@ -153,6 +153,7 @@ export function subscribeChatThreads(
           companionId,
           messages: (data.messages || []).map((message) => ({
             ...message,
+            read: message.senderId === currentUser.id || message.timestamp <= (data.readAt?.[currentUser.id] ?? 0),
             createdAt: formatTimeLabel(message.timestamp)
           }))
         };
@@ -176,12 +177,19 @@ export async function sendChatMessage(chatId: string, companionId: string, text:
   const threads=readAllThreads(); threads[chatId]=result.thread; writeAllThreads(threads); return result.message;
 }
 
-export function markThreadAsRead(chatId: string): void {
-  const threads = readAllThreads();
-  const thread = threads[chatId];
-  if (!thread) return;
-  thread.messages = thread.messages.map((m) => ({ ...m, read: true }));
-  threads[chatId] = thread;
+export async function markThreadAsRead(chatId: string): Promise<void> {
+  const uid = CURRENT_USER_ID;
+  const thread = readAllThreads()[chatId];
+  if (!thread || !thread.participantIds.includes(uid)) return;
+  const result = await callServer<{readAt:number}>('/api/sportbuddy-mutation', {
+    action:'chat', operation:'read', chatId, throughTimestamp:thread.lastMessageAt
+  });
+  if (CURRENT_USER_ID !== uid) return;
+  const threads=readAllThreads(), latest=threads[chatId];
+  if (!latest) return;
+  latest.messages=latest.messages.map(message=>({ ...message,
+    read:message.senderId===uid || message.timestamp<=result.readAt
+  }));
   writeAllThreads(threads);
 }
 
