@@ -1,3 +1,4 @@
+import { trainingGenderError, trainingGenderLabel } from '../lib/trainingEligibility';
 import React from 'react';
 import { Calendar, MapPin } from 'lucide-react';
 import { Training, UserProfile } from '../lib/types';
@@ -9,15 +10,17 @@ interface TrainingCardProps {
   training: Training;
   creator?: UserProfile;
   currentUserId: string;
+  currentUser?: UserProfile | null;
   userCoords: Coords;
   onSelect: (training: Training) => void;
   onJoin: (training: Training) => void;
 }
 
 const TrainingCardInner: React.FC<TrainingCardProps> = ({
-  training: tr, creator, currentUserId, userCoords, onSelect, onJoin
+  training: tr, creator, currentUserId, currentUser, userCoords, onSelect, onJoin
 }) => {
   const isJoined = tr.participantIds.includes(currentUserId);
+  const genderError = !isJoined ? trainingGenderError(tr, currentUser) : null;
   const isFull = tr.participantIds.length >= tr.participantsMax;
   const distance = calculateDistanceKm(userCoords.lat, userCoords.lng, tr.lat, tr.lng);
   const fillPerc = (tr.participantIds.length / tr.participantsMax) * 100;
@@ -42,6 +45,7 @@ const TrainingCardInner: React.FC<TrainingCardProps> = ({
         </div>
       )}
 
+      <p className="text-xs text-slate-300 mb-2">{trainingGenderLabel(tr.participantGender)}</p>
       <div className="flex items-center gap-2 mb-2">
         <span className="text-[11px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">
           {tr.sport}
@@ -97,7 +101,8 @@ const TrainingCardInner: React.FC<TrainingCardProps> = ({
           </div>
 
           <button
-            disabled={tr.isCompleted || (isFull && !isJoined) || tr.createdBy === currentUserId}
+            title={genderError || undefined}
+            disabled={Boolean(genderError) || tr.isCompleted || (isFull && !isJoined) || tr.createdBy === currentUserId}
             onClick={(e) => { e.stopPropagation(); onJoin(tr); }}
             className={`text-xs font-black px-3 py-1.5 rounded-xl transition ${
               isJoined
@@ -107,7 +112,7 @@ const TrainingCardInner: React.FC<TrainingCardProps> = ({
                 : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow'
             }`}
           >
-            {tr.isCompleted ? 'Завершена' : tr.createdBy === currentUserId ? 'Вы организатор' : isJoined ? 'Отменить' : isFull ? 'Заполнено' : 'Участвовать ↗'}
+            {tr.isCompleted ? 'Завершена' : tr.createdBy === currentUserId ? 'Вы организатор' : isJoined ? 'Отменить' : genderError ? 'Запись недоступна' : isFull ? 'Заполнено' : 'Участвовать ↗'}
           </button>
         </div>
       </div>
@@ -119,6 +124,7 @@ const TrainingCardInner: React.FC<TrainingCardProps> = ({
 export const TrainingCard = React.memo(
   TrainingCardInner,
   (prev, next) =>
+    prev.currentUser === next.currentUser &&
     prev.currentUserId === next.currentUserId &&
     prev.training === next.training &&
     prev.creator === next.creator &&

@@ -131,3 +131,41 @@ test('event registration accepts only published events with space',async()=>{
   assert.equal((await f.request('b',{action:'event',eventId:'e'})).statusCode,409);
   assert.equal((await f.request('a',{action:'event',eventId:'e'})).body.registered,false);
 });
+
+test('training gender preference is validated and defaults to any', async () => {
+  const f = fixture({'users/a':premium()});
+  for (const participantGender of ['any','male','female']) {
+    const result = await f.request('a',{action:'training',operation:'createTraining',training:{...training(),participantGender}});
+    assert.equal(result.statusCode,200);
+    assert.equal(f.records.get('trainings/'+result.body.training.id).participantGender,participantGender);
+  }
+  const legacy = await f.request('a',{action:'training',operation:'createTraining',training:training()});
+  assert.equal(legacy.body.training.participantGender,'any');
+  for (const participantGender of ['other',null,{},'']) {
+    assert.equal((await f.request('a',{action:'training',operation:'createTraining',training:{...training(),participantGender}})).statusCode,400);
+  }
+});
+
+test('restricted signup uses stored gender and ignores forged request gender', async () => {
+  for (const participantGender of ['female','male']) {
+    const opposite = participantGender === 'female' ? 'male' : 'female';
+    const f = fixture({'users/a':premium(),'users/allowed':{gender:participantGender,genderSet:true},'users/denied':{gender:opposite,genderSet:true},'users/unset':{gender:participantGender,genderSet:false},'users/missingGender':{}});
+    const created = await f.request('a',{action:'training',operation:'createTraining',training:{...training(),participantGender,participantsMax:10}});
+    const trainingId = created.body.training.id;
+    for (const uid of ['denied','unset','missingGender','missingProfile']) {
+      const response = await f.request(uid,{action:'training',operation:'toggleJoinTraining',trainingId,gender:participantGender,participantGender:'any'});
+      assert.equal(response.statusCode,403);
+      assert.deepEqual(f.records.get('trainings/'+trainingId).participantIds,['a']);
+    }
+    assert.equal((await f.request('allowed',{action:'training',operation:'toggleJoinTraining',trainingId})).body.joined,true);
+    f.records.set('users/allowed',{gender:opposite});
+    assert.equal((await f.request('allowed',{action:'training',operation:'toggleJoinTraining',trainingId})).body.joined,false);
+  }
+});
+
+test('legacy and any-gender trainings remain open to all', async () => {
+  for (const preference of [{},{participantGender:'any'}]) {
+    const f=fixture({'trainings/t':{...training(),...preference,createdBy:'a',participantIds:['a']},'users/b':{genderSet:false}});
+    assert.equal((await f.request('b',{action:'training',operation:'toggleJoinTraining',trainingId:'t'})).body.joined,true);
+  }
+});

@@ -244,6 +244,8 @@ async function trainingMutation(db, uid, body) {
     if (!userSnap.exists) throw Object.assign(new Error('Профиль не найден'), { status: 404 });
     if (!premiumActive(userSnap.data())) throw Object.assign(new Error('Создание тренировок доступно только Premium'), { status: 403 });
     const data = body.training || {}, max = Number(data.participantsMax);
+    const participantGender = data.participantGender === undefined ? 'any' : data.participantGender;
+    if (!['any','male','female'].includes(participantGender)) throw Object.assign(new Error('Некорректный фильтр пола участников'), { status: 400 });
     if (typeof data.title !== 'string' || data.title.trim().length < 2 || data.title.length > 120) throw Object.assign(new Error('Некорректное название тренировки'), { status: 400 });
     if (!Number.isInteger(max) || max < 2 || max > 100) throw Object.assign(new Error('Некорректный лимит участников'), { status: 400 });
     const id = `tr_${randomUUID()}`;
@@ -251,7 +253,7 @@ async function trainingMutation(db, uid, body) {
     if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat)>90 || Math.abs(lng)>180) throw Object.assign(new Error('Некорректные координаты'),{status:400});
     const parsedDate = new Date(dateKey + 'T00:00:00Z');
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey) || !Number.isFinite(parsedDate.getTime()) || parsedDate.toISOString().slice(0,10)!==dateKey || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) throw Object.assign(new Error('Некорректная дата или время тренировки'),{status:400});
-    const training = { id, title:data.title.trim(), sport:String(data.sport || ''), dateKey, time,
+    const training = { id, participantGender, title:data.title.trim(), sport:String(data.sport || ''), dateKey, time,
       dateLabel:String(data.dateLabel || dateKey), locationName:String(data.locationName || ''), address:String(data.address || ''),
       lat, lng, level:['amateur','semi-pro','pro'].includes(data.level)?data.level:'amateur', participantsMax:max,
       description:String(data.description || '').slice(0,2000), createdBy:uid, participantIds:[uid],
@@ -271,6 +273,12 @@ async function trainingMutation(db, uid, body) {
     if (joined) {
       if (t.createdBy === uid) throw Object.assign(new Error('Организатор не может выйти из собственной тренировки'), { status: 409 });
       const next = participants.filter(id => id !== uid); tx.update(ref, { participantIds: next }); return { joined: false, participantIds: next };
+    }
+    if (t.participantGender && t.participantGender !== 'any') {
+      const userSnap = await tx.get(db.collection('users').doc(uid));
+      const user = userSnap.exists ? userSnap.data() : null;
+      if (!user?.gender || user.genderSet === false) throw Object.assign(new Error('Укажите пол в профиле для записи'), { status: 403 });
+      if (user.gender !== t.participantGender) throw Object.assign(new Error(t.participantGender === 'female' ? 'На эту тренировку могут записаться только женщины' : 'На эту тренировку могут записаться только мужчины'), { status: 403 });
     }
     if (participants.length >= Number(t.participantsMax)) throw Object.assign(new Error('Все места уже заняты'), { status: 409 });
     const next = [...participants, uid]; tx.update(ref, { participantIds: next }); return { joined: true, participantIds: next };

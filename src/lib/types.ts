@@ -353,6 +353,8 @@ export interface AuthAccount {
 }
 
 export interface Training {
+  /** Missing on legacy trainings means open to everyone. Applies to new signups. */
+  participantGender?: 'any' | 'male' | 'female';
   id: string;
   title: string;
   sport: string;

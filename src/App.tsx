@@ -1,3 +1,4 @@
+import { trainingGenderError, trainingGenderLabel } from './lib/trainingEligibility';
 import { CityPulse } from './components/CityPulse';
 import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense, JSX } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
@@ -227,6 +228,7 @@ export default function App(): JSX.Element {
   const [newTrTime, setNewTrTime] = useState('10:00');
   const [newTrLevel, setNewTrLevel] = useState<'amateur' | 'semi-pro' | 'pro'>('amateur');
   const [newTrMax, setNewTrMax] = useState(10);
+  const [newTrGender, setNewTrGender] = useState<'any' | 'male' | 'female'>('any');
   const [newTrDesc, setNewTrDesc] = useState('');
   const [newTrCoords, setNewTrCoords] = useState<Coords>(DEFAULT_COORDS);
   const [newTrAddress, setNewTrAddress] = useState('Локация на карте');
@@ -955,6 +957,7 @@ export default function App(): JSX.Element {
         lng: newTrCoords.lng,
         level: newTrLevel,
         participantsMax: Number(newTrMax) || 10,
+        participantGender: newTrGender,
         description: newTrDesc
       }, currentUser);
     } catch (err) {
@@ -975,6 +978,7 @@ export default function App(): JSX.Element {
     setSelectedTraining(created);
 
     // Reset fields
+    setNewTrGender('any');
     setNewTrTitle('');
     setNewTrDesc('');
   };
@@ -993,7 +997,11 @@ export default function App(): JSX.Element {
 
   // Toggle Join Training
   const handleJoinTraining = async (tr: Training) => {
-    const isJoined = await toggleJoinTraining(tr.id);
+    const genderError = !tr.participantIds.includes(CURRENT_USER_ID) ? trainingGenderError(tr, currentUser) : null;
+    if (genderError) { notify(genderError, 'err'); return; }
+    let isJoined: boolean;
+    try { isJoined = await toggleJoinTraining(tr.id); }
+    catch (error) { notify(error instanceof Error ? error.message : 'Не удалось изменить запись', 'err'); return; }
     // Keep the legacy local journal as a cache; render the server-confirmed result.
     setJoinedTraining(account?.id, tr.id, isJoined);
     setTrainings(prev => prev.map(t => {
@@ -1974,6 +1982,7 @@ export default function App(): JSX.Element {
                         training={tr}
                         creator={creatorsById.get(tr.createdBy)}
                         currentUserId={CURRENT_USER_ID}
+                        currentUser={currentUser}
                         userCoords={userCoords}
                         onSelect={setSelectedTraining}
                         onJoin={handleJoinTraining}
@@ -3200,6 +3209,15 @@ export default function App(): JSX.Element {
             </div>
 
             <div>
+              <label htmlFor="training-participant-gender" className="block font-bold text-slate-300 mb-1">Кто может записаться</label>
+              <select id="training-participant-gender" value={newTrGender} onChange={e => setNewTrGender(e.target.value as 'any' | 'male' | 'female')} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2.5 text-slate-100">
+                <option value="any">Любой</option>
+                <option value="male">Мужчины</option>
+                <option value="female">Женщины</option>
+              </select>
+              <p className="mt-2 text-xs text-slate-400">Ограничение для новых участников. При записи учитывается пол, указанный в профиле.</p>
+            </div>
+            <div>
               <label className="block font-bold text-slate-300 mb-1">Макс. мест</label>
               <input
                 type="number"
@@ -3383,7 +3401,7 @@ export default function App(): JSX.Element {
               
               <button
                 onClick={() => handleJoinTraining(selectedTraining)}
-                disabled={selectedTraining.isCompleted}
+                disabled={selectedTraining.isCompleted || (!selectedTraining.participantIds.includes(CURRENT_USER_ID) && Boolean(trainingGenderError(selectedTraining, currentUser)))}
                 className={`flex-1 font-black py-2.5 rounded-xl text-xs transition shadow flex items-center justify-center gap-1.5 ${
                   selectedTraining.isCompleted
                     ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
@@ -3396,7 +3414,7 @@ export default function App(): JSX.Element {
                   ? 'Тренировка завершена 🏁'
                   : selectedTraining.participantIds.includes(CURRENT_USER_ID)
                   ? 'Отменить запись ❌'
-                  : 'Записаться на тренировку 🏃‍♂️'}
+                  : trainingGenderError(selectedTraining, currentUser) || 'Записаться на тренировку 🏃‍♂️'}
               </button>
             </div>
             )
@@ -3405,6 +3423,7 @@ export default function App(): JSX.Element {
       >
         {selectedTraining && (
           <div className="space-y-4 text-xs">
+            <p className="text-slate-300">Кто может записаться: {trainingGenderLabel(selectedTraining.participantGender)}</p>
             <div>
               <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">
                 {selectedTraining.sport} • {selectedTraining.level.toUpperCase()}
