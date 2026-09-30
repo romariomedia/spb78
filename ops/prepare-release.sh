@@ -23,6 +23,7 @@ git -C "$source_repo" archive "$commit" | tar -x -C "$release"
 install -m 600 "$env_file" "$release/.env"
 cd "$release"
 npm ci --include=dev
+npm audit --audit-level=high
 npm test
 npm run build
 [[ -s dist/index.html ]]
