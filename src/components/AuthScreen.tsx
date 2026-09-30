@@ -322,9 +322,9 @@ export function AuthScreen({ onAuthenticated, initialNotice = '' }: Props) {
               <Dumbbell className="h-3 w-3" /> ТВОЙ ГОРОД · ТВОЙ ТЕМП
             </p>
             <h1 className="sb-brand-wordmark text-[31px] font-bold leading-[1.16] text-white sm:text-[40px] lg:text-[46px]">
-              Петербург. Спорт.
+              Культ спорта
               <span className="sb-auth-greeting mt-1 block bg-gradient-to-r from-emerald-300 via-emerald-400 to-sky-300 bg-clip-text text-transparent">
-                Твои люди.
+                и здоровых отношений
               </span>
             </h1>
             <motion.p

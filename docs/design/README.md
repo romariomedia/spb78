@@ -21,3 +21,9 @@ Automated suite: 43 passing tests. Production build passes.
 
 Not deployed to the VPS. Real-device authentication, verification and media
 uploads still require end-to-end checks against the configured services.
+
+## Brand message
+
+The primary message is «Культ спорта и здоровых отношений». Keep it as the
+main heading on login and discovery; Petersburg is the visual setting.
+The screenshots above precede this headline restoration.

@@ -32,7 +32,7 @@ export function CityPulse({ trainingCount, onTrainings, onDiscover, onSport }: P
   return <section className="sb-city-pulse" aria-label="Твой спортивный Петербург">
     <div className="sb-city-copy">
       <div className="sb-eyebrow"><span className="sb-live-dot"/> САНКТ-ПЕТЕРБУРГ <span className="sb-city-code">59.94° N / 30.31° E</span></div>
-      <h2>Большой город.<br/><span>Твой круг.</span></h2>
+      <h2>Культ спорта<br/><span>и здоровых отношений</span></h2>
       <p>Знакомься через спорт.<br/>От первой тренировки — к своей компании.</p>
       <div className="sb-city-actions">
         <button onClick={onTrainings} className="sb-primary-action">Найти тренировку <ArrowUpRight size={18}/></button>
