@@ -5,7 +5,7 @@ import {
   TrendingUp, Star, Target, Trophy
 } from 'lucide-react';
 import { UserProfile, Training, SPORT_ICONS } from '../lib/types';
-import { getProgress, totalMedals } from '../services/medals';
+import { profileMedals, totalMedals } from '../services/medals';
 import { getCredits, getWorkoutStreak } from '../services/workoutLog';
 import { computeAverageRating } from '../services/ratings';
 import { MEDAL_TIERS, TIER_ORDER } from '../lib/medals';
@@ -158,7 +158,7 @@ interface ProfileStatsSectionProps {
 const ProfileStatsInner: React.FC<ProfileStatsSectionProps> = ({ user, trainings, joinedTrainingIds }) => {
   const [expanded, setExpanded] = useState(false);
 
-  const medals = useMemo(() => getProgress(user.id), [user.id, expanded]);
+  const medals = profileMedals(user);
   const credits = useMemo(() => getCredits(user.id), [user.id, expanded]);
   const streak = useMemo(() => getWorkoutStreak(user.id), [user.id, expanded]);
 
@@ -174,8 +174,8 @@ const ProfileStatsInner: React.FC<ProfileStatsSectionProps> = ({ user, trainings
   const prizesCount = (user.rewardItems?.length || 0);
   const boxesOpened = (user.claimedBoxTiers?.length || 0);
   const rating = computeAverageRating(user);
-  const level = Math.floor(user.totalWorkouts / 10) + 1;
-  const levelPct = (user.totalWorkouts % 10) * 10;
+  const level = Math.floor(totalMedals(medals) / 7) + 1;
+  const levelPct = (totalMedals(medals) % 7) / 7 * 100;
 
   const cfg = MEDAL_TIERS[user.medalTier || 'bronze'];
   const tierCfg = MEDAL_TIERS[medals.tier];
@@ -415,7 +415,7 @@ const ProfileStatsInner: React.FC<ProfileStatsSectionProps> = ({ user, trainings
                 {/* Target hint */}
                 <p className="text-[10px] text-slate-500 text-center flex items-center justify-center gap-1">
                   <Target className="w-3 h-3 text-emerald-400" />
-                  До уровня {level + 1}: {10 - (user.totalWorkouts % 10)} тренировок
+                  До уровня {level + 1}: {7 - (totalMedals(medals) % 7)} медалей
                 </p>
               </div>
             </motion.div>
@@ -429,7 +429,7 @@ const ProfileStatsInner: React.FC<ProfileStatsSectionProps> = ({ user, trainings
 export const ProfileStatsSection = React.memo(
   ProfileStatsInner,
   (prev, next) =>
-    prev.user.id === next.user.id &&
+    prev.user === next.user &&
     prev.user.totalWorkouts === next.user.totalWorkouts &&
     prev.user.totalDailyMedals === next.user.totalDailyMedals &&
     prev.user.medalTier === next.user.medalTier &&

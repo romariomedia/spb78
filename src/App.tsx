@@ -73,7 +73,7 @@ import {
   getTrainingDayKey, toDayKey, formatDayLabel, formatFullDate,
   getDueReminders, markReminderSent, getCountdown, formatCountdown, getActiveTrainings
 } from './services/schedule';
-import { syncProfileMedals } from './services/medals';
+import { claimDailyMedal, medalDayKey, syncProfileMedals } from './services/medals';
 import { WorkoutProgress } from './components/WorkoutProgress';
 import { ThemeSection } from './components/ThemeSection';
 import { ThemePreferences } from './lib/themes';
@@ -255,6 +255,27 @@ export default function App(): JSX.Element {
   const [notifications, setNotifications] = useState<AppNotification[]>(() => import.meta.env.DEV ? generateDemoNotifications() : []);
   const [isNotifModalOpen, setIsNotifModalOpen] = useState(false);
   const [rewardModal, setRewardModal] = useState<{ title: string; subtitle: string; content: React.ReactNode } | null>(null);
+  // Server transaction makes retries and concurrent tabs safe. Calendar follows Moscow.
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    let cancelled = false;
+    let pending = false;
+    const check = async () => {
+      if (pending || document.visibilityState === 'hidden') return;
+      if (currentUser.medalProgress?.lastClaimDayKey === medalDayKey()) return;
+      pending = true;
+      const result = await claimDailyMedal(currentUser);
+      pending = false;
+      if (!cancelled && result.ok) setCurrentUser(previous => previous?.id === currentUser.id
+        ? syncProfileMedals({...previous, medalProgress:result.progress}) : previous);
+    };
+    void check();
+    const timer = window.setInterval(check, 60000);
+    const visible = () => { void check(); };
+    document.addEventListener('visibilitychange', visible);
+    return () => { cancelled = true; clearInterval(timer); document.removeEventListener('visibilitychange', visible); };
+  }, [currentUser?.id, currentUser?.medalProgress?.lastClaimDayKey]);
+
   const [profileSection, setProfileSection] = useState<'overview' | 'edit' | 'tariff' | 'legal'>('overview');
   const [versionTapCount, setVersionTapCount] = useState(0);
   // Interface personalisation — applied on first render

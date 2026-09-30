@@ -169,3 +169,38 @@ test('legacy and any-gender trainings remain open to all', async () => {
     assert.equal((await f.request('b',{action:'training',operation:'toggleJoinTraining',trainingId:'t'})).body.joined,true);
   }
 });
+
+const medalProgress=(extra={})=>({tier:'bronze',cycleDays:0,cycleWorkouts:0,totals:{bronze:0,silver:0,gold:0},cyclesCompleted:{bronze:0,silver:0,gold:0},lastClaimDayKey:null,lastClaimTimestamp:null,hasWorkoutEver:false,...extra});
+const daysAgo=n=>new Date(Date.parse(today()+'T00:00:00Z')-n*86400000).toISOString().slice(0,10);
+test('daily medal retries are idempotent and ignore client reward values',async()=>{
+  const f=fixture({'users/a':premium()});
+  const first=await f.request('a',{action:'dailyMedal',tier:'gold',medals:999});
+  assert.equal(first.body.rewardGiven,true);assert.equal(first.body.medals,1);assert.equal(first.body.tierEarned,'bronze');
+  const repeat=await f.request('a',{action:'dailyMedal'});
+  assert.equal(repeat.statusCode,200);assert.equal(repeat.body.rewardGiven,false);assert.equal(repeat.body.medals,1);
+  assert.equal(f.records.get('users/a').medalProgress.lastClaimDayKey,today());
+});
+test('bronze cycle awards once and reports the earned tier before promotion',async()=>{
+  const f=fixture({'users/a':{...premium(),totalWorkouts:1,medalProgress:medalProgress({cycleDays:6,lastClaimDayKey:daysAgo(1),totals:{bronze:6,silver:0,gold:0}})}});
+  const r=await f.request('a',{action:'dailyMedal'});
+  assert.equal(r.body.tierEarned,'bronze');assert.equal(r.body.progress.tier,'silver');assert.equal(r.body.promo.days,5);assert.equal(r.body.progress.cycleDays,0);
+  await f.request('a',{action:'dailyMedal'});
+  assert.equal([...f.records.keys()].filter(k=>k.startsWith('promoCodes/')).length,1);
+});
+test('silver requires workouts and gold grants the configured reward',async()=>{
+  for(const tier of ['silver','gold']){
+    const required=tier==='silver'?3:5;
+    const f=fixture({'users/a':{...premium(),medalProgress:medalProgress({tier,cycleDays:6,cycleWorkouts:required-1,lastClaimDayKey:daysAgo(1)})}});
+    const r=await f.request('a',{action:'dailyMedal'});assert.equal(r.body.promo,null);assert.equal(r.body.progress.cycleDays,7);
+    f.records.set('users/a',{...premium(),medalProgress:medalProgress({tier,cycleDays:7,cycleWorkouts:required,lastClaimDayKey:daysAgo(1)})});
+    const completed=await f.request('a',{action:'dailyMedal'});assert.equal(completed.body.promo.days,tier==='silver'?7:30);assert.equal(completed.body.progress.tier,'gold');
+  }
+});
+test('missed day resets cycle but preserves rank, collection and today workout',async()=>{
+  const f=fixture({'users/a':{...premium(),medalProgress:medalProgress({tier:'gold',cycleDays:5,cycleWorkouts:4,lastWorkoutDayKey:today(),lastClaimDayKey:daysAgo(2),totals:{bronze:7,silver:7,gold:5}})}});
+  const r=await f.request('a',{action:'dailyMedal'});assert.equal(r.body.progress.tier,'gold');assert.equal(r.body.progress.cycleDays,1);assert.equal(r.body.progress.cycleWorkouts,1);assert.equal(r.body.medals,20);
+});
+test('reward inventory is scoped to authenticated owner',async()=>{
+  const f=fixture({'promoCodes/a':{ownerId:'a',code:'A'},'promoCodes/b':{ownerId:'b',code:'B'}});
+  const r=await f.request('a',{action:'myPromos',ownerId:'b'});assert.deepEqual(r.body.promos,[{ownerId:'a',code:'A'}]);
+});

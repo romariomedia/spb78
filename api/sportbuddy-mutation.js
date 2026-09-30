@@ -304,7 +304,7 @@ async function workoutCredit(db, uid, body) {
     }
     const total = Number(user.totalWorkouts || 0) + 1;
     const credit = { id: creditRef.id, userId: uid, dayKey: dayKey(), timestamp: Date.now(), source, trainingId, trainingTitle: String(training.title || ''), sport: String(training.sport || '') };
-    const mp = user.medalProgress ? { ...user.medalProgress, cycleWorkouts: Number(user.medalProgress.cycleWorkouts || 0) + 1, hasWorkoutEver: true } : null;
+    const mp = user.medalProgress ? { ...user.medalProgress, cycleWorkouts: Number(user.medalProgress.cycleWorkouts || 0) + 1, lastWorkoutDayKey: dayKey(), hasWorkoutEver: true } : null;
     tx.create(creditRef, credit); tx.update(userRef, { totalWorkouts: total, ...(mp ? { medalProgress: mp } : {}) });
     return { total, credit };
   });
@@ -316,9 +316,10 @@ async function dailyMedal(db, uid) {
     const snap = await tx.get(ref); if (!snap.exists) throw Object.assign(new Error('Профиль не найден'), { status: 404 });
     const user = snap.data(), today = dayKey();
     const p = user.medalProgress || { tier: 'bronze', cycleDays: 0, cycleWorkouts: 0, totals: { bronze: 0, silver: 0, gold: 0 }, cyclesCompleted: { bronze: 0, silver: 0, gold: 0 }, lastClaimDayKey: null, lastClaimTimestamp: null, hasWorkoutEver: Number(user.totalWorkouts || 0) > 0 };
-    if (p.lastClaimDayKey === today) throw Object.assign(new Error('Медаль за сегодня уже получена'), { status: 409 });
+    if (p.lastClaimDayKey === today) return { progress:p, medals:Object.values(p.totals).reduce((a,b)=>a+Number(b || 0),0), streak:p.cycleDays, rewardGiven:false, promoted:false, newTier:p.tier, promo:null };
     const yesterday = new Date(Date.parse(today + 'T00:00:00Z') - 86400000).toISOString().slice(0,10);
-    const base = p.lastClaimDayKey === yesterday ? { ...p } : { ...p, cycleDays: 0, cycleWorkouts: 0 };
+    const base = !p.lastClaimDayKey || p.lastClaimDayKey === yesterday ? { ...p } : { ...p, cycleDays: 0, cycleWorkouts: p.lastWorkoutDayKey === today ? 1 : 0 };
+    const tierEarned = base.tier;
     const cfgs = { bronze: { days: 7, workouts: 0, rewardDays: 5 }, silver: { days: 7, workouts: 3, rewardDays: 7 }, gold: { days: 7, workouts: 5, rewardDays: 30 } };
     const cfg = cfgs[base.tier] || cfgs.bronze;
     const next = { ...base, cycleDays: Number(base.cycleDays || 0) + 1, lastClaimDayKey: today, lastClaimTimestamp: Date.now(), totals: { ...base.totals, [base.tier]: Number(base.totals?.[base.tier] || 0) + 1 }, hasWorkoutEver: base.hasWorkoutEver || Number(user.totalWorkouts || 0) > 0 };
@@ -326,13 +327,13 @@ async function dailyMedal(db, uid) {
     if (next.cycleDays >= cfg.days && next.cycleWorkouts >= cfg.workouts) {
       next.cyclesCompleted = { ...next.cyclesCompleted, [next.tier]: Number(next.cyclesCompleted?.[next.tier] || 0) + 1 };
       if (next.tier === 'bronze' && next.hasWorkoutEver) { newTier = 'silver'; promoted = true; } else if (next.tier === 'silver') { newTier = 'gold'; promoted = true; }
-      const code = `GOLD-${Math.random().toString(36).slice(2,6).toUpperCase()}-${Math.random().toString(36).slice(2,6).toUpperCase()}`;
+      const code = `SB-${randomUUID().replace(/-/g,'').slice(0,16).toUpperCase()}`;
       promo = { code, days: cfg.rewardDays, source: 'streak', title: `Цикл «${next.tier}» — ${cfg.days} дней подряд`, createdAt: new Date().toISOString(), ownerId: uid };
       tx.create(db.collection('promoCodes').doc(code), promo); next.tier = newTier; next.cycleDays = 0; next.cycleWorkouts = 0;
     }
     const totalMedals = Object.values(next.totals).reduce((a,b) => a + Number(b || 0), 0);
     tx.update(ref, { medalProgress: next, totalDailyMedals: totalMedals, dailyMedalStreak: next.cycleDays, medalTier: next.tier, lastClaimedDate: today, lastLoginTimestamp: Date.now() });
-    return { medals: totalMedals, streak: next.cycleDays, rewardGiven: true, progress: next, promoted, newTier, promo };
+    return { medals: totalMedals, streak: next.cycleDays, rewardGiven: true, progress: next, tierEarned, promoted, newTier, promo };
   });
 }
 
@@ -412,6 +413,10 @@ export default async function handler(req,res) {
       case 'match': result = await matchMutation(db, decoded.uid, String(body.targetUserId || '')); break;
       case 'training': result = await trainingMutation(db, decoded.uid, body); break;
       case 'workoutCredit': result = await workoutCredit(db, decoded.uid, body); break;
+      case 'myPromos': {
+        const promos = await db.collection('promoCodes').where('ownerId','==',decoded.uid).get();
+        result = { promos:promos.docs.map(doc=>doc.data()) }; break;
+      }
       case 'dailyMedal': result = await dailyMedal(db, decoded.uid); break;
       case 'openBox': result = await openBox(db, decoded.uid, body.tierIndex); break;
       case 'redeemPromo': result = await redeemPromo(db, decoded.uid, body.code); break;

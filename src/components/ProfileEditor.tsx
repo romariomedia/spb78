@@ -149,8 +149,8 @@ export const ProfileEditor: React.FC<ProfileEditorProps> = ({ user, onUpdateUser
     triggerHapticImpact('light');
     const next = removePortfolioPhoto(user, idx);
     try {
-      await updateProfile({ photoPortfolio: next.photoPortfolio });
-      onUpdateUser(next);
+      const savedProfile = await updateProfile({ photoPortfolio: next.photoPortfolio });
+      onUpdateUser(savedProfile ?? next);
     } catch {
       setError('Не удалось удалить фото. Проверьте соединение и повторите.');
     }

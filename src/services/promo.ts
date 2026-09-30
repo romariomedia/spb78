@@ -133,3 +133,9 @@ export async function redeemPromoCode(user: UserProfile, rawCode: string): Promi
     return { ok:true, days:result.days, user:updated, title:result.title };
   } catch(error) { return { ok:false, error:error instanceof Error ? error.message : 'Не удалось активировать промокод' }; }
 }
+
+/** Fetch the authenticated account's rewards; never rely on another device's cache. */
+export async function fetchMyPromoCodes(): Promise<PromoCode[]> {
+  const result = await callServer<{promos:PromoCode[]}>('/api/sportbuddy-mutation',{action:'myPromos'});
+  return result.promos;
+}

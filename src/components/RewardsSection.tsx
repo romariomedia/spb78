@@ -1,16 +1,15 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
-  Award, Flame, Crown, CheckCircle2, ShieldCheck,
-  MapPin, Clock, Trophy, Tag
+  Crown, CheckCircle2, ShieldCheck,
+  MapPin, Trophy, Tag
 } from 'lucide-react';
 import { UserProfile } from '../lib/types';
 import { 
-  SPORTBUDDY_BOX_TIERS, claimDailyMedal, openSportBuddyBox, 
-  verifyAndProcessStreak, getTodayDateString 
+  SPORTBUDDY_BOX_TIERS, openSportBuddyBox
 } from '../services/rewards';
 import { CollapsibleCard } from './CollapsibleCard';
-import { triggerHapticImpact, launchMatchConfetti } from '../services/native';
+import { launchMatchConfetti } from '../services/native';
 
 interface RewardsSectionProps {
   user: UserProfile;
@@ -23,55 +22,10 @@ const RewardsSectionInner: React.FC<RewardsSectionProps> = ({
   onUpdateUser,
   onOpenModal
 }) => {
-  const [claimingMedal, setClaimingMedal] = useState(false);
   const [openingBoxIdx, setOpeningBoxIdx] = useState<number | null>(null);
 
-  const todayStr = getTodayDateString();
-  const isMedalClaimedToday = user.lastClaimedDate === todayStr;
   const claimedTiers = user.claimedBoxTiers || [];
   const inventory = user.rewardItems || [];
-
-  // Handle claiming today's medal
-  const handleClaimMedal = async () => {
-    if (claimingMedal || isMedalClaimedToday) return;
-    setClaimingMedal(true);
-    try {
-      const result = await claimDailyMedal(user);
-      onUpdateUser(result.updatedUser);
-      if (result.unlockedPremium) {
-        launchMatchConfetti();
-      }
-      onOpenModal(
-        result.unlockedPremium ? '👑 ДОСТИЖЕНИЕ РАЗБЛОКИРОВАНО!' : '🥇 ЗОЛОТАЯ МЕДАЛЬ ПОЛУЧЕНА!',
-        'Ежедневная награда SportBuddy',
-        <div className="text-center space-y-4 py-2">
-          <div className="w-20 h-20 bg-gradient-to-tr from-amber-500 to-yellow-300 rounded-full flex items-center justify-center text-4xl shadow-[0_0_30px_rgba(245,158,11,0.6)] mx-auto border-4 border-white animate-bounce">
-            {result.unlockedPremium ? '👑' : '🥇'}
-          </div>
-          <p className="text-sm font-extrabold text-white leading-relaxed">{result.message}</p>
-
-          {result.promo && (
-            <div className="bg-gradient-to-b from-emerald-950/50 to-slate-950 p-4 rounded-2xl border-2 border-emerald-500/60 space-y-1.5">
-              <p className="text-[10px] font-black uppercase tracking-wider text-emerald-400">
-                🎟 Ваш подарочный промокод (+{result.promo.days} дней Premium)
-              </p>
-              <p className="text-lg font-mono font-black tracking-widest text-white">{result.promo.code}</p>
-              <p className="text-[10px] text-slate-400">Активируйте его в разделе «Промокод» в профиле</p>
-            </div>
-          )}
-
-          <div className="bg-slate-950 p-3.5 rounded-2xl border border-slate-800 text-xs text-slate-300 text-left space-y-1">
-            <p className="font-semibold text-amber-400">Правила ежедневных наград:</p>
-            <p>• 1 вход каждый день = +1 Золотая медаль в копилку.</p>
-            <p>• Каждые 7 медалей подряд дают <b>промокод на 7 дней Premium</b>.</p>
-            <p className="text-rose-400 font-semibold">⚠️ Внимание: если не заходить в приложение 24 часа, ваша серия медалей сгорает до нуля!</p>
-          </div>
-        </div>
-      );
-    } finally {
-      setClaimingMedal(false);
-    }
-  };
 
   // Handle opening a SportBuddy BOX (7, 14, 28 workouts)
   const handleOpenBox = async (tierIdx: number) => {
@@ -142,25 +96,6 @@ const RewardsSectionInner: React.FC<RewardsSectionProps> = ({
     }
   };
 
-  // Demo helper: verify 24 hour burn status
-  const handleCheckBurnStatus = async () => {
-    triggerHapticImpact('light');
-    const checked = await verifyAndProcessStreak(user);
-    if (checked.streakBurned) {
-      onUpdateUser(checked.updatedUser);
-      onOpenModal(
-        'Серия медалей завершена',
-        'Активность за 24 часа',
-        <p className="py-2 text-center text-sm leading-relaxed text-slate-300">
-          💔 Серия медалей сгорела, так как прошло более 24 часов без входа.
-          Вернитесь завтра, чтобы начать новую честную серию.
-        </p>
-      );
-    } else {
-      alert(`✅ Ваша серия активна! Если не зайдете в течение ${checked.hoursUntilExpiration} ч, серия медалей сгорит.`);
-    }
-  };
-
   // Calculate overall milestone target for motivational bar
   const currentWorkouts = user.totalWorkouts || 0;
   const nextTier = SPORTBUDDY_BOX_TIERS.find(t => currentWorkouts < t.requiredWorkouts) || SPORTBUDDY_BOX_TIERS[SPORTBUDDY_BOX_TIERS.length - 1];
@@ -169,89 +104,6 @@ const RewardsSectionInner: React.FC<RewardsSectionProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* 1. SECTION: THREE-TIER MEDALS — rendered by MedalsSection in App */}
-      <div className="hidden">
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <span className="inline-block text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 mb-1">
-              Награда для каждого пользователя
-            </span>
-            <h3 className="text-base font-black text-white tracking-tight flex items-center gap-1.5">
-              🥇 Ежедневная Медаль SportBuddy
-            </h3>
-            <p className="text-xs text-slate-300 mt-0.5">
-              За 7 медалей подряд — подарок: <b>7 дней Premium-подписки бесплатно</b>!
-            </p>
-          </div>
-
-          <div className="bg-slate-950/90 border border-amber-500/50 p-2.5 rounded-2xl text-center min-w-[75px] shrink-0">
-            <span className="text-xs text-slate-400 block font-medium">Серия</span>
-            <span className="text-lg font-black text-amber-400 flex items-center justify-center gap-0.5">
-              <Flame className="w-4 h-4 fill-amber-400" /> {user.dailyMedalStreak} дн.
-            </span>
-          </div>
-        </div>
-
-        {/* Visual 7-day checkmarks timeline */}
-        <div className="bg-slate-950/80 p-3 rounded-2xl border border-slate-800/90 space-y-2">
-          <div className="flex justify-between items-center text-[11px] font-bold text-slate-300">
-            <span>Прогресс до бесплатного Premium:</span>
-            <span className="text-amber-400">{user.dailyMedalStreak % 7} / 7 дней</span>
-          </div>
-
-          <div className="grid grid-cols-7 gap-1">
-            {[1, 2, 3, 4, 5, 6, 7].map((day) => {
-              const stepInStreak = (user.dailyMedalStreak % 7) || (user.dailyMedalStreak > 0 ? 7 : 0);
-              const isPassed = day <= stepInStreak && user.dailyMedalStreak > 0;
-              const isDaySeven = day === 7;
-
-              return (
-                <div
-                  key={day}
-                  className={`h-11 rounded-xl flex flex-col items-center justify-center transition-all border ${
-                    isPassed
-                      ? 'bg-gradient-to-t from-amber-500 to-yellow-400 text-slate-950 font-extrabold border-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.5)]'
-                      : isDaySeven
-                      ? 'bg-slate-900 border-dashed border-amber-500/50 text-amber-400'
-                      : 'bg-slate-900 border-slate-800 text-slate-500'
-                  }`}
-                >
-                  <span className="text-sm leading-none mb-0.5">{isDaySeven ? '👑' : isPassed ? '✓' : '🥇'}</span>
-                  <span className="text-[9px] font-mono font-bold">{day}д</span>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="flex items-center justify-between text-[11px] pt-1 border-t border-slate-800 text-slate-400">
-            <span className="flex items-center gap-1 text-rose-400 font-medium">
-              <Clock className="w-3.5 h-3.5 shrink-0" /> При обрыве более 24ч серия сгорит!
-            </span>
-            <button
-              onClick={handleCheckBurnStatus}
-              className="text-[10px] text-slate-400 underline hover:text-white"
-            >
-              Проверить таймер
-            </button>
-          </div>
-        </div>
-
-        {/* Claim Today's Medal Button */}
-        <button
-          onClick={handleClaimMedal}
-          disabled={isMedalClaimedToday || claimingMedal}
-          className={`w-full py-3.5 rounded-2xl text-xs font-black transition-all shadow-xl flex items-center justify-center gap-2 ${
-            isMedalClaimedToday
-              ? 'bg-slate-800 border border-slate-700 text-slate-400 cursor-not-allowed'
-              : 'bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 shadow-[0_0_25px_rgba(245,158,11,0.5)] active:scale-95'
-          }`}
-        >
-          <Award className={`w-5 h-5 ${isMedalClaimedToday ? '' : 'fill-slate-950 animate-bounce'}`} />
-          {isMedalClaimedToday ? '✅ Медаль за сегодня получена (Вернитесь завтра!)' : '🎖 ПОЛУЧИТЬ МЕДАЛЬ SPORTBUDDY СЕГОДНЯ (+1 к серии)'}
-        </button>
-
-      </div>
-
       {/* 2. SECTION: PREMIUM WORKOUT REWARDS (SPORTBUDDY BOX) */}
       <CollapsibleCard
         storageKey="sportbuddy_profile_boxes_open_v1"

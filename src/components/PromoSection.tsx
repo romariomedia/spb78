@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   Ticket, Crown, Copy, Check, Gift, Sparkles, Fingerprint,
@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { UserProfile, PromoCode } from '../lib/types';
 import {
-  redeemPromoCode, getMyPromoCodes, premiumDaysLeft,
+  redeemPromoCode, fetchMyPromoCodes, premiumDaysLeft,
   isPremiumActive, isTrialActive, formatDate
 } from '../services/promo';
 import {
@@ -30,7 +30,14 @@ export const PromoSection: React.FC<PromoSectionProps> = ({ user, onUpdateUser, 
   const [bioOn, setBioOn] = useState(isBiometricEnabled());
   const [bioError, setBioError] = useState<string | null>(null);
 
-  const myPromos: PromoCode[] = getMyPromoCodes(user.id);
+  const [myPromos, setMyPromos] = useState<PromoCode[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    setMyPromos([]);
+    fetchMyPromoCodes().then(codes => { if (!cancelled) setMyPromos(codes); })
+      .catch(() => { if (!cancelled) setFeedback({ok:false,text:'Не удалось загрузить награды. Откройте профиль повторно, чтобы попробовать ещё раз.'}); });
+    return () => { cancelled = true; };
+  }, [user.id, user.totalDailyMedals, user.premiumUntil]);
   const unusedPromos = myPromos.filter((p) => !p.usedAt);
   const daysLeft = premiumDaysLeft(user);
   const active = isPremiumActive(user);
