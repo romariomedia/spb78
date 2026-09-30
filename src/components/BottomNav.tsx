@@ -44,7 +44,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-slate-950/95 backdrop-blur-xl border-t border-slate-800 pb-safe shadow-[0_-4px_25px_rgba(0,0,0,0.6)]">
+    <nav aria-label="Основная навигация" className="sb-navigation fixed bottom-0 left-0 right-0 z-50 bg-slate-950/95 backdrop-blur-xl border-t border-slate-800 pb-safe shadow-[0_-4px_25px_rgba(0,0,0,0.6)]">
       <div className="max-w-md mx-auto px-2 pt-2 pb-2 flex justify-around items-center relative">
         {navItems.map((item) => {
           const Icon = item.icon;
@@ -56,6 +56,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
               onClick={() => handleTabClick(item.id)}
               className="relative flex-1 flex flex-col items-center justify-center py-1.5 px-1 rounded-2xl group focus:outline-none transition-all duration-150 active:scale-95"
               aria-label={item.label}
+              aria-current={isActive ? 'page' : undefined}
             >
               {/* Active animated background glow */}
               {isActive && (

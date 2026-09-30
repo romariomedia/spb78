@@ -1,3 +1,4 @@
+import { NevaScene } from './CityPulse';
 import { useEffect, useRef, useState } from 'react';
 import * as VKID from '@vkid/sdk';
 import { motion } from 'framer-motion';
@@ -60,81 +61,6 @@ function BrandMark() {
         <path d="M29 30h14l-2.5 20h-9z" fill="#34d399" />
         <path d="M20 53c8-6 24-6 32 0" fill="none" stroke="#34d399" strokeWidth="2" opacity=".72" />
         <text x="36" y="66" textAnchor="middle" fill="#f8fafc" fontSize="12" fontWeight="800" fontFamily="Arial, sans-serif">78</text>
-      </svg>
-    </div>
-  );
-}
-
-/**
- * Lightweight animated SVG instead of a video hero: it stays crisp in a
- * Capacitor WebView and costs almost no network or battery on mobile.
- */
-function PetersburgSportScene() {
-  return (
-    <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[360px] overflow-hidden sm:h-[430px]" aria-hidden>
-      <svg viewBox="0 0 430 360" preserveAspectRatio="xMidYMax slice" className="h-full w-full">
-        <defs>
-          <linearGradient id="sb78-river" x1="0" x2="1">
-            <stop offset="0" stopColor="#34d399" stopOpacity="0.05" />
-            <stop offset="0.5" stopColor="#38bdf8" stopOpacity="0.8" />
-            <stop offset="1" stopColor="#34d399" stopOpacity="0.05" />
-          </linearGradient>
-          <linearGradient id="sb78-city" x1="0" x2="1">
-            <stop stopColor="#0f766e" stopOpacity="0.3" />
-            <stop offset="0.5" stopColor="#34d399" stopOpacity="0.58" />
-            <stop offset="1" stopColor="#0f766e" stopOpacity="0.3" />
-          </linearGradient>
-        </defs>
-
-        {/* Neva river */}
-        <path className="sb-auth-river" d="M-30 280 C85 220, 165 325, 282 265 S410 270, 470 230" fill="none" stroke="url(#sb78-river)" strokeWidth="3" />
-        <path d="M-30 304 C102 255, 202 344, 445 272" fill="none" stroke="#38bdf8" strokeOpacity="0.14" strokeWidth="24" />
-
-        {/* St Petersburg skyline: drawbridge, fortress, Admiralty spire */}
-        <path d="M0 320h430v40H0z" fill="#020617" />
-        <path d="M0 318h50v-19h22v19h34v-34h14v34h43v-13h28v13h25v-26h14v26h45v-18h17v18h38v-44h9v44h21v-20h16v20h24v-34h15v34h22z" fill="url(#sb78-city)" />
-        <g className="sb-auth-lighthouse" opacity="0.9">
-          <path d="M212 318V164l7-31 7 31v154z" fill="#34d399" fillOpacity="0.72" />
-          <path d="M219 94l3 31 5 5-8 4-8-4 5-5z" fill="#fbbf24" />
-          <path d="M210 318h18" stroke="#fbbf24" strokeOpacity="0.6" />
-        </g>
-        <path d="M22 300h96l22-28 22 28h79" fill="none" stroke="#34d399" strokeOpacity="0.45" strokeWidth="2" />
-        <path d="M269 300h62l18-25 18 25h55" fill="none" stroke="#34d399" strokeOpacity="0.36" strokeWidth="2" />
-
-        {/* Runner: animated along the embankment */}
-        <motion.g
-          className="sb-auth-sportline"
-          animate={{ x: [-28, 38, -28], y: [0, -2, 0] }}
-          transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
-          stroke="#f8fafc" strokeWidth="2.5" strokeLinecap="round" fill="none"
-        >
-          <circle cx="82" cy="238" r="5" fill="#fbbf24" stroke="none" />
-          <path d="M80 245l7 14-11 9m11-9 10 8m-14-18-12 6m16 4 10-7" />
-        </motion.g>
-
-        {/* Cyclist: animated opposite direction */}
-        <motion.g
-          className="sb-auth-sportline"
-          animate={{ x: [34, -34, 34] }}
-          transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut', delay: 0.8 }}
-          stroke="#34d399" strokeWidth="2.2" strokeLinecap="round" fill="none"
-        >
-          <circle cx="319" cy="274" r="9" />
-          <circle cx="349" cy="274" r="9" />
-          <path d="M319 274l11-18 10 18h-21l16-10 10 10m-15-18 6-11m-3-7a4 4 0 1 0 0.1 0" />
-        </motion.g>
-
-        {/* Workout athlete on the horizontal bar */}
-        <motion.g
-          className="sb-auth-sportline"
-          animate={{ y: [0, -7, 0] }}
-          transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
-          stroke="#fbbf24" strokeWidth="2.4" strokeLinecap="round" fill="none"
-        >
-          <path d="M135 257v-46m48 46v-46m-5 0h-48" stroke="#34d399" />
-          <circle cx="157" cy="229" r="4" fill="#fbbf24" stroke="none" />
-          <path d="M157 234v13m0-8-10-8m10 8 10-8m-10 16-8 11m8-11 8 11" />
-        </motion.g>
       </svg>
     </div>
   );
@@ -347,7 +273,6 @@ export function AuthScreen({ onAuthenticated, initialNotice = '' }: Props) {
     <div className="sb-auth-shell relative min-h-screen overflow-hidden px-5 pt-safe pb-safe text-slate-100">
       <div className="sb-auth-grid pointer-events-none absolute inset-0 opacity-80" />
       <div className="sb-auth-aurora pointer-events-none absolute -top-24 left-1/2 h-[440px] w-[440px] -translate-x-1/2 rounded-full" />
-      <PetersburgSportScene />
 
       {/* White-night sparks drifting upward */}
       <div className="pointer-events-none absolute inset-0" aria-hidden>
@@ -394,12 +319,12 @@ export function AuthScreen({ onAuthenticated, initialNotice = '' }: Props) {
             transition={{ delay: 0.12, duration: 0.65, ease: 'easeOut' }}
           >
             <p className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-emerald-300">
-              <Dumbbell className="h-3 w-3" /> Сообщество движения
+              <Dumbbell className="h-3 w-3" /> ТВОЙ ГОРОД · ТВОЙ ТЕМП
             </p>
             <h1 className="sb-brand-wordmark text-[31px] font-bold leading-[1.16] text-white sm:text-[40px] lg:text-[46px]">
-              Культ спорта
+              Петербург. Спорт.
               <span className="sb-auth-greeting mt-1 block bg-gradient-to-r from-emerald-300 via-emerald-400 to-sky-300 bg-clip-text text-transparent">
-                и здоровых отношений
+                Твои люди.
               </span>
             </h1>
             <motion.p
@@ -426,6 +351,7 @@ export function AuthScreen({ onAuthenticated, initialNotice = '' }: Props) {
               <MapPin className="h-3 w-3 text-sky-400" /> Новая Голландия
             </span>
           </motion.div>
+          <div className="sb-auth-neva"><NevaScene/></div>
         </section>
 
         {/* Authentication panel */}
@@ -438,8 +364,8 @@ export function AuthScreen({ onAuthenticated, initialNotice = '' }: Props) {
           <div className="mb-5 flex items-start justify-between gap-3">
             <div>
               <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-400">Вход в сообщество</p>
-              <h2 className="mt-1 text-xl font-black tracking-tight text-white">Начните свой путь</h2>
-              <p className="mt-1 text-[11px] leading-relaxed text-slate-400">Спорт, безопасность и честные отношения — в одном ритме.</p>
+              <h2 className="mt-1 text-xl font-black tracking-tight text-white">Встречаемся в городе</h2>
+              <p className="mt-1 text-[11px] leading-relaxed text-slate-400">Войди, чтобы найти напарников и тренировки рядом.</p>
             </div>
             <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-amber-400/40 bg-amber-400/10 text-sm">78</span>
           </div>

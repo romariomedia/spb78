@@ -384,3 +384,94 @@ input, select, textarea {
 .animate-like-pulse {
   animation: heart-pulse 2s infinite ease-in-out;
 }
+
+/* SportBuddy / Neva club — spacious, architectural, mobile first. */
+:root, [data-accent="emerald"] {
+  --color-emerald-300: #dcffa4;
+  --color-emerald-400: #c9f86e;
+  --color-emerald-500: #bce960;
+  --color-emerald-600: #83b433;
+}
+:root { --sb-font-display: 'Manrope', 'Segoe UI', sans-serif; }
+body { background: #080f19; }
+button { touch-action: manipulation; }
+button:disabled { cursor: not-allowed; }
+.sb-app-shell { background: var(--sb-bg, #080f19); padding-bottom: 116px; }
+.sb-app-header { background: color-mix(in srgb, var(--sb-bg) 88%, transparent); border-color: #ffffff0c; }
+.sb-app-header h1 { letter-spacing: -.6px; }
+.sb-app-header button { min-width: 40px; min-height: 40px; }
+.sb-main { padding-top: 24px; }
+#sb-discover-controls { scroll-margin-top: 90px; }
+.sb-city-pulse { display:grid; grid-template-columns:1.05fr 1fr; overflow:hidden; border:1px solid #ffffff15; border-radius:28px; background:#101c2b; position:relative; margin-bottom:28px; }
+.sb-city-copy { padding:32px; z-index:1; }
+.sb-eyebrow { display:flex; align-items:center; gap:8px; font-size:9px; font-weight:800; letter-spacing:1.6px; color:#d1dfec; }
+.sb-live-dot { width:6px; height:6px; border-radius:50%; background:#c9f86e; box-shadow:0 0 0 4px #c9f86e12; flex-shrink:0; }
+.sb-city-code { display:none; }
+.sb-city-copy h2 { font-size:clamp(30px,3.7vw,46px); line-height:1.07; font-weight:800; letter-spacing:-1.8px; margin:24px 0 15px; color:#f2f6fc; }
+.sb-city-copy h2 span { color:#c9f86e; }
+.sb-city-copy p { color:#abbacf; font-size:13px; line-height:1.8; }
+.sb-city-actions { display:flex; flex-wrap:wrap; gap:14px; align-items:center; margin-top:24px; }
+.sb-primary-action { display:inline-flex; align-items:center; justify-content:center; gap:12px; background:#c9f86e; color:#142016; border-radius:13px; padding:14px 17px; font-size:12px; font-weight:800; min-height:46px; transition:transform .18s, background .18s; }
+.sb-primary-action:hover { background:#deffaa; transform:translateY(-2px); }
+.sb-text-action { display:inline-flex; gap:8px; align-items:center; color:#dae3ee; min-height:44px; font-size:12px; font-weight:600; }
+.sb-city-foot { display:flex; align-items:center; gap:8px; margin-top:27px; color:#8fabc0; font-size:10px; }
+.sb-city-art { position:relative; overflow:hidden; min-height:320px; background:linear-gradient(130deg,#142239,#0c1828); }
+.sb-neva-scene { height:100%; width:100%; object-fit:cover; }
+.sb-city-art>.sb-neva-scene { position:absolute; inset:0; width:130%; max-width:none; left:-15%; }
+.sb-city-ticket { position:absolute; bottom:24px; left:20px; right:20px; display:flex; align-items:center; gap:12px; padding:15px; border:1px solid #ffffff26; border-radius:14px; background:#102034db; backdrop-filter:blur(12px); box-shadow:0 10px 24px #0002; color:#c9f86e; }
+.sb-city-ticket strong { display:block; color:#f0f5ff; font-size:12px; font-weight:650; }
+.sb-city-ticket span { display:block; font-size:10px; color:#9cacc3; margin-top:4px; }
+.sb-sport-shortcuts { grid-column:1/-1; display:flex; align-items:center; gap:8px; padding:15px 22px; background:#0c1623; border-top:1px solid #ffffff0c; }
+.sb-sport-shortcuts>span { font-size:8px; color:#8ea0b7; letter-spacing:1.3px; margin-right:auto; }
+.sb-sport-shortcuts button { display:flex; gap:9px; align-items:center; border:1px solid #ffffff12; background:#ffffff03; border-radius:9px; min-height:38px; padding:8px 11px; font-size:11px; color:#dde7f6; transition:background .15s; white-space:nowrap; }
+.sb-sport-shortcuts button:hover { background:#c9f86e13; border-color:#c9f86e66; }
+.sb-sport-number { color:#8ea0b7; font-size:9px; }
+.sb-training-card { background:linear-gradient(150deg,#142032,var(--sb-surface)); border-color:#ffffff13; box-shadow:0 8px 30px #00000014; padding:22px; }
+.sb-training-card h3 { font-size:19px; font-weight:750; letter-spacing:-.5px; margin:12px 0; }
+.sb-training-card button { min-height:42px; border-radius:11px; }
+.sb-training-card button:disabled { opacity:.65; }
+.sb-navigation { left:12px; right:12px; bottom:calc(10px + env(safe-area-inset-bottom)); border:1px solid #ffffff1c; border-radius:23px; max-width:470px; margin:auto; background:#111c2aef; box-shadow:0 12px 50px #0007; padding-bottom:0; }
+.sb-navigation>div { padding:7px; }
+.sb-navigation button { min-height:55px; }
+.sb-navigation button[aria-current="page"] { color:#c9f86e; }
+.sb-navigation button[aria-current="page"] svg { filter:none; }
+.sb-auth-shell { background:radial-gradient(ellipse at 10% 5%,#1b334b 0,transparent 55%),#080f19; }
+.sb-auth-shell main { max-width:1120px; }
+.sb-auth-shell .sb-auth-grid { opacity:.3; }
+.sb-auth-shell .sb-auth-aurora, .sb-auth-shell .sb-particle { display:none; }
+.sb-auth-card { background:#111c2bea; box-shadow:0 24px 100px #0005; border-color:#ffffff20; }
+.sb-auth-shell h1 { font-size:clamp(34px,5vw,62px); line-height:1.06; letter-spacing:-2px; }
+.sb-auth-greeting { background:none; color:#c9f86e; -webkit-text-fill-color:#c9f86e; }
+.sb-auth-neva { margin-top:26px; height:220px; overflow:hidden; border-radius:22px; border:1px solid #ffffff10; background:#142238; }
+.sb-auth-neva svg { width:100%; }
+@media(min-width:1200px) {
+  .sb-app-shell { padding-left:112px; }
+  .sb-navigation { left:14px; right:auto; top:100px; bottom:auto; width:84px; border-radius:24px; }
+  .sb-navigation>div { flex-direction:column; gap:12px; }
+  .sb-navigation button { width:100%; min-height:66px; }
+  .sb-navigation button span { font-size:9px; }
+  .sb-city-code { display:inline; font-size:8px; color:#7e94ae; margin-left:auto; }
+}
+@media(max-width:767px) {
+  .sb-main { padding-top:16px; }
+  .sb-city-pulse { grid-template-columns:1fr; border-radius:23px; }
+  .sb-city-copy { padding:24px; }
+  .sb-city-copy h2 { font-size:30px; margin-top:18px; letter-spacing:-1px; }
+  .sb-city-copy p { font-size:12px; }
+  .sb-city-art { min-height:135px; }
+  .sb-city-art>.sb-neva-scene { height:240px; top:-35px; width:100%; left:0; }
+  .sb-city-ticket { bottom:12px; left:14px; right:14px; padding:12px; }
+  .sb-city-foot { display:none; }
+  .sb-city-actions { gap:12px; margin-top:18px; }
+  .sb-text-action { font-size:11px; }
+  .sb-sport-shortcuts { padding:12px; gap:8px; overflow-x:auto; scrollbar-width:none; }
+  .sb-sport-shortcuts>span { display:none; }
+  .sb-sport-shortcuts button { min-height:40px; flex-shrink:0; }
+  .sb-auth-neva { height:140px; margin-top:20px; }
+  .sb-auth-shell main { padding-top:16px; }
+  .sb-auth-shell section:first-child { padding-top:0; }
+  .sb-auth-card { margin-top:24px; }
+}
+@media(prefers-reduced-motion:reduce) {
+  *, *::before, *::after { scroll-behavior:auto!important; animation-duration:.01ms!important; animation-iteration-count:1!important; transition-duration:.01ms!important; }
+}

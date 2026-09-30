@@ -26,7 +26,11 @@ const TrainingCardInner: React.FC<TrainingCardProps> = ({
   return (
     <div
       onClick={() => onSelect(tr)}
-      className="sb-hover-lift bg-slate-900 border border-slate-800 rounded-3xl p-4 hover:border-emerald-500/50 transition cursor-pointer shadow-lg relative overflow-hidden group"
+      onKeyDown={(event) => { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); onSelect(tr); } }}
+      tabIndex={0}
+      role="group"
+      aria-label={`Тренировка: ${tr.title}`}
+      className="sb-training-card sb-hover-lift bg-slate-900 border border-slate-800 rounded-3xl p-4 hover:border-emerald-500/50 transition cursor-pointer shadow-lg relative overflow-hidden group"
     >
       {tr.isCompleted ? (
         <div className="absolute top-0 right-0 bg-amber-500 text-slate-950 font-black text-[10px] uppercase tracking-wider px-3 py-1 rounded-bl-xl shadow">
@@ -82,7 +86,7 @@ const TrainingCardInner: React.FC<TrainingCardProps> = ({
         <div className="flex items-center justify-between pt-2 border-t border-slate-800/80">
           <div className="flex items-center gap-2">
             <img
-              src={creator?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200'}
+              src={creator?.avatar || '/avatar-placeholder.svg'}
               alt=""
               loading="lazy"
               className="w-6 h-6 rounded-full object-cover border border-slate-600"
@@ -93,6 +97,7 @@ const TrainingCardInner: React.FC<TrainingCardProps> = ({
           </div>
 
           <button
+            disabled={tr.isCompleted || (isFull && !isJoined) || tr.createdBy === currentUserId}
             onClick={(e) => { e.stopPropagation(); onJoin(tr); }}
             className={`text-xs font-black px-3 py-1.5 rounded-xl transition ${
               isJoined
@@ -102,7 +107,7 @@ const TrainingCardInner: React.FC<TrainingCardProps> = ({
                 : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow'
             }`}
           >
-            {isJoined ? 'Отменить' : isFull ? 'Заполнено' : 'Записаться'}
+            {tr.isCompleted ? 'Завершена' : tr.createdBy === currentUserId ? 'Вы организатор' : isJoined ? 'Отменить' : isFull ? 'Заполнено' : 'Участвовать ↗'}
           </button>
         </div>
       </div>
@@ -114,6 +119,7 @@ const TrainingCardInner: React.FC<TrainingCardProps> = ({
 export const TrainingCard = React.memo(
   TrainingCardInner,
   (prev, next) =>
+    prev.currentUserId === next.currentUserId &&
     prev.training === next.training &&
     prev.creator === next.creator &&
     prev.userCoords === next.userCoords &&

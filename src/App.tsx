@@ -1,3 +1,4 @@
+import { CityPulse } from './components/CityPulse';
 import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense, JSX } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 import { 
@@ -1485,7 +1486,7 @@ export default function App(): JSX.Element {
           <Zap className="w-8 h-8 text-emerald-400" />
         </motion.div>
         <h2 className="text-xl font-extrabold text-slate-100 tracking-tight">SportBuddy</h2>
-        <p className="text-xs text-slate-400 mt-1">Синхронизация спортивных напарников из Firestore...</p>
+        <p className="text-xs text-slate-400 mt-1">Находим твой спортивный Петербург…</p>
       </div>
     );
   }
@@ -1493,11 +1494,11 @@ export default function App(): JSX.Element {
   const unreadNotifCount = notifications.filter(n => !n.read).length;
 
   return (
-    <div className="relative min-h-[100svh] bg-slate-950 text-slate-100 pb-24 font-sans antialiased">
+    <div className="sb-app-shell relative min-h-[100svh] bg-slate-950 text-slate-100 pb-24 font-sans antialiased">
       <AmbientBackdrop />
 
       {/* 1. Header Bar */}
-      <header className="sticky top-0 z-40 bg-slate-950/90 backdrop-blur-md border-b border-slate-800/80 px-4 py-3 pt-safe transition-all">
+      <header className="sb-app-header sticky top-0 z-40 bg-slate-950/90 backdrop-blur-md border-b border-slate-800/80 px-4 py-3 pt-safe transition-all">
         <span className="sb-header-line" aria-hidden />
         <div className="mx-auto flex w-full max-w-md items-center justify-between lg:max-w-5xl">
           <div className="flex items-center gap-2">
@@ -1506,7 +1507,7 @@ export default function App(): JSX.Element {
             </div>
             <div>
               <h1 className="text-base font-black tracking-tight text-white leading-none flex items-center gap-1.5">
-                SportBuddy <span className="text-[10px] font-black tracking-wider uppercase bg-emerald-500 text-slate-950 px-1.5 py-0.5 rounded-md shadow">СПб 🏛</span>
+                SportBuddy <span className="text-[10px] font-black tracking-wider uppercase bg-emerald-500 text-slate-950 px-1.5 py-0.5 rounded-md shadow">78</span>
               </h1>
               <div className="flex items-center gap-1 text-[11px] text-slate-400 mt-0.5 font-medium truncate max-w-[170px]">
                 <MapPin className="w-3 h-3 text-emerald-400 shrink-0" />
@@ -1572,7 +1573,7 @@ export default function App(): JSX.Element {
       )}
 
       {/* 2. Main Tab Body with Framer Motion Animation */}
-      <main className="relative z-10 mx-auto w-full max-w-md px-4 pt-3 lg:max-w-5xl">
+      <main className="sb-main relative z-10 mx-auto w-full max-w-md px-4 pt-3 lg:max-w-5xl">
         <AnimatePresence mode="wait" custom={direction}>
           <motion.div
             key={activeTab}
@@ -1585,8 +1586,13 @@ export default function App(): JSX.Element {
             {/* ==================== TAB 1: DISCOVER (ЗНАКОМСТВА) ==================== */}
             {activeTab === 'discover' && (
               <div className="space-y-4">
+                <CityPulse trainingCount={trainings.length}
+                  onTrainings={() => handleTabChange('trainings')}
+                  onDiscover={() => document.getElementById('sb-discover-controls')?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' })}
+                  onSport={(sport) => { setTrainingSportFilter(sport); handleTabChange('trainings'); }}
+                />
                 {/* Mode Switcher & Filters Header */}
-                <div className="flex flex-wrap gap-2 items-center justify-between bg-slate-900/80 p-3 rounded-2xl border border-slate-800">
+                <div id="sb-discover-controls" className="flex flex-wrap gap-2 items-center justify-between bg-slate-900/80 p-3 rounded-2xl border border-slate-800">
                   <div className="flex items-center gap-1 text-xs font-bold text-slate-200">
                     <SlidersHorizontal className="w-3.5 h-3.5 text-emerald-400" />
                     <span>Спорт:</span>
