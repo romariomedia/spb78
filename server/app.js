@@ -33,6 +33,7 @@ export async function createApiApp({ apiDir }) {
   app.use(express.urlencoded({ extended: true, limit: '10mb' }));
   const health = (_req, res) => res.json({
     status: 'ok', api: 'sportbuddy', routesLoaded: handlers.length,
+    release: process.env.SB_RELEASE_ID || 'development',
     ts: new Date().toISOString()
   });
   // These endpoints confirm process and route loading, not external service health.
