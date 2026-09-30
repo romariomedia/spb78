@@ -94,7 +94,7 @@ pm2 logs sportbuddy-api --lines 30 --nostream
 ```
 
 The script locks deployment, saves a private PM2 inventory and previous target,
-restarts the API using explicit script/cwd, checks the release SHA in localhost
+recreates only the sportbuddy-api process registration using explicit script/cwd, checks the release SHA in localhost
 health, atomically switches static files, then saves PM2 state. Expect a short
 API interruption with one fork-mode process. It does not reload nginx per release.
 On activation failure it restores both the previous symlink and API process.
@@ -112,7 +112,8 @@ same activation command with that previous directory.
 The initial legacy checkout has no .release-ready marker. To restore it manually:
 
 ```bash
-SB_RELEASE_DIR=/opt/sportbuddy-api SB_RELEASE_ID=legacy pm2 startOrRestart /opt/sportbuddy-source/ops/ecosystem.config.cjs --only sportbuddy-api --update-env
+pm2 delete sportbuddy-api
+SB_RELEASE_DIR=/opt/sportbuddy-api SB_RELEASE_ID=legacy pm2 start /opt/sportbuddy-source/ops/ecosystem.config.cjs --only sportbuddy-api --update-env
 curl -fsS http://127.0.0.1:3001/api/health
 ln -s /opt/sportbuddy-api /opt/sportbuddy-current.rollback
 mv -Tf /opt/sportbuddy-current.rollback /opt/sportbuddy-current
@@ -133,3 +134,15 @@ user data, payments, new medals or other writes already made.
 - Earned promo appears on another device; test payment/webhook without real charge.
 
 No public release is approved solely by unit tests or /api/health.
+
+## PM2 path retention fix
+
+The first VPS activation restarted the legacy script under its existing PM2
+name. startOrRestart is no longer used: registration for sportbuddy-api alone
+is removed and recreated, then pm_exec_path, pm_cwd and release ID are checked.
+The same procedure applies during recovery. Other PM2 applications are untouched.
+
+Validation: 55 tests pass, including isolated activation/recovery simulations.
+An additional attempt to run real PM2 7.0.4 locally was blocked by Unix-socket
+permissions (EPERM), so this is not claimed as a successful live PM2 test.
+The first real activation must still be checked using public health and PM2 paths.

@@ -24,7 +24,22 @@ printf '%s\n' "$previous" > "$state/previous-release"
 start_api() {
   local target=$1 id=legacy
   if [[ -s "$target/RELEASE_ID" ]]; then id=$(cat "$target/RELEASE_ID"); fi
-  SB_RELEASE_DIR="$target" SB_RELEASE_ID="$id" pm2 startOrRestart "$config" --only sportbuddy-api --update-env
+  # Restarting an existing PM2 name can retain its old pm_exec_path.
+  # Remove only this app registration, then recreate it with an explicit cwd.
+  if pm2 describe sportbuddy-api >/dev/null 2>&1; then
+    pm2 delete sportbuddy-api || return 1
+  fi
+  SB_RELEASE_DIR="$target" SB_RELEASE_ID="$id" pm2 start "$config" --only sportbuddy-api || return 1
+  pm2 jlist | node -e '
+    let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{
+      try { const e=JSON.parse(s).find(p=>p.name==="sportbuddy-api")?.pm2_env;
+        const dir=process.argv[1];
+        if (!e || e.pm_exec_path!==dir+"/server.js" || e.pm_cwd!==dir || e.SB_RELEASE_ID!==process.argv[2]) {
+          console.error("PM2 process path, cwd or release does not match requested version");process.exit(1);
+        }
+      } catch {process.exit(1);}
+    });
+  ' "$target" "$id"
 }
 health() {
   local expected=$1
