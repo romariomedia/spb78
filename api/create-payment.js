@@ -1,104 +1,69 @@
-// api/create-payment.js
-// Vercel/Node serverless adapter. The Capacitor app calls the equivalent
-// Firebase callable function `createYooKassaPayment`; this route is useful
-// when sportbuddy78.pro is deployed to a Node serverless host.
-
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHash } from 'node:crypto';
 import { cert, getApps, initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
-
-const PLANS = {
-  monthly: { amount: '490.00', days: 30, label: 'Premium на 1 месяц' },
-  yearly: { amount: '4900.00', days: 365, label: 'Premium на 1 год' }
-};
-
-function adminApp() {
-  if (getApps().length) return getApps()[0];
+import { getPlan, validPaymentId } from '../server/payment-config.js';
+function init() {
+  if (getApps().length) return;
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
-  return initializeApp(raw ? { credential: cert(JSON.parse(raw)) } : undefined);
+  initializeApp(raw ? { credential: cert(JSON.parse(raw)) } : undefined);
 }
-
-function error(res, status, message) {
-  return res.status(status).json({ error: message });
-}
-
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return error(res, 405, 'Метод не поддерживается');
-
-  const shopId = process.env.YOOKASSA_SHOP_ID;
-  const secretKey = process.env.YOOKASSA_SECRET_KEY;
-  if (!shopId || !secretKey) return error(res, 500, 'Не настроены ключи ЮKassa');
-
-  const plan = req.body?.plan;
-  if (!PLANS[plan]) return error(res, 400, 'Некорректный тариф');
-
-  // Never trust userId from req.body: require Firebase ID token instead.
-  const idToken = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
-  if (!idToken) return error(res, 401, 'Требуется авторизация');
-
-  let userId;
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Метод не поддерживается' });
+  const plan = req.body?.plan, config = getPlan(plan);
+  if (!config) return res.status(400).json({ error: 'Некорректный тариф' });
+  const requestId = req.body?.requestId ?? randomUUID();
+  if (typeof requestId !== 'string' || !/^[a-zA-Z0-9_-]{16,128}$/.test(requestId)) return res.status(400).json({ error: 'Некорректный идентификатор запроса' });
+  const shopId = process.env.YOOKASSA_SHOP_ID, secret = process.env.YOOKASSA_SECRET_KEY;
+  if (!shopId || !secret) return res.status(503).json({ error: 'Оплата временно недоступна' });
   try {
-    adminApp();
-    userId = (await getAuth().verifyIdToken(idToken)).uid;
-  } catch {
-    return error(res, 401, 'Недействительная сессия пользователя');
-  }
-
-  const config = PLANS[plan];
-  const idempotenceKey = randomUUID();
-  const auth = Buffer.from(`${shopId}:${secretKey}`).toString('base64');
-
-  try {
+    init();
+    const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+    if (!token) return res.status(401).json({ error: 'Требуется авторизация' });
+    const { uid } = await getAuth().verifyIdToken(token);
+    const db = getFirestore();
+    const key = createHash('sha256').update(`${uid}:${requestId}`).digest('hex');
+    const requestRef = db.collection('paymentRequests').doc(key);
+    const intent = await db.runTransaction(async tx => {
+      const previous = await tx.get(requestRef);
+      const user = await tx.get(db.collection('users').doc(uid));
+      if (!user.exists) throw Object.assign(new Error('Сначала завершите создание профиля'), { status: 404 });
+      if (previous.exists) {
+        const value = previous.data();
+        if (value.plan !== plan || Date.now() - Date.parse(value.createdAt) >= 23 * 3600000) throw Object.assign(new Error('Начните оплату заново'), { status: 409 });
+        return value;
+      }
+      const value = { userId: uid, plan, amount: config.amount, days: config.days, currency: 'RUB', label: config.label, createdAt: new Date().toISOString() };
+      tx.create(requestRef, value);
+      return value;
+    });
+    if (intent.paymentId && intent.confirmationUrl) return res.status(200).json({ paymentId: intent.paymentId, confirmationUrl: intent.confirmationUrl, amount: intent.amount });
     const response = await fetch('https://api.yookassa.ru/v3/payments', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Basic ${auth}`,
-        'Idempotence-Key': idempotenceKey
-      },
+      method: 'POST', signal: AbortSignal.timeout(12000),
+      headers: { 'Content-Type': 'application/json', Authorization: `Basic ${Buffer.from(`${shopId}:${secret}`).toString('base64')}`, 'Idempotence-Key': key },
       body: JSON.stringify({
-        amount: { value: config.amount, currency: 'RUB' },
-        capture: true,
-        confirmation: {
-          type: 'redirect',
-          return_url: 'https://sportbuddy78.pro/success'
-        },
-        description: `${config.label} SportBuddy78`,
-        metadata: {
-          userId,
-          plan,
-          days: String(config.days),
-          product: 'sportbuddy78_premium'
-        }
+        amount: { value: intent.amount, currency: 'RUB' }, capture: true,
+        confirmation: { type: 'redirect', return_url: 'https://sportbuddy78.pro/success' },
+        description: `${intent.label} SportBuddy78`,
+        metadata: { userId: uid, plan: intent.plan, days: String(intent.days), product: 'sportbuddy78_premium' }
       })
     });
-
     const payment = await response.json();
-    if (!response.ok || !payment?.confirmation?.confirmation_url) {
-      console.error('YooKassa payment creation failed', payment);
-      return error(res, 400, 'Не удалось создать платёж');
-    }
-
-    await getFirestore().collection('payments').doc(payment.id).set({
-      userId,
-      plan,
-      days: config.days,
-      amount: config.amount,
-      currency: 'RUB',
-      status: payment.status || 'pending',
-      processed: false,
-      idempotenceKey,
-      createdAt: new Date().toISOString()
+    if (!response.ok || !validPaymentId(payment.id) || !payment.confirmation?.confirmation_url) return res.status(503).json({ error: 'Не удалось создать платёж. Повторите попытку.' });
+    const confirmationUrl = payment.confirmation.confirmation_url;
+    if (typeof confirmationUrl !== 'string' || !confirmationUrl.startsWith('https://')) throw new Error('Invalid confirmation URL');
+    await db.runTransaction(async tx => {
+      const paymentRef = db.collection('payments').doc(payment.id);
+      const saved = await tx.get(paymentRef);
+      if (!saved.exists) tx.create(paymentRef, {
+        userId: uid, plan: intent.plan, days: intent.days, amount: intent.amount, currency: 'RUB',
+        status: payment.status || 'pending', processed: false, idempotenceKey: key, createdAt: intent.createdAt
+      });
+      tx.update(requestRef, { paymentId: payment.id, confirmationUrl });
     });
-
-    return res.status(200).json({
-      confirmationUrl: payment.confirmation.confirmation_url,
-      paymentId: payment.id,
-      amount: config.amount
-    });
-  } catch (err) {
-    console.error('Payment server error', err);
-    return error(res, 500, 'Внутренняя ошибка сервера');
+    return res.status(200).json({ paymentId: payment.id, confirmationUrl, amount: intent.amount });
+  } catch (error) {
+    const status = error.code?.startsWith?.('auth/') ? 401 : error.status || 503;
+    return res.status(status).json({ error: status === 401 ? 'Требуется повторный вход' : error.status ? error.message : 'Платёжный сервис временно недоступен. Повторите попытку.' });
   }
 }

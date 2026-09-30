@@ -26,6 +26,7 @@ function apiBase(): string {
 }
 
 const REQUEST_TIMEOUT_MS = 20_000;
+const pendingRequests = new Map<string, { id: string; at: number }>();
 
 function paymentError(status: number): string {
   switch (status) {
@@ -41,6 +42,22 @@ function paymentError(status: number): string {
  * `api/create-payment.js` and returns only the redirect URL.
  */
 export async function createPremiumPayment(plan: PremiumPlan): Promise<PremiumPaymentResult> {
+  const uid = auth.currentUser?.uid;
+  if (!uid) throw new Error('Сначала войдите в аккаунт.');
+  const storageKey = `sportbuddy_payment_request_${uid}_${plan}`;
+  let pending = pendingRequests.get(storageKey);
+  try {
+    const stored = JSON.parse(sessionStorage.getItem(storageKey) || 'null') as { id: string; at: number } | null;
+    if (stored && typeof stored.id === 'string' && /^[a-zA-Z0-9_-]{16,128}$/.test(stored.id) && Number.isFinite(stored.at)) pending = stored;
+  } catch { /* Keep the in-memory key if browser storage is unavailable. */ }
+  if (!pending || Date.now() - pending.at >= 23 * 3600000 || pending.at > Date.now()) pending = { id: crypto.randomUUID(), at: Date.now() };
+  pendingRequests.set(storageKey, pending);
+  try { sessionStorage.setItem(storageKey, JSON.stringify(pending)); } catch { /* optional persistence */ }
+  const requestId = pending.id;
+  const clearRequest = () => {
+    pendingRequests.delete(storageKey);
+    try { sessionStorage.removeItem(storageKey); } catch { /* optional persistence */ }
+  };
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
@@ -48,6 +65,7 @@ export async function createPremiumPayment(plan: PremiumPlan): Promise<PremiumPa
     let idToken = '';
     if (auth.currentUser) {
       idToken = await auth.currentUser.getIdToken(true);
+      if (auth.currentUser?.uid !== uid) throw new Error('Аккаунт изменился. Начните оплату заново.');
     }
 
     const res = await fetch(`${apiBase()}/api/create-payment`, {
@@ -56,13 +74,15 @@ export async function createPremiumPayment(plan: PremiumPlan): Promise<PremiumPa
         'Content-Type': 'application/json',
         'Authorization': idToken ? `Bearer ${idToken}` : ''
       },
-      body: JSON.stringify({ plan }),
+      body: JSON.stringify({ plan, requestId }),
       signal: controller.signal
     });
     const payload = (await res.json().catch(() => null)) as Partial<PremiumPaymentResult> & { error?: string } | null;
     if (!res.ok || !payload?.confirmationUrl) {
+      if ([400, 401, 404, 409].includes(res.status)) clearRequest();
       throw Object.assign(new Error(payload?.error || paymentError(res.status)), { status: res.status });
     }
+    clearRequest();
     return {
       confirmationUrl: payload.confirmationUrl,
       paymentId: String(payload.paymentId || ''),
