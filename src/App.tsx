@@ -8,7 +8,7 @@ import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-mo
 import { 
   Users, Dumbbell, Newspaper, MapPin, Heart, X as CloseIcon, 
   Filter, Plus, Share2, MessageCircle, Send, Zap, Crown, 
-  Camera, ChevronRight, Bell, WifiOff, RefreshCw, 
+  ChevronRight, Bell, WifiOff, RefreshCw,
   Map as MapIcon, SlidersHorizontal, CheckCircle2,
   Calendar, ShieldAlert, Clock, Lock, UserPlus
 } from 'lucide-react';
@@ -65,7 +65,7 @@ import { GoalsSection } from './components/GoalsSection';
 import { buildArrivalNotification, getMyCheckIn } from './services/checkin';
 import { MATCH_SAFETY_REMINDER, UNSAFE_SUGGESTION_WARNING } from './legal/terms';
 import { MedalsSection } from './components/MedalsSection';
-import { MEDAL_TIERS } from './lib/medals';
+import { ProfileSummary } from './components/ProfileSummary';
 import { Virtuoso } from 'react-virtuoso';
 import { TrainingCard } from './components/TrainingCard';
 import { PostCard } from './components/PostCard';
@@ -2565,61 +2565,17 @@ export default function App(): JSX.Element {
                 {profileSection === 'overview' && (
                   <>
                 {/* Profile Card & Avatar */}
-                <div className="bg-gradient-to-b from-slate-900 to-slate-900/90 border border-slate-800 rounded-3xl p-5 shadow-2xl relative overflow-hidden">
-                  {isPremium && (
-                    <div className="absolute top-0 right-0 bg-gradient-to-l from-amber-500 to-yellow-400 text-slate-950 font-black text-xs px-4 py-1 rounded-bl-2xl shadow-lg flex items-center gap-1">
-                      <Crown className="w-3.5 h-3.5 fill-slate-950" /> PREMIUM СТАТУС
-                    </div>
-                  )}
-
-                  <div className="flex items-center gap-4 mt-2">
-                    {/* Avatar with Camera Button */}
-                    <div className="relative shrink-0">
-                      <img
-                        src={avatarUrl(currentUser.avatar, 160) || AVATAR_FALLBACK}
-                        width={80} height={80} decoding="async"
-                        alt={currentUser.name}
-                        className="w-20 h-20 rounded-full object-cover border-4 border-emerald-500/80 shadow-xl"
-                      />
-                      <button
-                        onClick={handleUpdateAvatar}
-                        className="absolute bottom-0 right-0 p-2 bg-emerald-500 text-slate-950 rounded-full shadow-lg hover:bg-emerald-400 transition active:scale-90"
-                        title="Обновить аватарку"
-                      >
-                        <Camera className="w-3.5 h-3.5 stroke-[3]" />
-                      </button>
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-xl font-black text-white tracking-tight truncate">{currentUser.name}, {currentUser.age}</h3>
-                      <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
-                        <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                        <span>{currentUser.locationName}</span>
-                      </p>
-                      <div className="flex items-center gap-2 mt-2">
-                        <span className="text-xs bg-amber-500/20 text-amber-400 font-black px-2.5 py-0.5 rounded-full border border-amber-500/30">
-                          ★ {currentUser.rating.toFixed(1)} Рейтинг
-                        </span>
-                        <span className="text-xs bg-slate-800 text-slate-300 font-medium px-2 py-0.5 rounded-full border border-slate-700">
-                          {currentUser.matchIds.length} Мэтчей 🤝
-                        </span>
-                        <span className="text-xs bg-slate-800 text-emerald-300 font-medium px-2 py-0.5 rounded-full border border-slate-700">
-                          {friendsCount} Друзей 👥
-                        </span>
-                        <span className="text-xs bg-slate-800 text-slate-200 font-bold px-2 py-0.5 rounded-full border border-slate-700">
-                          {MEDAL_TIERS[currentUser.medalTier || 'bronze'].emoji}{' '}
-                          {MEDAL_TIERS[currentUser.medalTier || 'bronze'].name}
-                        </span>
-                      </div>
-                      {currentUser.birthDate && (
-                        <p className="text-[11px] text-slate-400 mt-1.5 flex items-center gap-1">
-                          🎂 {currentUser.hideBirthDate
-                            ? `${calculateAge(currentUser.birthDate) ?? currentUser.age} лет (дата скрыта)`
-                            : formatBirthDate(currentUser.birthDate)}
-                        </p>
-                      )}
-                    </div>
-                  </div>
+                <div className="bg-gradient-to-b from-slate-900 to-slate-900/90 border border-slate-800 rounded-3xl p-4 sm:p-5 shadow-2xl relative">
+                  <ProfileSummary
+                    user={currentUser}
+                    friendsCount={friendsCount}
+                    isPremium={isPremium}
+                    avatar={avatarUrl(currentUser.avatar, 160) || AVATAR_FALLBACK}
+                    onUpdateAvatar={handleUpdateAvatar}
+                    birthday={currentUser.birthDate ? (currentUser.hideBirthDate
+                      ? `${calculateAge(currentUser.birthDate) ?? currentUser.age} лет · дата рождения скрыта`
+                      : `День рождения · ${formatBirthDate(currentUser.birthDate)}`) : undefined}
+                  />
 
                   {/* Bio & Sports */}
                   <div className="mt-4 pt-3 border-t border-slate-800/80 space-y-2">
