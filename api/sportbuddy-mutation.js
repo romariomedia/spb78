@@ -1,3 +1,4 @@
+import { isBetaActive, hasPremiumAccess } from '../shared/access-policy.js';
 import { photoVerificationPatch } from '../server/profile-verification.js';
 import { cert, getApps, initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
@@ -10,8 +11,7 @@ function init() {
   if (!raw) throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY is not configured');
   initializeApp({ credential: cert(JSON.parse(raw)) });
 }
-function iso(v) { return v?.toDate ? v.toDate().toISOString() : String(v || ''); }
-function premiumActive(u) { const t = Date.parse(iso(u.premiumUntil)); return Number.isFinite(t) && t > Date.now(); }
+const premiumActive = hasPremiumAccess;
 function dayKey() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Moscow', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()); }
 function cleanArray(v) { return Array.isArray(v) ? v.filter(x => typeof x === 'string') : []; }
 async function verifyCaller(req) {
@@ -364,6 +364,7 @@ async function ratingMutation(db,uid,body){
 }
 
 async function redeemPromo(db, uid, rawCode) {
+  if (isBetaActive()) throw Object.assign(new Error('Промокоды сохраняются в профиле. Активация откроется 1 января 2027 года — сейчас Premium бесплатен для всех.'), {status:409});
   const code = String(rawCode || '').trim().toUpperCase();
   const partners = { 'SPB-ZENIT-2026': { days:14, title:'Промо от ФК «Зенит»' }, 'SPB-BELIENOCHI': { days:7, title:'Марафон «Белые Ночи СПб»' }, 'SPB-PADEL-CLUB': { days:10, title:'Падел-клуб на Крестовском' }, 'SPORTBUDDY30': { days:30, title:'Приветственный бонус SportBuddy' } };
   const ref = db.collection('users').doc(uid);
@@ -387,6 +388,7 @@ async function redeemPromo(db, uid, rawCode) {
 }
 
 async function openBox(db, uid, tierIndex) {
+  if (isBetaActive()) throw Object.assign(new Error('SportBuddy BOX откроется 1 января 2027 года. Ваш прогресс тренировок сохраняется.'), {status:403});
   const required = [7,14,28][Number(tierIndex)]; if (!required) throw Object.assign(new Error('Бокс не найден'), { status: 400 });
   const rewards = [
     [{ title:'Билет на домашний матч ФК «Зенит»',category:'ticket',description:'Официальный билет на домашний матч.',location:'Санкт-Петербург',icon:'⚽️' },{ title:'Фирменный шейкер SportBuddy PRO',category:'gear',description:'Спортивный термошейкер.',location:'Санкт-Петербург',icon:'🥤' },{ title:'Скидочный ваучер 1000₽',category:'coupon',description:'Партнёрский ваучер SportBuddy.',location:'Санкт-Петербург',icon:'🏷️' }],

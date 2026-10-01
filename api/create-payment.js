@@ -1,3 +1,4 @@
+import { isBetaActive } from '../shared/access-policy.js';
 import { randomUUID, createHash } from 'node:crypto';
 import { cert, getApps, initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
@@ -10,6 +11,7 @@ function init() {
 }
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Метод не поддерживается' });
+  if (isBetaActive()) return res.status(409).json({code:'BETA_FREE_ACCESS',error:'До 31 декабря 2026 года Premium бесплатен для всех. Оплата откроется 1 января 2027 года.'});
   const plan = req.body?.plan, config = getPlan(plan);
   if (!config) return res.status(400).json({ error: 'Некорректный тариф' });
   const requestId = req.body?.requestId ?? randomUUID();

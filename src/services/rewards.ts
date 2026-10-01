@@ -1,6 +1,6 @@
 import { BoxTierConfig, PromoCode, RewardItem, UserProfile } from '../lib/types';
 import { callServer } from './serverApi';
-import { IS_TEST_PERIOD_ACTIVE } from '../lib/release';
+import { isBetaActive } from '../lib/release';
 
 // SportBuddy BOX Tiers Configuration (Prompt requirement: BOX 1 at 7 workouts, BOX 2 at 14, BOX 3 at 28)
 export const SPORTBUDDY_BOX_TIERS: BoxTierConfig[] = [
@@ -121,7 +121,7 @@ export async function claimDailyMedal(user: UserProfile): Promise<{ updatedUser:
 
 // Open SportBuddy BOX for completing workout milestones (7, 14, 28)
 export async function openSportBuddyBox(user: UserProfile, tierIndex: number): Promise<{ updatedUser: UserProfile; wonItem: RewardItem; error?: string; promo?: PromoCode }> {
-  if (IS_TEST_PERIOD_ACTIVE) return { updatedUser:user, wonItem:{} as RewardItem, error:'🎁 Тестовый период: прогресс BOX считается, но призы начнут выдаваться после завершения 30-дневной беты.' };
+  if (isBetaActive()) return { updatedUser:user, wonItem:{} as RewardItem, error:'SportBuddy BOX откроется 1 января 2027 года. Прогресс тренировок сохраняется.' };
   try {
     const result = await callServer<{ reward:RewardItem; claimedBoxTiers:number[]; rewardItems:RewardItem[] }>('/api/sportbuddy-mutation', { action:'openBox', tierIndex });
     return { updatedUser:{ ...user, claimedBoxTiers:result.claimedBoxTiers, rewardItems:result.rewardItems }, wonItem:result.reward };

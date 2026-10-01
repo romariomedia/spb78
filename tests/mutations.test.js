@@ -1,4 +1,6 @@
 import test from 'node:test';
+// Baseline paid/free scenarios outside the explicitly dated open season.
+test.beforeEach(t => t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-09-01T12:00:00Z')}));
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
 const bundled = await build({entryPoints:['api/sportbuddy-mutation.js'],bundle:true,format:'esm',platform:'node',write:false,
@@ -203,4 +205,48 @@ test('missed day resets cycle but preserves rank, collection and today workout',
 test('reward inventory is scoped to authenticated owner',async()=>{
   const f=fixture({'promoCodes/a':{ownerId:'a',code:'A'},'promoCodes/b':{ownerId:'b',code:'B'}});
   const r=await f.request('a',{action:'myPromos',ownerId:'b'});assert.deepEqual(r.body.promos,[{ownerId:'a',code:'A'}]);
+});
+
+test('beta grants expired accounts training and chat access but blocks BOX without changing rewards',async t=>{
+  t.mock.timers.setTime(Date.parse('2026-12-31T20:59:59Z'));
+  const f=fixture({'users/a':{...premium(),premiumUntil:'2020-01-01',totalWorkouts:30,matchIds:['b']},'users/b':{...premium(),premiumUntil:'2020-01-01',matchIds:['a']}});
+  assert.equal((await f.request('a',{action:'training',operation:'createTraining',training:training()})).statusCode,200);
+  assert.equal((await f.request('a',{action:'chat',chatId:'chat_a__b',companionId:'b',text:'Hi'})).statusCode,200);
+  const box=await f.request('a',{action:'openBox',tierIndex:0});
+  assert.equal(box.statusCode,403);assert.equal(f.records.get('users/a').claimedBoxTiers,undefined);
+  // A paid plan label alone no longer grants access after the deadline.
+  t.mock.timers.setTime(Date.parse('2026-12-31T21:00:00Z'));
+  assert.equal((await f.request('a',{action:'training',operation:'createTraining',training:training()})).statusCode,403);
+});
+test('beta removes match quota and restores it at the deadline',async t=>{
+  for(const now of ['2026-12-31T20:59:59Z','2026-12-31T21:00:00Z']) {
+    t.mock.timers.setTime(Date.parse(now));
+    const history=Array.from({length:5},(_,i)=>({userId:'u'+i,at:Date.now()}));
+    const f=fixture({'users/a':{matchHistory:history},'users/b':{likedUserIds:['a'],matchHistory:history}});
+    const r=await f.request('a',{action:'match',targetUserId:'b'});
+    assert.equal(r.statusCode,now.endsWith('59Z')?200:409);
+  }
+});
+test('banked promo is not consumed during beta and extends Premium after midnight',async t=>{
+  const f=fixture({'users/a':{...premium(),premiumUntil:'2020-01-01'},'promoCodes/GIFT':{ownerId:'a',code:'GIFT',days:7,title:'Daily reward'}});
+  t.mock.timers.setTime(Date.parse('2026-12-31T20:59:59Z'));
+  assert.equal((await f.request('a',{action:'redeemPromo',code:'GIFT'})).statusCode,409);
+  assert.equal(f.records.get('promoCodes/GIFT').usedAt,undefined);
+  t.mock.timers.setTime(Date.parse('2026-12-31T21:00:00Z'));
+  const redeemed=await f.request('a',{action:'redeemPromo',code:'GIFT'});
+  assert.equal(redeemed.statusCode,200);assert.equal(redeemed.body.premiumUntil,'2027-01-07T21:00:00.000Z');
+  assert.equal((await f.request('a',{action:'redeemPromo',code:'GIFT'})).statusCode,409);
+  f.records.set('promoCodes/SECOND',{ownerId:'a',code:'SECOND',days:5,title:'Next reward'});
+  const second=await f.request('a',{action:'redeemPromo',code:'SECOND'});
+  assert.equal(second.body.premiumUntil,'2027-01-12T21:00:00.000Z');
+  assert.equal((await f.request('a',{action:'training',operation:'createTraining',training:training()})).statusCode,200);
+});
+test('daily cycle keeps awarding stored codes during beta; BOX reopens for eligible Premium in January',async t=>{
+  t.mock.timers.setTime(Date.parse('2026-12-30T12:00:00Z'));
+  const f=fixture({'users/a':{...premium(),totalWorkouts:7,medalProgress:medalProgress({cycleDays:6,lastClaimDayKey:daysAgo(1)})}});
+  const claimed=await f.request('a',{action:'dailyMedal'});
+  assert.equal(claimed.body.promo.days,5);assert.equal(f.records.get('promoCodes/'+claimed.body.promo.code).usedAt,undefined);
+  t.mock.timers.setTime(Date.parse('2026-12-31T21:00:00Z'));
+  f.records.set('users/a',{...f.records.get('users/a'),premiumUntil:'2027-02-01'});
+  assert.equal((await f.request('a',{action:'openBox',tierIndex:0})).statusCode,200);
 });

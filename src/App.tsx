@@ -1,4 +1,5 @@
 import { trainingGenderError, trainingGenderLabel } from './lib/trainingEligibility';
+import { BetaNotice } from './components/BetaNotice';
 import { CityPulse } from './components/CityPulse';
 import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense, JSX } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
@@ -77,7 +78,7 @@ import { claimDailyMedal, medalDayKey, syncProfileMedals } from './services/meda
 import { WorkoutProgress } from './components/WorkoutProgress';
 import { ThemeSection } from './components/ThemeSection';
 import { ThemePreferences } from './lib/themes';
-import { IS_TEST_PERIOD_ACTIVE, TEST_PERIOD_MESSAGE } from './lib/release';
+import { isBetaActive, TEST_PERIOD_MESSAGE } from './lib/release';
 import { initTheme, resetTheme } from './services/theme';
 import { NearbyRadar } from './components/NearbyRadar';
 import { VerificationCard } from './components/VerificationCard';
@@ -255,6 +256,15 @@ export default function App(): JSX.Element {
   const [notifications, setNotifications] = useState<AppNotification[]>(() => import.meta.env.DEV ? generateDemoNotifications() : []);
   const [isNotifModalOpen, setIsNotifModalOpen] = useState(false);
   const [rewardModal, setRewardModal] = useState<{ title: string; subtitle: string; content: React.ReactNode } | null>(null);
+  // Refresh date-based feature gates even when the app stays open across midnight.
+  const [, refreshAccessClock] = useState(0);
+  useEffect(() => {
+    const refresh = () => refreshAccessClock(v => v + 1);
+    const timer = window.setInterval(refresh, 30000);
+    document.addEventListener('visibilitychange', refresh);
+    return () => { clearInterval(timer); document.removeEventListener('visibilitychange', refresh); };
+  }, []);
+
   // Server transaction makes retries and concurrent tabs safe. Calendar follows Moscow.
   useEffect(() => {
     if (!currentUser?.id) return;
@@ -625,11 +635,7 @@ export default function App(): JSX.Element {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const isPremium = currentUser
-    ? currentUser.premiumUntil
-      ? isPremiumActive(currentUser)
-      : currentUser.subscriptionPlan === 'premium'
-    : false;
+  const isPremium = currentUser ? isPremiumActive(currentUser) : false;
   /** Feed posts, gallery media and broadcasts require Premium + trusted verification. */
   const canPublishToFeed = isPremium && currentUser?.isVerified === true;
 
@@ -2640,6 +2646,8 @@ export default function App(): JSX.Element {
                   joinedTrainingIds={actualJoinedTrainingIds}
                 />
 
+                <BetaNotice />
+
                 {/* Three-tier medals: bronze → silver → gold */}
                 <MedalsSection
                   user={currentUser}
@@ -2865,7 +2873,7 @@ export default function App(): JSX.Element {
         isOpen={welcomeTrialShown}
         onClose={() => setWelcomeTrialShown(false)}
         title="Добро пожаловать в SportBuddy78"
-        subtitle="Пройдите верификацию — откройте 30 дней Premium"
+        subtitle={isBetaActive() ? "Premium бесплатно до конца 2026 года · подтвердите профиль для публикаций" : "Пройдите верификацию — откройте 30 дней Premium"}
         footer={
           <button
             onClick={() => setWelcomeTrialShown(false)}
@@ -2882,21 +2890,18 @@ export default function App(): JSX.Element {
           <div>
             {currentUser?.isVerified ? (
               <>
-                <h3 className="sb-display text-base font-black text-white">30 дней Premium активированы</h3>
+                <h3 className="sb-display text-base font-black text-white">{isBetaActive() ? 'Premium открыт до конца 2026 года' : '30 дней Premium активированы'}</h3>
                 <p className="mt-1.5 text-xs leading-relaxed text-slate-300">
                   Вход через VK ID подтвердил вашу личность — верификация пройдена автоматически.
-                  Чаты, публикации, призовые BOX и все возможности сообщества уже открыты.
+                  {isBetaActive() ? 'Чаты и публикации открыты. SportBuddy BOX станет доступен с 1 января 2027 года.' : 'Чаты, публикации и SportBuddy BOX доступны по условиям Premium.'}
                   На бесплатном тарифе доступны 5 взаимных мэтчей за 7 дней; Premium снимает это ограничение.
                 </p>
               </>
             ) : (
               <>
-                <h3 className="sb-display text-base font-black text-white">Верификация открывает Premium</h3>
+                <h3 className="sb-display text-base font-black text-white">{isBetaActive() ? 'Подтвердите профиль для публикаций' : 'Верификация открывает Premium'}</h3>
                 <p className="mt-1.5 text-xs leading-relaxed text-slate-300">
-                  Добавьте личное фото и одно фото в портфолио — после проверки вы получите{' '}
-                  <b className="text-amber-300">30 дней Premium бесплатно</b>: чаты, публикации,
-                  призовые BOX и все возможности сообщества. После пробного периода Free оставляет
-                  5 взаимных мэтчей за 7 дней, а Premium снимает лимит.
+                  {isBetaActive() ? 'Premium уже открыт для всех до конца 2026 года. Добавьте личное фото и одно фото в портфолио, чтобы подтвердить профиль и публиковать в ленте. SportBuddy BOX откроется 1 января 2027 года.' : 'Добавьте личное фото и одно фото в портфолио — после проверки получите 30 дней Premium бесплатно: чаты, публикации и BOX по условиям программы. На бесплатном тарифе доступны 5 взаимных мэтчей за 7 дней; Premium снимает лимит.'}
                 </p>
               </>
             )}
@@ -2911,7 +2916,7 @@ export default function App(): JSX.Element {
             </div>
           )}
 
-          {IS_TEST_PERIOD_ACTIVE && (
+          {isBetaActive() && (
             <div className="rounded-2xl border border-amber-400/45 bg-amber-400/[0.08] p-3.5 text-left">
               <p className="text-[11px] font-black text-amber-300">🎁 О призовых SportBuddy BOX</p>
               <p className="mt-1 text-[11px] leading-relaxed text-slate-300">{TEST_PERIOD_MESSAGE}</p>
@@ -2921,7 +2926,7 @@ export default function App(): JSX.Element {
           <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/[0.07] p-3.5 text-left">
             <p className="text-[11px] font-black text-emerald-300">Помогите сделать SportBuddy78 лучше</p>
             <p className="mt-1 text-[11px] leading-relaxed text-slate-300">
-              Пользуйтесь сервисом 30 дней: создавайте и посещайте тренировки, отмечайтесь по GPS,
+              Пользуйтесь сервисом: создавайте и посещайте тренировки, отмечайтесь по GPS,
               пробуйте календарь, чаты и медали. Если заметите проблему или неудобный сценарий,
               сообщите нам через раздел «Право» или поддержку.
             </p>

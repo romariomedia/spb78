@@ -1,3 +1,5 @@
+import { BetaNotice } from './BetaNotice';
+import { isBetaActive } from '../lib/release';
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Crown, Check, X, Zap, TrendingUp, BadgePercent } from 'lucide-react';
@@ -6,11 +8,10 @@ import { premiumDaysLeft, isPremiumActive } from '../services/promo';
 import { triggerHapticImpact } from '../services/native';
 import { createPremiumPayment, redirectToPayment } from '../services/payments';
 
-/** Promotional pricing valid until 31.12.2026, then the regular price applies */
+/** Regular tariffs shown after the open season. */
 export const PRICING = {
-  monthly: { promo: 490, regular: 990, days: 30, label: 'Месяц' },
-  yearly: { promo: 4900, regular: 9900, days: 365, label: 'Год' },
-  promoUntil: '31.12.2026'
+  monthly: { regular: 990, days: 30, label: 'Месяц' },
+  yearly: { regular: 9900, days: 365, label: 'Год' }
 };
 
 const FEATURES: { label: string; free: boolean }[] = [
@@ -37,8 +38,8 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ user }) => {
   const daysLeft = premiumDaysLeft(user);
   const selected = PRICING[plan];
 
-  const monthlyEquivalent = Math.round(PRICING.yearly.promo / 12);
-  const yearSavings = PRICING.monthly.promo * 12 - PRICING.yearly.promo;
+  const monthlyEquivalent = Math.round(PRICING.yearly.regular / 12);
+  const yearSavings = PRICING.monthly.regular * 12 - PRICING.yearly.regular;
 
   const handleSubscribe = async () => {
     triggerHapticImpact('medium');
@@ -52,6 +53,8 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ user }) => {
       setProcessing(false);
     }
   };
+
+  if (isBetaActive()) return <BetaNotice />;
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 space-y-4 shadow-xl">
@@ -116,11 +119,9 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ user }) => {
                 {p.label}
               </p>
               <p className="text-xl font-black text-white mt-1 leading-none">
-                {p.promo.toLocaleString('ru-RU')} ₽
-              </p>
-              <p className="text-[10px] text-slate-500 line-through mt-0.5">
                 {p.regular.toLocaleString('ru-RU')} ₽
               </p>
+
               {key === 'yearly' && (
                 <p className="text-[10px] text-emerald-400 font-bold mt-1">
                   ≈ {monthlyEquivalent} ₽/мес
@@ -140,9 +141,7 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ user }) => {
 
       <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3">
         <p className="text-[10px] text-slate-400 leading-relaxed">
-          🔥 Акционные цены действуют до <b className="text-amber-400">{PRICING.promoUntil}</b>.
-          После окончания акции стоимость составит {PRICING.monthly.regular} ₽ в месяц
-          и {PRICING.yearly.regular.toLocaleString('ru-RU')} ₽ в год.
+          Premium: {PRICING.monthly.regular} ₽ в месяц или {PRICING.yearly.regular.toLocaleString('ru-RU')} ₽ в год. Накопленные промокоды можно активировать в профиле.
         </p>
       </div>
 
@@ -165,8 +164,8 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ user }) => {
         {processing
           ? 'Переход к ЮKassa…'
           : active
-          ? `Продлить за ${selected.promo.toLocaleString('ru-RU')} ₽`
-          : `Оформить за ${selected.promo.toLocaleString('ru-RU')} ₽`}
+          ? `Продлить за ${selected.regular.toLocaleString('ru-RU')} ₽`
+          : `Оформить за ${selected.regular.toLocaleString('ru-RU')} ₽`}
       </button>
 
       <p className="text-[10px] text-slate-600 text-center leading-relaxed">

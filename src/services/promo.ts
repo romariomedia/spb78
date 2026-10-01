@@ -1,3 +1,4 @@
+import { hasPremiumAccess } from '../../shared/access-policy.js';
 import { PromoCode, PromoSource, UserProfile } from '../lib/types';
 import { triggerHapticNotification } from './native';
 import { callServer } from './serverApi';
@@ -75,8 +76,7 @@ export function getPremiumUntil(user: UserProfile): Date | null {
 }
 
 export function isPremiumActive(user: UserProfile): boolean {
-  const until = getPremiumUntil(user);
-  return until !== null && until.getTime() > Date.now();
+  return hasPremiumAccess(user);
 }
 
 export function premiumDaysLeft(user: UserProfile): number {
@@ -107,7 +107,7 @@ export function syncSubscriptionPlan(user: UserProfile): UserProfile {
   if (active && user.subscriptionPlan !== 'premium') {
     return { ...user, subscriptionPlan: 'premium' };
   }
-  if (!active && user.subscriptionPlan === 'premium' && user.premiumUntil) {
+  if (!active && user.subscriptionPlan === 'premium') {
     return { ...user, subscriptionPlan: 'free' };
   }
   return user;

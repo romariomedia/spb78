@@ -1,3 +1,4 @@
+import { isBetaActive, BETA_END } from '../lib/release';
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
@@ -39,11 +40,14 @@ export const PromoSection: React.FC<PromoSectionProps> = ({ user, onUpdateUser, 
     return () => { cancelled = true; };
   }, [user.id, user.totalDailyMedals, user.premiumUntil]);
   const unusedPromos = myPromos.filter((p) => !p.usedAt);
-  const daysLeft = premiumDaysLeft(user);
+  const beta = isBetaActive();
+  const bankedDays = unusedPromos.reduce((sum,p) => sum + Number(p.days || 0),0);
+  const daysLeft = beta ? Math.ceil((BETA_END-Date.now())/86400000) : premiumDaysLeft(user);
   const active = isPremiumActive(user);
   const trial = isTrialActive(user);
 
   const handleRedeem = async () => {
+    if (isBetaActive()) { setFeedback({ok:false,text:'Активация с 1 января 2027 года. Ваши промокоды сохраняются.'}); return; }
     triggerHapticImpact('medium');
     const result = await redeemPromoCode(user, code);
     if (!result.ok || !result.user) {
@@ -115,7 +119,7 @@ export const PromoSection: React.FC<PromoSectionProps> = ({ user, onUpdateUser, 
               )}
             </h3>
             <p className="text-xs text-slate-300 mt-1">
-              {active
+              {beta ? 'Открытый сезон • бесплатно до 31.12.2026' : active
                 ? trial
                   ? `Пробный период • до ${formatDate(user.premiumUntil)}`
                   : `Действует до ${formatDate(user.premiumUntil)}`
@@ -138,7 +142,7 @@ export const PromoSection: React.FC<PromoSectionProps> = ({ user, onUpdateUser, 
         {active && (
           <ProgressBar
             percentage={Math.min(100, (daysLeft / 30) * 100)}
-            label="Остаток Premium-доступа"
+            label={beta ? "До конца открытого сезона" : "Остаток Premium-доступа"}
             subLabel={`${daysLeft} дн.`}
             color={daysLeft <= 5 ? 'rose' : daysLeft <= 12 ? 'amber' : 'emerald'}
             height="sm"
@@ -149,7 +153,7 @@ export const PromoSection: React.FC<PromoSectionProps> = ({ user, onUpdateUser, 
           {[
             { label: 'Чаты с мэтчами', on: active },
             { label: 'Посты в ленте', on: active },
-            { label: 'SportBuddy BOX', on: active },
+            { label: beta ? 'BOX — с 01.01.2027' : 'SportBuddy BOX', on: active && !beta },
             { label: 'Знакомства и карта', on: true }
           ].map((f) => (
             <div
@@ -178,10 +182,10 @@ export const PromoSection: React.FC<PromoSectionProps> = ({ user, onUpdateUser, 
           </div>
         }
         title="Промокоды"
-        subtitle="Подарочные дни Premium из боксов и медалей"
+        subtitle={beta ? "Копите сейчас — активируйте с 1 января 2027" : "Подарочные дни Premium"}
         collapsedSummary={
           unusedPromos.length > 0
-            ? `Доступно ${unusedPromos.length} неиспользованных кодов`
+            ? `В запасе ${bankedDays} дней Premium · ${unusedPromos.length} кодов`
             : 'Активировать подарочный код'
         }
         badge={
@@ -192,6 +196,7 @@ export const PromoSection: React.FC<PromoSectionProps> = ({ user, onUpdateUser, 
           ) : undefined
         }
       >
+        <>{beta && <p className="text-xs text-emerald-300 mb-3">Подарочные дни не расходуются во время тестирования. С 1 января активируйте коды по очереди: дни суммируются.</p>}</>
         <div className="flex gap-2">
           <input
             type="text"
@@ -203,14 +208,14 @@ export const PromoSection: React.FC<PromoSectionProps> = ({ user, onUpdateUser, 
           />
           <button
             onClick={handleRedeem}
-            disabled={!code.trim()}
+            disabled={beta || !code.trim()}
             className={`px-5 rounded-2xl font-black text-xs transition shrink-0 ${
               code.trim()
                 ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-[0_0_18px_rgba(16,185,129,0.5)] active:scale-95'
                 : 'bg-slate-800 text-slate-600 cursor-not-allowed'
             }`}
           >
-            Применить
+            {beta ? 'С 1 января' : 'Применить'}
           </button>
         </div>
 

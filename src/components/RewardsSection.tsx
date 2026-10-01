@@ -1,3 +1,4 @@
+import { isBetaActive } from '../lib/release';
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
@@ -97,6 +98,7 @@ const RewardsSectionInner: React.FC<RewardsSectionProps> = ({
   };
 
   // Calculate overall milestone target for motivational bar
+  const beta = isBetaActive();
   const currentWorkouts = user.totalWorkouts || 0;
   const nextTier = SPORTBUDDY_BOX_TIERS.find(t => currentWorkouts < t.requiredWorkouts) || SPORTBUDDY_BOX_TIERS[SPORTBUDDY_BOX_TIERS.length - 1];
   const targetWorkouts = nextTier?.requiredWorkouts || 28;
@@ -115,7 +117,7 @@ const RewardsSectionInner: React.FC<RewardsSectionProps> = ({
           </div>
         }
         title="SportBuddy BOX"
-        subtitle="Призы за тренировки — 7 / 14 / 28"
+        subtitle={beta ? "Откроется 1 января 2027 · прогресс сохраняется" : "Призы за тренировки — 7 / 14 / 28"}
         collapsedSummary={`${currentWorkouts} тренировок • открыто ${(user.claimedBoxTiers || []).length} из 3`}
         badge={
           <span className="text-[10px] font-black bg-emerald-500/20 text-emerald-300 px-2 py-1 rounded-lg border border-emerald-500/40">
@@ -124,6 +126,7 @@ const RewardsSectionInner: React.FC<RewardsSectionProps> = ({
         }
       >
       <div className="space-y-5 relative">
+        {beta && <p className="rounded-xl bg-emerald-500/10 p-3 text-xs text-emerald-200">Во время тестирования BOX не выдаются. Копите тренировки — их прогресс сохранится к запуску 1 января 2027 года.</p>}
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-1.5">
@@ -224,7 +227,7 @@ const RewardsSectionInner: React.FC<RewardsSectionProps> = ({
                   {/* Button to open or status */}
                   <button
                     onClick={() => handleOpenBox(idx)}
-                    disabled={isAlreadyClaimed || !isUnlocked || isOpening}
+                    disabled={beta || isAlreadyClaimed || !isUnlocked || isOpening}
                     className={`w-full py-2.5 px-3 rounded-xl text-xs font-black transition shadow flex items-center justify-center gap-1.5 ${
                       isAlreadyClaimed
                         ? 'bg-slate-800 text-slate-500 border border-slate-700 cursor-default'
@@ -233,7 +236,7 @@ const RewardsSectionInner: React.FC<RewardsSectionProps> = ({
                         : 'bg-slate-800/90 text-slate-400 border border-slate-700/80 cursor-not-allowed'
                     }`}
                   >
-                    {isAlreadyClaimed ? (
+                    {beta ? <span>С 1 января 2027</span> : isAlreadyClaimed ? (
                       <span className="flex items-center gap-1"><CheckCircle2 className="w-4 h-4" /> Открыто</span>
                     ) : isUnlocked ? (
                       <span className="flex items-center gap-1">🎁 ОТКРЫТЬ БОКС</span>
@@ -340,14 +343,4 @@ const RewardsSectionInner: React.FC<RewardsSectionProps> = ({
   );
 };
 
-/** Memoised: re-renders only when workout/box/reward data actually changes */
-export const RewardsSection = React.memo(
-  RewardsSectionInner,
-  (prev, next) =>
-    prev.user.id === next.user.id &&
-    prev.user.totalWorkouts === next.user.totalWorkouts &&
-    JSON.stringify(prev.user.claimedBoxTiers) === JSON.stringify(next.user.claimedBoxTiers) &&
-    (prev.user.rewardItems?.length || 0) === (next.user.rewardItems?.length || 0) &&
-    prev.onUpdateUser === next.onUpdateUser &&
-    prev.onOpenModal === next.onOpenModal
-);
+export const RewardsSection = RewardsSectionInner;

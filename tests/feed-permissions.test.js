@@ -1,4 +1,6 @@
 import test from 'node:test';
+// Baseline paid/free scenarios outside the explicitly dated open season.
+test.beforeEach(t => t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-09-01T12:00:00Z')}));
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
 const result = await build({ entryPoints: ['api/feed-create.js'], bundle: true, format: 'esm', platform: 'node', write: false,
@@ -31,4 +33,13 @@ test('verification and Premium denials have distinct reasons',async()=>{
 });
 test('text-only post has no undefined Firestore fields',async()=>{
   const {response,saved}=await request(valid,{content:'post'});assert.equal(response.statusCode,200);assert.equal('mediaUrl' in saved,false);
+});
+
+test('beta publication still requires verification and reverts to Premium at deadline',async t=>{
+  t.mock.timers.setTime(Date.parse('2026-12-31T20:59:59Z'));
+  const expired={...valid,premiumUntil:'2020-01-01'};
+  assert.equal((await request(expired,{content:'Beta post'})).response.statusCode,200);
+  assert.equal((await request({...expired,isVerified:false},{content:'Beta post'})).response.body.code,'VERIFICATION_REQUIRED');
+  t.mock.timers.setTime(Date.parse('2026-12-31T21:00:00Z'));
+  assert.equal((await request(expired,{content:'Post'})).response.body.code,'PREMIUM_REQUIRED');
 });

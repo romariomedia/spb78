@@ -497,3 +497,13 @@ button:disabled { cursor: not-allowed; }
 @keyframes sb-medal-shine { to { transform:translateX(100%); } }
 @media(max-width:420px) { .sb-medal-showcase { padding:18px; } .sb-medal-hero { gap:18px; } }
 @media(prefers-reduced-motion:reduce) { .sb-medal-large,.sb-medal-large .sb-medal-face:after { animation:none; } }
+.sb-beta-notice { padding:24px; border:1px solid #c9f86e40; border-radius:26px; background:radial-gradient(ellipse at top right,#37643a45,transparent 65%),#11202b; color:#e8eff8; display:grid; gap:16px; }
+.sb-beta-eyebrow { display:flex; align-items:center; gap:8px; font-size:10px; letter-spacing:1.5px; color:#c9f86e; font-weight:800; }
+.sb-beta-notice h3 { font-size:28px; font-weight:800; letter-spacing:-.8px; line-height:1.12; }
+.sb-beta-notice h3 span { color:#c9f86e; }
+.sb-beta-notice p { font-size:12px; line-height:1.7; color:#b8c8db; }
+.sb-beta-detail { display:flex; align-items:flex-start; gap:12px; padding-top:14px; border-top:1px solid #ffffff12; }
+.sb-beta-detail>svg { flex-shrink:0; color:#c9f86e; }
+.sb-beta-detail strong { font-size:12px; }
+.sb-beta-detail p { font-size:11px; margin-top:4px; }
+.sb-beta-notice small { font-size:10px; line-height:1.6; color:#90a5b9; }

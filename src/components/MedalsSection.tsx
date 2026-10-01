@@ -1,3 +1,4 @@
+import { isBetaActive } from '../lib/release';
 import React, { useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { Award, Check, Gift, Info } from 'lucide-react';
@@ -29,7 +30,7 @@ export function MedalsSection({user,onUpdateUser,onOpenModal}:Props) {
       if(result.rewardGiven)onOpenModal('Твой ритм. Твоя награда.',result.message,
         <div className="text-center py-5 space-y-5"><Medal tier={result.tierEarned || p.tier} large/>
           {result.promoted&&result.newTier&&<p className="text-lime-300">Открыт уровень «{MEDAL_TIERS[result.newTier].name}»</p>}
-          {result.promo&&<div className="rounded-2xl bg-slate-950 p-4"><p>{result.promo.days} дней Premium</p><p className="font-mono break-all mt-2">{result.promo.code}</p><p className="text-xs text-slate-400 mt-2">Активируйте код в разделе наград профиля.</p></div>}
+          {result.promo&&<div className="rounded-2xl bg-slate-950 p-4"><p>{result.promo.days} дней Premium</p><p className="font-mono break-all mt-2">{result.promo.code}</p><p className="text-xs text-slate-400 mt-2">{isBetaActive() ? 'Код сохранён. Активация — с 1 января 2027 года.' : 'Активируйте код в разделе наград профиля.'}</p></div>}
         </div>);
     } finally {setBusy(false);}
   };

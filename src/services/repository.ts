@@ -1,3 +1,4 @@
+import { hasPremiumAccess } from '../../shared/access-policy.js';
 import { 
   collection, 
   doc, 
@@ -61,13 +62,7 @@ export class PremiumTrainingRequiredError extends Error {
 }
 
 /** Mirrors the UI premium calculation without importing promo.ts (avoids a cycle). */
-function hasActivePremium(profile: UserProfile): boolean {
-  if (profile.premiumUntil) {
-    const until = new Date(profile.premiumUntil).getTime();
-    return Number.isFinite(until) && until > Date.now();
-  }
-  return false;
-}
+const hasActivePremium = hasPremiumAccess;
 
 function normalizeUserProfile(raw: Record<string, unknown>): UserProfile {
   const dateFields = ['premiumUntil','trialPremiumEndsAt','rewardPremiumEndsAt','registeredAt','verifiedAt','welcomeTrialGrantedAt'];

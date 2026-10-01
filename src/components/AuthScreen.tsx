@@ -1,3 +1,4 @@
+import { isBetaActive } from '../lib/release';
 import { NevaScene } from './CityPulse';
 import { useEffect, useRef, useState } from 'react';
 import * as VKID from '@vkid/sdk';
@@ -371,7 +372,7 @@ export function AuthScreen({ onAuthenticated, initialNotice = '' }: Props) {
           </div>
 
           <div className="mb-4 rounded-2xl border border-amber-400/30 bg-amber-400/[0.07] px-3.5 py-2.5">
-            <p className="text-[11px] font-bold leading-relaxed text-amber-200">{TRIAL_DAYS} дней Premium в подарок новым участникам</p>
+            <p className="text-[11px] font-bold leading-relaxed text-amber-200">{isBetaActive() ? 'Premium бесплатно всем до 31 декабря 2026' : `${TRIAL_DAYS} дней Premium в подарок новым участникам`}</p>
           </div>
 
           {error && (

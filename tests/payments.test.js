@@ -1,4 +1,6 @@
 import test from 'node:test';
+// Baseline paid/free scenarios outside the explicitly dated open season.
+test.beforeEach(t => t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-09-01T12:00:00Z')}));
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
 async function load(path) {
@@ -86,4 +88,11 @@ test('same request cannot change tariff or outlive provider deduplication window
   assert.equal((await f.request(create,{...body,plan:'yearly'})).statusCode,409);
   const key=[...f.data.keys()].find(key=>key.startsWith('paymentRequests/'));f.data.get(key).createdAt=new Date(Date.now()-24*3600000).toISOString();
   assert.equal((await f.request(create,body)).statusCode,409);assert.equal(f.calls.length,1);
+});
+
+test('beta payment creation is disabled before any provider call',async t=>{
+  t.mock.timers.setTime(Date.parse('2026-12-31T20:59:59Z'));
+  const f=fixture({'users/athlete':{}});
+  const r=await f.request(create,{plan:'monthly'});
+  assert.equal(r.statusCode,409);assert.equal(r.body.code,'BETA_FREE_ACCESS');assert.equal(f.calls.length,0);
 });
