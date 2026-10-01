@@ -306,12 +306,7 @@ export async function sendLocalNotification(title: string, body: string): Promis
       new Notification(title, { body, icon: '/icon-192.png', tag: 'sportbuddy-training' });
       return;
     }
-    if (Notification.permission !== 'denied') {
-      const permission = await Notification.requestPermission();
-      if (permission === 'granted') {
-        new Notification(title, { body, icon: '/icon-192.png', tag: 'sportbuddy-training' });
-      }
-    }
+
   } catch {
     // Notification API is unavailable; the in-app notification remains.
   }

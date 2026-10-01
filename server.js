@@ -13,6 +13,9 @@ try {
     throw new Error('PORT must be an integer between 1 and 65535');
   }
   const app = await createApiApp({ apiDir: join(root, 'api') });
+  const {startNotificationWorker}=await import('./server/notification-worker.js');
+  const stopNotifications=startNotificationWorker();
+  const {stopNotificationStreams}=await import('./api/notifications.js');
   const server = app.listen(port, '127.0.0.1', () => {
     console.log(`SportBuddy API listening on 127.0.0.1:${port}`);
   });
@@ -24,6 +27,8 @@ try {
   const shutdown = () => {
     if (stopping) return;
     stopping = true;
+    stopNotifications();
+    stopNotificationStreams();
     const deadline = setTimeout(() => process.exit(1), 10_000);
     deadline.unref();
     server.close(() => { clearTimeout(deadline); process.exit(0); });

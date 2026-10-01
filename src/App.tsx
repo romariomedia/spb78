@@ -1,3 +1,5 @@
+import { NotificationSettings } from './components/NotificationSettings';
+import { subscribeNotifications,restorePush,readNotifications } from './services/notifications';
 import { trainingGenderError, trainingGenderLabel } from './lib/trainingEligibility';
 import { BetaNotice } from './components/BetaNotice';
 import { CityPulse } from './components/CityPulse';
@@ -89,7 +91,7 @@ import { OfficialEvents } from './components/OfficialEvents';
 import { OfficialEvent } from './lib/types';
 import {
   isAdmin, toggleEventRegistration, isRegistered,
-  getCategoryConfig, eventFillPercent
+  getCategoryConfig, eventFillPercent, refreshEvents
 } from './services/events';
 import { clearAdminSession } from './services/adminAuth';
 import { checkMessageForUnsafeSuggestion, SAFETY_BANNER_TIMEOUT_MS } from './services/safety';
@@ -253,8 +255,18 @@ export default function App(): JSX.Element {
   const [safetyWarning, setSafetyWarning] = useState<string | null>(null);
 
   // Profile & Notifications
-  const [notifications, setNotifications] = useState<AppNotification[]>(() => import.meta.env.DEV ? generateDemoNotifications() : []);
+  const [localNotifications, setLocalNotifications] = useState<AppNotification[]>(() => import.meta.env.DEV ? generateDemoNotifications() : []);
   const [isNotifModalOpen, setIsNotifModalOpen] = useState(false);
+  const [serverNotifications,setServerNotifications]=useState<AppNotification[]>([]);
+  const [notificationsOffline,setNotificationsOffline]=useState(false);
+  const notifications=[...serverNotifications,...localNotifications.filter(n=>!serverNotifications.some(x=>x.id===n.id))];
+  useEffect(()=>{
+    setServerNotifications([]);setLocalNotifications([]);
+    if(!currentUser?.id)return;
+    void restorePush(currentUser.id).catch(()=>undefined);
+    return subscribeNotifications(currentUser.id,setServerNotifications,setNotificationsOffline);
+  },[currentUser?.id]);
+
   const [rewardModal, setRewardModal] = useState<{ title: string; subtitle: string; content: React.ReactNode } | null>(null);
   // Refresh date-based feature gates even when the app stays open across midnight.
   const [, refreshAccessClock] = useState(0);
@@ -525,7 +537,7 @@ export default function App(): JSX.Element {
     setTrainings([]);
     setFeedPosts([]);
     setChatThreads([]);
-    setNotifications(import.meta.env.DEV ? generateDemoNotifications() : []);
+    setLocalNotifications(import.meta.env.DEV ? generateDemoNotifications() : []);
     setActiveTab('discover');
     setProfileSection('overview');
     setOpenChatId(null);
@@ -677,25 +689,7 @@ export default function App(): JSX.Element {
         friendRequestsReceived: receivedIds
       } : previous);
 
-      const senders = new Map(allUsers.map((user) => [user.id, user]));
-      setNotifications((previous) => {
-        const other = previous.filter((notification) => !notification.id.startsWith('friend_request_'));
-        const incoming = requests.map((request) => {
-          const sender = senders.get(request.fromId);
-          return {
-            id: `friend_request_${request.id}`,
-            title: 'Новая заявка в друзья 👥',
-            message: sender
-              ? `${sender.name} хочет добавить вас в друзья.`
-              : 'Кто-то хочет добавить вас в друзья.',
-            type: 'friend_request' as const,
-            time: 'только что',
-            read: false,
-            link: '#profile-friends'
-          };
-        });
-        return [...incoming, ...other];
-      });
+
     });
   }, [currentUser?.id, allUsers]);
 
@@ -747,6 +741,42 @@ export default function App(): JSX.Element {
       return user ? [{ user, thread }] : [];
     });
   }, [currentUser, allUsers, chatThreads]);
+
+  const [friendsNotificationVersion,setFriendsNotificationVersion]=useState(0);
+  const [pendingNotificationLink,setPendingNotificationLink]=useState(()=>window.location.hash);
+  useEffect(()=>{
+    const hash=()=>setPendingNotificationLink(window.location.hash);
+    const message=(e:MessageEvent)=>{if(e.data?.type==='sportbuddy-open-notification'&&typeof e.data.link==='string')setPendingNotificationLink(e.data.link);};
+    window.addEventListener('hashchange',hash);navigator.serviceWorker?.addEventListener('message',message);
+    return()=>{window.removeEventListener('hashchange',hash);navigator.serviceWorker?.removeEventListener('message',message);};
+  },[]);
+  useEffect(()=>{
+    if(!currentUser||!pendingNotificationLink)return;
+    const link=pendingNotificationLink;
+    if(link.startsWith('#chat=')){
+      let id;try{id=decodeURIComponent(link.slice(6));}catch{return;}
+      setActiveTab('chats');
+      const category=(currentUser.friendIds||[]).some(friend=>buildChatId(currentUser.id,friend)===id)?'friends':'matches';
+      if(chatCategory!==category){setChatCategory(category);return;}
+      if(!chatThreads.some(t=>t.id===id))return;
+      setOpenChatId(id);
+    }else if(link.startsWith('#training=')){
+      let id;try{id=decodeURIComponent(link.slice(10));}catch{return;}
+      setActiveTab('trainings');const training=trainings.find(t=>t.id===id);if(!training)return;setSelectedTraining(training);
+    }else if(link==='#profile-friends'){try{localStorage.setItem('sportbuddy_profile_friends_open_v1','1');}catch{/* UI preference only */}setFriendsNotificationVersion(v=>v+1);setActiveTab('profile');setTimeout(()=>document.getElementById('profile-friends')?.scrollIntoView({behavior:'smooth'}),100);}
+    else if(link.startsWith('#event=')){
+      let id;try{id=decodeURIComponent(link.slice(7));}catch{return;}
+      setActiveTab('trainings');
+      void refreshEvents().then(events=>{const event=events.find(e=>e.id===id&&e.status==='published');if(event)setSelectedEvent(event);else notify('Событие больше недоступно','err');}).catch(()=>notify('Не удалось открыть событие','err'));
+    }
+    else if(link==='#events')setActiveTab('trainings');
+    else if(link==='#notifications')setIsNotifModalOpen(true);
+    setPendingNotificationLink('');
+  },[currentUser?.id,pendingNotificationLink,chatThreads,trainings,chatCategory]);
+  useEffect(()=>{
+    if(openChatId)history.replaceState(null,'','#chat='+encodeURIComponent(openChatId));
+    else if(window.location.hash.startsWith('#chat='))history.replaceState(null,'',window.location.pathname+window.location.search);
+  },[openChatId]);
 
   const openChatThread = chatThreads.find(t => t.id === openChatId) || null;
   const openChatCompanion = openChatThread
@@ -892,7 +922,7 @@ export default function App(): JSX.Element {
       due.forEach((t) => {
         markReminderSent(t.id);
         const c = getCountdown(t);
-        setNotifications(prev => [{
+        setLocalNotifications(prev => [{
           id: `notif_remind_${t.id}`,
           title: `⏰ Тренировка через ${formatCountdown(c)}`,
           message: `«${t.title}» • ${t.time} • ${t.locationName}. Не забудьте отметиться о прибытии!`,
@@ -1165,7 +1195,7 @@ export default function App(): JSX.Element {
     const myCheckIn = currentUser ? getMyCheckIn(updatedTraining.id, currentUser.id) : undefined;
     if (myCheckIn && updatedTraining.createdBy !== CURRENT_USER_ID) {
       // Notify the organizer (delivered locally + via FCM in the native build)
-      setNotifications(prev => [buildArrivalNotification(myCheckIn, updatedTraining), ...prev]);
+      setLocalNotifications(prev => [buildArrivalNotification(myCheckIn, updatedTraining), ...prev]);
     }
 
   };
@@ -1198,7 +1228,7 @@ export default function App(): JSX.Element {
       if (credit.ok) {
         setCurrentUser(credit.user);
         setAllUsers(prev => prev.map(u => (u.id === credit.user.id ? credit.user : u)));
-        setNotifications(prev => [{
+        setLocalNotifications(prev => [{
           id: `notif_organizer_credit_${updated.id}`,
           title: '🏋️ Проведённая тренировка засчитана',
           message: `«${updated.title}» подтверждена. Всего тренировок: ${credit.total}.`,
@@ -1242,21 +1272,21 @@ export default function App(): JSX.Element {
     if (credit.ok) {
       setCurrentUser(credit.user);
       setAllUsers(prev => prev.map(u => (u.id === credit.user.id ? credit.user : u)));
-      setNotifications(prev => [{
+      setLocalNotifications(prev => [{
         id: `notif_participant_credit_${updatedTraining.id}`,
         title: '🏋️ Тренировка подтверждена',
         message: `«${updatedTraining.title}» засчитана в прогресс. Всего тренировок: ${credit.total}.`,
         type: 'reward', time: 'только что', read: false
       }, ...prev]);
     } else if (credit.reason === 'already-credited') {
-      setNotifications(prev => [{
+      setLocalNotifications(prev => [{
         id: `notif_daily_limit_${updatedTraining.id}`,
         title: 'Участие подтверждено ✅',
         message: `Сегодня уже есть зачёт тренировки. Оценка сохранена, следующий зачёт доступен через ${formatCooldown(credit.cooldownMs ?? msUntilNextCredit())}.`,
         type: 'system', time: 'только что', read: false
       }, ...prev]);
     } else {
-      setNotifications(prev => [{
+      setLocalNotifications(prev => [{
         id: `notif_credit_blocked_${updatedTraining.id}`,
         title: 'Оценка сохранена ✅',
         message: 'Тренировка не добавлена в прогресс: зачёт возможен только в календарный день тренировки после подтверждённого участия.',
@@ -2698,7 +2728,7 @@ export default function App(): JSX.Element {
                 <RatingSection user={currentUser} compact />
 
                 {/* Friends list (Premium) */}
-                <FriendsSection
+                <div id="profile-friends" /><FriendsSection key={friendsNotificationVersion}
                   user={currentUser}
                   allUsers={allUsers}
                   isPremium={isPremium}
@@ -3635,16 +3665,21 @@ export default function App(): JSX.Element {
         isOpen={isNotifModalOpen}
         onClose={() => setIsNotifModalOpen(false)}
         title="Уведомления и мэтчи 🔔"
-        subtitle="Firebase Cloud Messaging демо-центр"
+        subtitle="Ваши сообщения, друзья и спорт рядом"
       >
         <div className="space-y-3">
+          {currentUser && <NotificationSettings key={currentUser.id}/>}
+          {notificationsOffline && <p role="status" className="text-xs text-amber-300">Связь с уведомлениями потеряна. Пробуем восстановить…</p>}
+          {!notifications.length && <p className="text-xs text-slate-400 py-3">Пока тихо. Новые сообщения, заявки и приглашения появятся здесь.</p>}
+
           <div className="flex justify-between items-center text-xs">
-            <span className="text-slate-400">Входящие уведомления ({notifications.length}):</span>
+            <span className="text-slate-400">Входящие ({notifications.length}):</span>
             {unreadNotifCount > 0 && (
               <button
                 onClick={() => {
                   triggerHapticImpact('light');
-                  setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+                  setLocalNotifications(prev => prev.map(n => ({ ...n, read: true })));
+                  void readNotifications(serverNotifications.filter(n=>!n.read).map(n=>n.id)).catch(()=>notify('Не удалось отметить уведомления','err'));
                 }}
                 className="text-emerald-400 font-bold hover:underline"
               >
@@ -3659,15 +3694,10 @@ export default function App(): JSX.Element {
                 key={n.id}
                 onClick={() => {
                   triggerHapticImpact('light');
-                  setNotifications(prev => prev.map(i => i.id === n.id ? { ...i, read: true } : i));
-                  if (n.link?.startsWith('#training=')) {
-                    const id = n.link.replace('#training=', '');
-                    const found = trainings.find(t => t.id === id);
-                    if (found) {
-                      setIsNotifModalOpen(false);
-                      setSelectedTraining(found);
-                    }
-                  }
+                  setLocalNotifications(prev => prev.map(i => i.id === n.id ? { ...i, read: true } : i));
+                  void readNotifications([n.id]).catch(()=>notify('Не удалось отметить уведомление','err'));
+                  if(n.link){setIsNotifModalOpen(false);setPendingNotificationLink(n.link);}
+
                 }}
                 className={`p-3.5 rounded-2xl border transition cursor-pointer flex items-start gap-3 ${
                   n.read ? 'bg-slate-950 border-slate-800/80 text-slate-300' : 'bg-slate-900 border-emerald-500/50 text-white shadow'
@@ -3680,7 +3710,7 @@ export default function App(): JSX.Element {
                     <span className="text-[10px] text-slate-500 shrink-0">{n.time}</span>
                   </div>
                   <p className="text-xs text-slate-400 leading-snug">{n.message}</p>
-                  {n.link && <span className="text-[10px] text-emerald-400 font-semibold underline block mt-1">Перейти к тренировке &rarr;</span>}
+                  {n.link && <span className="text-[10px] text-emerald-400 font-semibold underline block mt-1">Открыть &rarr;</span>}
                 </div>
               </div>
             ))}
@@ -3688,7 +3718,7 @@ export default function App(): JSX.Element {
 
           <div className="pt-2 border-t border-slate-800/80 text-center">
             <p className="text-[10px] text-slate-500">
-              Push-уведомления через Capacitor FCM активированы для новых мэтчей и напоминаний.
+              Серверная история: до 100 уведомлений за 30 дней. Push зависят от разрешений и доступности сети.
             </p>
           </div>
         </div>

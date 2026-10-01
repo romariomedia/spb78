@@ -250,3 +250,16 @@ test('daily cycle keeps awarding stored codes during beta; BOX reopens for eligi
   f.records.set('users/a',{...f.records.get('users/a'),premiumUntil:'2027-02-01'});
   assert.equal((await f.request('a',{action:'openBox',tierIndex:0})).statusCode,200);
 });
+
+test('chat and friend transactions enqueue notifications for the recipient, not the sender',async()=>{
+  const f=fixture({'users/a':premium(),'users/b':premium()});
+  await f.request('a',{action:'friend',operation:'send',targetUserId:'b'});
+  await f.request('a',{action:'friend',operation:'send',targetUserId:'b'});
+  let jobs=[...f.records].filter(([k])=>k.startsWith('notificationOutbox/')).map(([,v])=>v);
+  assert.equal(jobs.length,1);assert.deepEqual(jobs[0].recipients,['b']);
+  await f.request('b',{action:'friend',operation:'accept',targetUserId:'a'});
+  await f.request('a',{action:'chat',chatId:'chat_a__b',companionId:'b',text:'Private text'});
+  jobs=[...f.records].filter(([k])=>k.startsWith('notificationOutbox/')).map(([,v])=>v);
+  assert.equal(jobs.length,3);assert.equal(jobs.find(j=>j.kind==='message').message.includes('Private text'),false);
+  assert.deepEqual(jobs.find(j=>j.kind==='friend_accepted').recipients,['a']);
+});

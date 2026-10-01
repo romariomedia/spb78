@@ -1,3 +1,4 @@
+import { enqueueNotification } from '../server/notification-policy.js';
 import { isBetaActive, hasPremiumAccess } from '../shared/access-policy.js';
 import { photoVerificationPatch } from '../server/profile-verification.js';
 import { cert, getApps, initializeApp } from 'firebase-admin/app';
@@ -97,9 +98,11 @@ async function friendMutation(db, uid, body) {
         const nf=[...new Set([...friends,target])], nt=[...new Set([...targetFriends,uid])];
         tx.update(meRef,{friendIds:nf,friendRequestsReceived:received.filter(x=>x!==target),friendRequestsSent:sent.filter(x=>x!==target)});
         tx.update(targetRef,{friendIds:nt,friendRequestsReceived:cleanArray(tar.friendRequestsReceived).filter(x=>x!==uid),friendRequestsSent:cleanArray(tar.friendRequestsSent).filter(x=>x!==uid)});
-        tx.update(reverseRef,{status:'accepted',updatedAt:now}); tx.create(friendshipRef,{participantIds:[uid,target],createdAt:now});
+        enqueueNotification(tx,db,{id:`friend-accepted:${reverseRef.id}:${revS.data().createdAt}`,actorId:uid,recipients:[target],category:'friends',kind:'friend_accepted',title:'Заявка принята',message:'У вас новый друг в SportBuddy.',link:'#profile-friends'});
+      tx.update(reverseRef,{status:'accepted',updatedAt:now}); tx.create(friendshipRef,{participantIds:[uid,target],createdAt:now});
         return {friendIds:nf,friendRequestsSent:sent.filter(x=>x!==target),friendRequestsReceived:received.filter(x=>x!==target)};
       }
+      enqueueNotification(tx,db,{id:`friend-request:${reqRef.id}:${now}`,actorId:uid,recipients:[target],category:'friends',kind:'friend_request',title:'Новая заявка в друзья',message:'Вас хотят добавить в друзья. Откройте SportBuddy, чтобы ответить.',link:'#profile-friends'});
       tx.set(reqRef,{id:reqRef.id,fromId:uid,toId:target,status:'pending',createdAt:now});
       const ns=[...new Set([...sent,target])]; tx.update(meRef,{friendRequestsSent:ns});
       const nr=[...new Set([...cleanArray(tar.friendRequestsReceived),uid])]; tx.update(targetRef,{friendRequestsReceived:nr});
@@ -108,6 +111,7 @@ async function friendMutation(db, uid, body) {
     if(op==='accept'){
       if(!revS.exists||revS.data().status!=='pending') throw Object.assign(new Error('Заявка не найдена'),{status:404});
       const nf=[...new Set([...friends,target])], nt=[...new Set([...targetFriends,uid])];
+      enqueueNotification(tx,db,{id:`friend-accepted:${reverseRef.id}:${revS.data().createdAt}`,actorId:uid,recipients:[target],category:'friends',kind:'friend_accepted',title:'Заявка принята',message:'У вас новый друг в SportBuddy.',link:'#profile-friends'});
       tx.update(reverseRef,{status:'accepted',updatedAt:now}); if(reqS.exists) tx.update(reqRef,{status:'accepted',updatedAt:now});
       tx.set(friendshipRef,{participantIds:[uid,target],createdAt:frS.exists?frS.data().createdAt:now},{merge:true});
       tx.update(meRef,{friendIds:nf,friendRequestsReceived:received.filter(x=>x!==target)}); tx.update(targetRef,{friendIds:nt,friendRequestsSent:cleanArray(tar.friendRequestsSent).filter(x=>x!==uid)});
@@ -195,6 +199,7 @@ async function chatMutation(db, uid, body) {
     const ts=Math.max(Date.now(),Number(current.lastMessageAt||0)+1);
     const message={id:`msg_${randomUUID()}`,chatId,senderId:uid,text,timestamp:ts,createdAt:new Date(ts).toISOString(),read:false};
     const thread={...current,messages:[...(Array.isArray(current.messages)?current.messages:[]),message],lastMessageAt:ts};
+    enqueueNotification(tx,db,{id:message.id,actorId:uid,recipients:[companionId],category:'messages',kind:'message',title:'Новое сообщение',message:'Вам написали в SportBuddy.',link:'#chat='+encodeURIComponent(chatId)});
     tx.set(chatRef,thread,{merge:true});return {message,thread};
   });
 }
@@ -258,7 +263,10 @@ async function trainingMutation(db, uid, body) {
       lat, lng, level:['amateur','semi-pro','pro'].includes(data.level)?data.level:'amateur', participantsMax:max,
       description:String(data.description || '').slice(0,2000), createdBy:uid, participantIds:[uid],
       isCompleted:false, checkedInUserIds:[], ratedParticipantIds:[], organizerRatedByParticipantIds:[], createdAt:new Date().toISOString() };
-    await db.collection('trainings').doc(id).create(training);
+    await db.runTransaction(async tx=>{
+      tx.create(db.collection('trainings').doc(id),training);
+      enqueueNotification(tx,db,{id:`training-new:${id}`,actorId:uid,broadcast:true,category:'trainings',kind:'training_new',entityId:id,title:'Новая тренировка рядом',message:training.title,link:'#training='+encodeURIComponent(id)});
+    });
     return { training };
   }
   if (body.operation !== 'toggleJoinTraining') throw Object.assign(new Error('Неизвестная операция тренировки'),{status:400});
@@ -281,7 +289,9 @@ async function trainingMutation(db, uid, body) {
       if (user.gender !== t.participantGender) throw Object.assign(new Error(t.participantGender === 'female' ? 'На эту тренировку могут записаться только женщины' : 'На эту тренировку могут записаться только мужчины'), { status: 403 });
     }
     if (participants.length >= Number(t.participantsMax)) throw Object.assign(new Error('Все места уже заняты'), { status: 409 });
-    const next = [...participants, uid]; tx.update(ref, { participantIds: next }); return { joined: true, participantIds: next };
+    const next = [...participants, uid];
+    enqueueNotification(tx,db,{id:`training-join:${trainingId}:${uid}:${randomUUID()}`,actorId:uid,recipients:[t.createdBy],category:'trainings',kind:'training_join',title:'Новый участник тренировки',message:String(t.title||'К вашей тренировке присоединились.'),link:'#training='+encodeURIComponent(trainingId)});
+    tx.update(ref, { participantIds: next }); return { joined: true, participantIds: next };
   });
 }
 

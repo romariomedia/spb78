@@ -445,7 +445,7 @@ export interface AppNotification {
   id: string;
   title: string;
   message: string;
-  type: 'match' | 'message' | 'training_reminder' | 'system' | 'reward' | 'checkin' | 'friend_request';
+  type: 'push_test' | 'friend_accepted' | 'training_new' | 'training_join' | 'event_new' | 'event_update' | 'match' | 'message' | 'training_reminder' | 'system' | 'reward' | 'checkin' | 'friend_request';
   time: string;
   read: boolean;
   link?: string;

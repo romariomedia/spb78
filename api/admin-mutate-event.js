@@ -1,3 +1,5 @@
+import { enqueueNotification } from '../server/notification-policy.js';
+import { randomUUID } from 'node:crypto';
 // api/admin-mutate-event.js
 // Vercel Serverless Function: admin event create/update/delete with Admin SDK,
 // gated by the OTP session issued by admin-verify-otp. Replaces the Cloud
@@ -25,17 +27,21 @@ export default async function handler(req, res) {
   if (!eventId) return res.status(400).json({ error: 'Event id required.' });
   const ref = db.doc(`events/${eventId}`);
 
-  if (operation === 'create') {
-    if (!event || typeof event !== 'object') return res.status(400).json({ error: 'Event payload required.' });
-    await ref.set({ ...event, id: eventId });
-  } else if (operation === 'update') {
-    if (!patch || typeof patch !== 'object') return res.status(400).json({ error: 'Patch required.' });
-    await ref.update(patch);
-  } else if (operation === 'delete') {
-    await ref.delete();
-  } else {
-    return res.status(400).json({ error: 'Unknown operation.' });
-  }
+  if (!['create','update','delete'].includes(operation)) return res.status(400).json({error:'Unknown operation.'});
+  if(operation==='create'&&(!event||typeof event!=='object'))return res.status(400).json({error:'Event payload required.'});
+  if(operation==='update'&&(!patch||typeof patch!=='object'))return res.status(400).json({error:'Patch required.'});
+  await db.runTransaction(async tx=>{
+    const before=await tx.get(ref),old=before.data()||{};
+    const next=operation==='create'?{...event,id:eventId}:operation==='update'?{...old,...patch}:null;
+    if(operation==='create')tx.create(ref,next);
+    else if(operation==='update')tx.update(ref,patch);
+    else tx.delete(ref);
+    const newlyPublished=next?.status==='published'&&old.status!=='published';
+    const participants=Array.isArray(old.participantIds)?old.participantIds:[];
+    if(newlyPublished || (old.status==='published'&&participants.length)) {
+      enqueueNotification(tx,db,{id:`event:${eventId}:${randomUUID()}`,actorId:'',broadcast:newlyPublished,recipients:participants,category:'events',kind:newlyPublished?'event_new':'event_update',entityId:eventId,title:newlyPublished?'Новое событие SportBuddy':next?.status==='published'?'Событие обновлено':'Событие снято с публикации',message:String(next?.title||old.title||'Откройте раздел событий.'),link:next?.status==='published'?'#event='+encodeURIComponent(eventId):'#events'});
+    }
+  });
 
   return res.status(200).json({ ok: true });
 }

@@ -1,3 +1,4 @@
+import { detachPushOnLogout } from './notifications';
 import { AuthAccount } from '../lib/types';
 import { triggerHapticNotification } from './native';
 import { authReady, getFirebaseUid, signInWithCustomTokenFirebase, signOutFirebase } from './firebaseAuth';
@@ -234,6 +235,7 @@ export function logout(): void {
     localStorage.removeItem(ACCOUNT_KEY);
     localStorage.removeItem(BIOMETRIC_KEY);
   } catch { /* ignore */ }
+  detachPushOnLogout();
   void signOutFirebase();
 }
 

@@ -12,7 +12,7 @@ self.addEventListener('install', () => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME && k !== MEDIA_CACHE).map((k) => caches.delete(k)))
+      Promise.all(keys.filter((k) => k !== CACHE_NAME && k !== MEDIA_CACHE && k !== 'sportbuddy-push-identity-v1').map((k) => caches.delete(k)))
     ).then(() => self.clients.claim())
   );
 });
@@ -63,4 +63,33 @@ self.addEventListener('fetch', (event) => {
       })
       .catch(() => caches.match(request).then((cached) => cached || Response.error()))
   );
+});
+
+
+// FCM data messages are rendered here so account ownership is checked first.
+self.addEventListener('push', event => {
+  event.waitUntil((async () => {
+    let payload;try {payload=event.data.json().data;}catch{return;}
+    if(!payload?.recipient || !payload.eventId)return;
+    const cache=await caches.open('sportbuddy-push-identity-v1');
+    const owner=await cache.match('/__push_identity');
+    if(!owner || await owner.text()!==payload.recipient)return;
+    const windows=await self.clients.matchAll({type:'window',includeUncontrolled:true});
+    const link=typeof payload.link==='string'&&payload.link.startsWith('#')?payload.link:'#notifications';
+    // An actively visible chat already displays the message.
+    if(windows.some(w=>w.visibilityState==='visible'&&new URL(w.url).hash===link&&link.startsWith('#chat=')))return;
+    await self.registration.showNotification(String(payload.title||'SportBuddy'),{body:String(payload.body||''),tag:String(payload.tag||payload.eventId),data:{link,recipient:payload.recipient},renotify:false});
+  })());
+});
+self.addEventListener('notificationclick',event=>{
+  event.notification.close();
+  event.waitUntil((async()=>{
+    const cache=await caches.open('sportbuddy-push-identity-v1'),owner=await cache.match('/__push_identity');
+    if(!owner||await owner.text()!==event.notification.data?.recipient)return;
+    const raw=event.notification.data?.link,link=typeof raw==='string'&&raw.startsWith('#')?raw:'#notifications';
+    const windows=await self.clients.matchAll({type:'window',includeUncontrolled:true});
+    const existing=windows.find(w=>new URL(w.url).origin===self.location.origin);
+    if(existing){existing.postMessage({type:'sportbuddy-open-notification',link});await existing.focus();}
+    else await self.clients.openWindow('/'+link);
+  })());
 });

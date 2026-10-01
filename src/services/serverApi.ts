@@ -8,7 +8,7 @@ declare global {
   interface Window { Capacitor?: { isNativePlatform?: () => boolean } }
 }
 
-function apiBase(): string {
+export function apiBase(): string {
   if (configuredApi) return configuredApi.replace(/\/$/, '');
   if (typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.()) return PRODUCTION_API;
   return '';
