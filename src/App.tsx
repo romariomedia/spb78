@@ -187,6 +187,7 @@ export default function App(): JSX.Element {
   const [trainings, setTrainings] = useState<Training[]>([]);
   const [feedPosts, setFeedPosts] = useState<FeedPost[]>([]);
   const [userCoords, setUserCoords] = useState<Coords>(DEFAULT_COORDS);
+  const [hasCurrentLocation, setHasCurrentLocation] = useState(false);
   const [userLocationLabel, setUserLocationLabel] = useState<string>('Определение локации...');
 
   // Discovery Filter & View State
@@ -234,6 +235,7 @@ export default function App(): JSX.Element {
   const [newTrGender, setNewTrGender] = useState<'any' | 'male' | 'female'>('any');
   const [newTrDesc, setNewTrDesc] = useState('');
   const [newTrCoords, setNewTrCoords] = useState<Coords>(DEFAULT_COORDS);
+  const [newTrLocationSelected, setNewTrLocationSelected] = useState(false);
   const [newTrAddress, setNewTrAddress] = useState('Локация на карте');
   const [newTrCity, setNewTrCity] = useState('Санкт-Петербург');
   const [isMapSelectorOpen, setIsMapSelectorOpen] = useState(false);
@@ -582,16 +584,18 @@ export default function App(): JSX.Element {
     // Setup Geolocation
     getCurrentCoords().then(async (coords) => {
       setUserCoords(coords);
-      setNewTrCoords(coords);
+      setHasCurrentLocation(true);
       // Register this device on the radar and scatter the community around it
       setAllUsers(prev => (prev.length > 0 ? seedPresence(prev, coords) : prev));
       try {
         const addr = await getAddressFromCoords(coords.lat, coords.lng);
         setUserLocationLabel(addr.shortAddress || 'Санкт-Петербург');
-        setNewTrAddress(addr.shortAddress);
       } catch {
-        setUserLocationLabel('Крестовский остров, СПб');
+        setUserLocationLabel('Местоположение определено');
       }
+    }).catch(() => {
+      setHasCurrentLocation(false);
+      setUserLocationLabel('Геолокация не определена');
     });
 
     // Deep Link Listener: trainings + VK ID OAuth callback.
@@ -989,6 +993,7 @@ export default function App(): JSX.Element {
   const handleSubmitTraining = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTrTitle.trim() || !currentUser) return;
+    if (!newTrLocationSelected) { notify('Выберите место встречи на карте', 'err'); return; }
 
     // UI guard — Free athletes can still browse and join, but not organize.
     if (!isPremium) {
@@ -1145,6 +1150,8 @@ export default function App(): JSX.Element {
     try {
       const coords = await getCurrentCoords();
       setUserCoords(coords);
+      setHasCurrentLocation(true);
+      setUserLocationLabel('Местоположение определено');
 
       const updatedMe = await registerMyPresence(currentUser, coords);
       const verified = await syncVerification(updatedMe);
@@ -1161,6 +1168,8 @@ export default function App(): JSX.Element {
       } catch {
         /* keep previous label */
       }
+    } catch (error) {
+      notify(error instanceof Error ? error.message : 'Не удалось обновить геолокацию', 'err');
     } finally {
       setIsLocating(false);
     }
@@ -1718,7 +1727,7 @@ export default function App(): JSX.Element {
                   <NearbyRadar
                     currentUser={currentUser}
                     allUsers={allUsers}
-                    myCoords={userCoords}
+                    myCoords={hasCurrentLocation ? userCoords : null}
                     locationLabel={userLocationLabel}
                     onSelectUser={(u) => setSelectedUserModal(u)}
                     onRefreshLocation={handleRefreshLocation}
@@ -1729,16 +1738,17 @@ export default function App(): JSX.Element {
                 discoverViewMode === 'map' ? (
                   <div className="space-y-3">
                     <div className="bg-slate-900/60 p-3 rounded-2xl border border-slate-800 flex items-center justify-between text-xs">
-                      <span className="text-slate-300">На карте: <b>{allUsers.length - 1}</b> спортсменов вокруг вас</span>
+                      <span className="text-slate-300">Спортсмены, поделившиеся местоположением</span>
                       <span className="text-emerald-400 font-semibold flex items-center gap-1">
-                        <CheckCircle2 className="w-3.5 h-3.5" /> GPS активен
+                        <CheckCircle2 className="w-3.5 h-3.5" /> {hasCurrentLocation ? 'Местоположение определено' : 'Обзор Санкт-Петербурга'}
                       </span>
                     </div>
                     <Suspense fallback={<MapFallback height="460px" />}>
                       <LeafletMap
                         center={userCoords}
+                        showCurrentLocation={hasCurrentLocation}
                         zoom={12}
-                        users={allUsers.filter(u => u.id !== CURRENT_USER_ID)}
+                        users={allUsers.filter(u => u.id !== CURRENT_USER_ID && u.hasUsedGeolocation)}
                         onSelectUser={(u) => setSelectedUserModal(u)}
                         height="460px"
                       />
@@ -1805,7 +1815,7 @@ export default function App(): JSX.Element {
                                 </h3>
                                 <p className="text-xs text-slate-300 flex items-center gap-1 mt-0.5">
                                   <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0" /> 
-                                  {currentCandidate.locationName} • <span className="text-amber-400 font-bold">~{calculateDistanceKm(userCoords.lat, userCoords.lng, currentCandidate.lat, currentCandidate.lng)} км</span>
+                                  {currentCandidate.locationName}{hasCurrentLocation && currentCandidate.hasUsedGeolocation && <span className="text-amber-400 font-bold"> • ~{calculateDistanceKm(userCoords.lat, userCoords.lng, currentCandidate.lat, currentCandidate.lng).toFixed(1)} км</span>}
                                 </p>
                               </div>
 
@@ -2040,7 +2050,7 @@ export default function App(): JSX.Element {
                         creator={creatorsById.get(tr.createdBy)}
                         currentUserId={CURRENT_USER_ID}
                         currentUser={currentUser}
-                        userCoords={userCoords}
+                        userCoords={hasCurrentLocation ? userCoords : null}
                         onSelect={setSelectedTraining}
                         onJoin={handleJoinTraining}
                       />
@@ -3300,6 +3310,7 @@ export default function App(): JSX.Element {
           <button
             onClick={() => {
               triggerHapticImpact('medium');
+              if (!newTrLocationSelected) { notify('Сначала нажмите на место встречи на карте', 'err'); return; }
               setIsMapSelectorOpen(false);
             }}
             className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold px-6 py-2.5 rounded-xl transition shadow-[0_0_20px_rgba(16,185,129,0.5)] w-full"
@@ -3315,9 +3326,10 @@ export default function App(): JSX.Element {
               center={newTrCoords}
               zoom={13}
               interactiveSelect={true}
-              selectedCoords={newTrCoords}
+              selectedCoords={newTrLocationSelected ? newTrCoords : null}
               onSelectPoint={(coords, addr) => {
                 setNewTrCoords(coords);
+                setNewTrLocationSelected(true);
                 setNewTrAddress(addr.shortAddress);
                 setNewTrCity(addr.city);
               }}

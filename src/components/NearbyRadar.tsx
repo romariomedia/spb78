@@ -14,7 +14,7 @@ type PresenceFilter = 'all' | 'online' | 'recent';
 interface NearbyRadarProps {
   currentUser: UserProfile;
   allUsers: UserProfile[];
-  myCoords: Coords;
+  myCoords: Coords | null;
   locationLabel: string;
   onSelectUser: (user: UserProfile) => void;
   onRefreshLocation: () => void;
@@ -31,7 +31,7 @@ export const NearbyRadar: React.FC<NearbyRadarProps> = ({
 
   const verification = getVerificationState(currentUser);
   const nearby = useMemo(
-    () => findNearbyAthletes(allUsers, myCoords, currentUser.id, radius),
+    () => myCoords ? findNearbyAthletes(allUsers, myCoords, currentUser.id, radius) : [],
     [allUsers, myCoords, currentUser.id, radius]
   );
   const counts = countByPresence(nearby);
@@ -64,6 +64,16 @@ export const NearbyRadar: React.FC<NearbyRadarProps> = ({
       </div>
     );
   }
+
+  if (!myCoords) return (
+    <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 space-y-3 text-center">
+      <h3 className="font-bold">Разрешите геолокацию для поиска рядом</h3>
+      <p className="text-sm text-slate-400">Расстояния появятся после определения вашего местоположения.</p>
+      <button disabled={isLocating} onClick={onRefreshLocation} className="bg-lime-300 text-slate-950 rounded-xl px-4 py-3 font-bold">
+        {isLocating ? 'Определяем…' : 'Определить местоположение'}
+      </button>
+    </div>
+  );
 
   const presenceDot: Record<PresenceStatus, string> = {
     online: 'bg-emerald-400',
@@ -202,7 +212,7 @@ export const NearbyRadar: React.FC<NearbyRadarProps> = ({
 
               <div className="text-right shrink-0">
                 <span className="block text-sm font-black text-emerald-400 leading-none">
-                  {distanceKm < 1 ? `${Math.round(distanceKm * 1000)} м` : `${distanceKm} км`}
+                  {distanceKm < 1 ? `${Math.round(distanceKm * 1000)} м` : `${distanceKm.toFixed(1)} км`}
                 </span>
                 <span className="text-[9px] text-slate-500">от вас</span>
               </div>

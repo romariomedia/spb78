@@ -75,7 +75,7 @@ export async function checkInToTraining(training: Training, user: UserProfile, n
   if (getTrainingDayKey(training) !== getDayKey()) return { ok:false, error:'Отметиться можно только в календарный день тренировки' };
   if (!training.participantIds.includes(user.id) && training.createdBy !== user.id) return { ok:false, error:'Отметка доступна только записанным участникам и организатору' };
   if (hasCheckedIn(training.id,user.id)) return { ok:false, error:'Вы уже отметились на этой тренировке' };
-  let coords; try { coords = await getCurrentCoords(); } catch { return { ok:false, error:'Не удалось определить геолокацию. Включите GPS в настройках.' }; }
+  let coords; try { coords = await getCurrentCoords({ fresh: true }); } catch (error) { return { ok:false, error: error instanceof Error ? error.message : 'Не удалось определить геолокацию.' }; }
   try {
     const result = await callServer<{ checkIn:TrainingCheckIn; training:Training; distanceMeters:number }>('/api/sportbuddy-mutation', { action:'checkin', trainingId:training.id, lat:coords.lat, lng:coords.lng, note });
     writeAll([result.checkIn, ...readAll().filter(c => c.id !== result.checkIn.id)]); triggerHapticNotification('success'); return { ok:true, checkIn:result.checkIn, training:result.training, distanceMeters:result.distanceMeters };

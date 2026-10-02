@@ -2,7 +2,7 @@ import {
   UserProfile, NearbyAthlete, PresenceStatus,
   NEARBY_RADIUS_KM, ONLINE_WINDOW_MS, RECENT_WINDOW_MS
 } from '../lib/types';
-import { calculateDistanceKm, Coords } from './geolocation';
+import { calculateDistanceKm, validCoords, Coords } from './geolocation';
 import { updateProfile } from './repository';
 
 const DEVICE_KEY = 'sportbuddy_device_id_v1';
@@ -102,11 +102,10 @@ export async function registerMyPresence(
   user: UserProfile,
   coords: Coords
 ): Promise<UserProfile> {
+  if (!validCoords(coords)) throw new Error('Некорректные координаты');
   const now = Date.now();
   const stored = readPresence();
   stored[user.id] = { lastSeenAt: now, lastGeoAt: now, lat: coords.lat, lng: coords.lng };
-  writePresence(stored);
-
   const patch = {
     hasUsedGeolocation: true,
     lastSeenAt: now,
@@ -116,8 +115,10 @@ export async function registerMyPresence(
     lng: coords.lng
   };
 
-  await updateProfile(patch);
-  return { ...user, ...patch };
+  const saved = await updateProfile(patch);
+  if (!saved) throw new Error('Не удалось сохранить местоположение');
+  writePresence(stored);
+  return saved;
 }
 
 /* -------------------------------- presence ---------------------------------- */
@@ -155,7 +156,8 @@ export function findNearbyAthletes(
   radiusKm: number = NEARBY_RADIUS_KM
 ): NearbyAthlete[] {
   return users
-    .filter((u) => u.id !== currentUserId && u.hasUsedGeolocation)
+    .filter((u) => u.id !== currentUserId && u.hasUsedGeolocation && validCoords(u)
+      && !!u.lastGeoAt && Date.now() - u.lastGeoAt >= 0 && Date.now() - u.lastGeoAt <= RECENT_WINDOW_MS)
     .map((user) => ({
       user,
       distanceKm: calculateDistanceKm(myCoords.lat, myCoords.lng, user.lat, user.lng),

@@ -11,7 +11,7 @@ interface TrainingCardProps {
   creator?: UserProfile;
   currentUserId: string;
   currentUser?: UserProfile | null;
-  userCoords: Coords;
+  userCoords: Coords | null;
   onSelect: (training: Training) => void;
   onJoin: (training: Training) => void;
 }
@@ -22,7 +22,7 @@ const TrainingCardInner: React.FC<TrainingCardProps> = ({
   const isJoined = tr.participantIds.includes(currentUserId);
   const genderError = !isJoined ? trainingGenderError(tr, currentUser) : null;
   const isFull = tr.participantIds.length >= tr.participantsMax;
-  const distance = calculateDistanceKm(userCoords.lat, userCoords.lng, tr.lat, tr.lng);
+  const distance = userCoords ? calculateDistanceKm(userCoords.lat, userCoords.lng, tr.lat, tr.lng) : null;
   const fillPerc = (tr.participantIds.length / tr.participantsMax) * 100;
   const arrivedCount = getCheckInsFor(tr.id).length;
 
@@ -66,7 +66,7 @@ const TrainingCardInner: React.FC<TrainingCardProps> = ({
         </div>
         <div className="flex items-center gap-1.5 bg-slate-950 p-2 rounded-xl border border-slate-800/80">
           <MapPin className="w-4 h-4 text-emerald-400 shrink-0" />
-          <span className="truncate">{tr.locationName} (~{distance}км)</span>
+          <span className="truncate">{tr.locationName}{distance !== null && Number.isFinite(distance) ? ` (~${distance.toFixed(1)} км)` : ''}</span>
         </div>
         {arrivedCount > 0 && (
           <div className="col-span-2 flex items-center gap-1.5 bg-emerald-500/10 p-2 rounded-xl border border-emerald-500/40">

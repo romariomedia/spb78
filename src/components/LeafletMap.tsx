@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { MapPin, Navigation, ExternalLink, Activity, Users as UsersIcon } from 'lucide-react';
 import { getAddressFromCoords, GeocodeResult } from '../services/geocoding';
 import { triggerHapticImpact } from '../services/native';
+import { validCoords } from '../services/geolocation';
 import { UserProfile, Training } from '../lib/types';
 
 
@@ -24,6 +25,7 @@ function obfuscateCoords(lat: number, lng: number, seedStr: string): { lat: numb
 interface LeafletMapProps {
   center: { lat: number; lng: number };
   zoom?: number;
+  showCurrentLocation?: boolean;
   users?: UserProfile[];
   trainings?: Training[];
   selectedCoords?: { lat: number; lng: number } | null;
@@ -89,6 +91,7 @@ function MapCentering({ center }: { center: { lat: number; lng: number } }) {
 export const LeafletMap: React.FC<LeafletMapProps> = ({
   center,
   zoom = 13,
+  showCurrentLocation = false,
   users = [],
   trainings = [],
   selectedCoords,
@@ -102,14 +105,26 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
   const [clickedAddress, setClickedAddress] = useState<GeocodeResult | null>(null);
   const [tempCoords, setTempCoords] = useState<{ lat: number; lng: number } | null>(selectedCoords || null);
 
+  const selectionVersion = useRef(0);
+  useEffect(() => () => { selectionVersion.current++; }, []);
+  useEffect(() => { setTempCoords(selectedCoords || null); }, [selectedCoords?.lat, selectedCoords?.lng]);
+
   const handleMapClick = async (lat: number, lng: number) => {
+    if (!interactiveSelect && !onSelectPoint) return;
+    lng = ((lng + 180) % 360 + 360) % 360 - 180;
+    if (!validCoords({ lat, lng })) return;
+    const version = ++selectionVersion.current;
     triggerHapticImpact('light');
     setTempCoords({ lat, lng });
+    setClickedAddress(null);
+    // Commit the point immediately, even if the address provider is unavailable.
+    onSelectPoint?.({ lat, lng }, { shortAddress: `Точка (${lat.toFixed(4)}, ${lng.toFixed(4)})`, displayName: '', city: '' });
     
     if (interactiveSelect || onSelectPoint) {
       setLoadingAddress(true);
       try {
         const addr = await getAddressFromCoords(lat, lng);
+        if (version !== selectionVersion.current) return;
         setClickedAddress(addr);
         if (onSelectPoint) {
           onSelectPoint({ lat, lng }, addr);
@@ -117,7 +132,7 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
       } catch (err) {
         console.error(err);
       } finally {
-        setLoadingAddress(false);
+        if (version === selectionVersion.current) setLoadingAddress(false);
       }
     }
   };
@@ -130,11 +145,12 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
           zoom={zoom}
           scrollWheelZoom={false}
           style={{ height: '100%', width: '100%', zIndex: 0 }}
-          attributionControl={false}
+          attributionControl={true}
         >
           {/* OpenStreetMap dark/hot compatible standard tile layer */}
           <TileLayer
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             maxZoom={19}
             className="filter brightness-90 contrast-125 saturate-50"
           />
@@ -143,17 +159,17 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
           <MapClickHandler onMapClick={handleMapClick} />
 
           {/* Current user location marker */}
-          <Marker position={[center.lat, center.lng]} icon={myLocationIcon}>
+          {showCurrentLocation && !interactiveSelect && <Marker position={[center.lat, center.lng]} icon={myLocationIcon}>
             <Popup className="rounded-2xl bg-slate-900 text-slate-100 p-2">
               <div className="text-center font-bold text-emerald-400 flex items-center gap-1 justify-center">
                 <MapPin className="w-4 h-4" /> Ваша текущая позиция
               </div>
               <p className="text-xs text-slate-400 mt-1">Здесь ищутся ближайшие напарники и тренировки</p>
             </Popup>
-          </Marker>
+          </Marker>}
 
           {/* Users Discovery Markers */}
-          {users.map((user) => {
+          {users.filter(validCoords).map((user) => {
             const obfuscated = obfuscateCoords(user.lat, user.lng, user.id);
             return (
               <Marker
@@ -198,7 +214,7 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
           })}
 
           {/* Trainings Markers */}
-          {trainings.map((tr) => (
+          {trainings.filter(validCoords).map((tr) => (
             <Marker
               key={tr.id}
               position={[tr.lat, tr.lng]}

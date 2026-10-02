@@ -71,6 +71,17 @@ async function profileMutation(db, uid, updates) {
   const privateAllowed = new Set(['phone','hidePhone','birthDate','hideBirthDate','deviceId']);
   const pub={}, priv={};
   for (const [k,v] of Object.entries(updates||{})) { if(publicAllowed.has(k)) pub[k]=v; if(privateAllowed.has(k)) priv[k]=v; }
+  if ('lat' in pub || 'lng' in pub) {
+    if (typeof pub.lat !== 'number' || typeof pub.lng !== 'number' || !Number.isFinite(pub.lat) || !Number.isFinite(pub.lng) || Math.abs(pub.lat) > 90 || Math.abs(pub.lng) > 180) {
+      throw Object.assign(new Error('Некорректные координаты'), {status:400});
+    }
+    pub.lastGeoAt = Date.now();
+    pub.lastSeenAt = Date.now();
+    pub.hasUsedGeolocation = true;
+  } else {
+    delete pub.lastGeoAt;
+    delete pub.hasUsedGeolocation;
+  }
   if (pub.gender && !['male','female'].includes(pub.gender)) throw Object.assign(new Error('Некорректный пол'),{status:400});
   if (Object.keys(pub).length===0 && Object.keys(priv).length===0) return {profile:null};
   return db.runTransaction(async tx=>{
@@ -348,7 +359,7 @@ async function dailyMedal(db, uid) {
 }
 
 async function checkinMutation(db, uid, body) {
-  const trainingId=String(body.trainingId||''), lat=Number(body.lat), lng=Number(body.lng); if(!trainingId||!Number.isFinite(lat)||!Number.isFinite(lng)||Math.abs(lat)>90||Math.abs(lng)>180)throw Object.assign(new Error('Некорректные координаты'),{status:400});
+  const trainingId=String(body.trainingId||''), lat=body.lat, lng=body.lng; if(!trainingId||!Number.isFinite(lat)||!Number.isFinite(lng)||Math.abs(lat)>90||Math.abs(lng)>180)throw Object.assign(new Error('Некорректные координаты'),{status:400});
   const trainingRef=db.collection('trainings').doc(trainingId),checkRef=db.collection('checkins').doc(`chk_${trainingId}_${uid}`);
   return db.runTransaction(async tx=>{const tSnap=await tx.get(trainingRef),cSnap=await tx.get(checkRef);if(!tSnap.exists)throw Object.assign(new Error('Тренировка не найдена'),{status:404});if(cSnap.exists)throw Object.assign(new Error('Вы уже отметились на этой тренировке'),{status:409});const t=tSnap.data();if(t.isCompleted)throw Object.assign(new Error('Тренировка уже завершена — отметка недоступна'),{status:409});if(String(t.dateKey||'')!==dayKey())throw Object.assign(new Error('Отметиться можно только в календарный день тренировки'),{status:409});if(uid!==t.createdBy&&!cleanArray(t.participantIds).includes(uid))throw Object.assign(new Error('Отметка доступна только записанным участникам и организатору'),{status:403});
     if(!Number.isFinite(Number(t.lat))||!Number.isFinite(Number(t.lng))||Math.abs(Number(t.lat))>90||Math.abs(Number(t.lng))>180)throw Object.assign(new Error('У тренировки не заданы корректные координаты'),{status:409});

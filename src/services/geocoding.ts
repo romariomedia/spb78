@@ -13,13 +13,15 @@ export async function getAddressFromCoords(lat: number, lng: number): Promise<Ge
     if (cached) return cached;
   }
 
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 6000);
   try {
     const response = await fetch(
       `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=17&addressdetails=1`,
       {
+        signal: controller.signal,
         headers: {
-          'Accept-Language': 'ru-RU, ru;q=0.9, en;q=0.8',
-          'User-Agent': 'SportBuddy-MobileApp/8.0 (ru.sportbuddy.mobile; contact@sportbuddy.ru)'
+          'Accept-Language': 'ru-RU, ru;q=0.9, en;q=0.8'
         }
       }
     );
@@ -33,7 +35,7 @@ export async function getAddressFromCoords(lat: number, lng: number): Promise<Ge
     
     const road = address.road || address.pedestrian || address.path || address.suburb || address.neighbourhood || address.quarter || '';
     const houseNumber = address.house_number || '';
-    const city = address.city || address.town || address.village || address.state || 'Санкт-Петербург';
+    const city = address.city || address.town || address.village || address.state || '';
     const place = address.amenity || address.leisure || address.stadium || address.park || address.building || '';
 
     let shortAddress = [place, road, houseNumber].filter(Boolean).join(', ');
@@ -44,7 +46,7 @@ export async function getAddressFromCoords(lat: number, lng: number): Promise<Ge
     const result: GeocodeResult = {
       displayName: data.display_name || `${shortAddress}, ${city}`,
       shortAddress: shortAddress || 'Спортивная площадка СПб',
-      city: city || 'Санкт-Петербург'
+      city
     };
 
     geocodeCache.set(cacheKey, result);
@@ -54,8 +56,10 @@ export async function getAddressFromCoords(lat: number, lng: number): Promise<Ge
     const fallback: GeocodeResult = {
       displayName: `Спортивная локация (${lat.toFixed(4)}, ${lng.toFixed(4)})`,
       shortAddress: `Точка (${lat.toFixed(3)}, ${lng.toFixed(3)})`,
-      city: 'Санкт-Петербург'
+      city: ''
     };
     return fallback;
+  } finally {
+    clearTimeout(timer);
   }
 }

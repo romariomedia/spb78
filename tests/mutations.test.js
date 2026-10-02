@@ -263,3 +263,17 @@ test('chat and friend transactions enqueue notifications for the recipient, not 
   assert.equal(jobs.length,3);assert.equal(jobs.find(j=>j.kind==='message').message.includes('Private text'),false);
   assert.deepEqual(jobs.find(j=>j.kind==='friend_accepted').recipients,['a']);
 });
+
+test('profile rejects broken coordinates and timestamps geolocation on the server', async()=>{
+  const f=fixture({'users/a':premium()});
+  for (const updates of [{lat:null,lng:30},{lat:91,lng:30},{lat:59},{lat:'59',lng:30}]) {
+    assert.equal((await f.request('a',{action:'profile',updates})).statusCode,400);
+  }
+  assert.equal((await f.request('a',{action:'profile',updates:{lat:59.93,lng:30.31,lastGeoAt:1}})).statusCode,200);
+  assert.equal(f.records.get('users/a').lastGeoAt,Date.now());
+  assert.equal(f.records.get('users/a').hasUsedGeolocation,true);
+});
+test('check-in does not coerce missing location to zero', async()=>{
+  const f=fixture({'users/a':premium(),'trainings/t':{...training(),lat:0,lng:0,createdBy:'a',participantIds:['a']}});
+  assert.equal((await f.request('a',{action:'checkin',trainingId:'t',lat:null,lng:null})).statusCode,400);
+});
