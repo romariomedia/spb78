@@ -23,8 +23,11 @@
  * (Project settings → Service accounts → Generate new private key):
  *   node scripts/cleanup-demo-data.mjs --key C:\path\to\serviceAccount.json
  * Содержимое ключа скрипт читает сам, в чат или логи он его не печатает.
+ *
+ * Перед удалением полезно сохранить копию — тогда уборка обратима:
+ *   node scripts/cleanup-demo-data.mjs --apply --backup /root/demo-backup.json
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { cert, getApps, initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
@@ -51,6 +54,15 @@ const DEMO_DOC_IDS = {
 /** Путь к JSON-ключу из аргумента --key <путь> или --key=<путь>. */
 function readKeyArgument() {
   const index = process.argv.findIndex((arg) => arg === '--key' || arg.startsWith('--key='));
+  if (index < 0) return null;
+  const arg = process.argv[index];
+  const value = arg.includes('=') ? arg.slice(arg.indexOf('=') + 1) : process.argv[index + 1];
+  return value ? String(value) : null;
+}
+
+/** Путь к резервной копии из аргумента --backup <путь> или --backup=<путь>. */
+function readBackupArgument() {
+  const index = process.argv.findIndex((arg) => arg === '--backup' || arg.startsWith('--backup='));
   if (index < 0) return null;
   const arg = process.argv[index];
   const value = arg.includes('=') ? arg.slice(arg.indexOf('=') + 1) : process.argv[index + 1];
@@ -171,6 +183,23 @@ if (!APPLY) {
   process.exit(0);
 }
 
+// Копия удаляемого: уборка остаётся обратимой, если что-то понадобится вернуть.
+const backupPath = readBackupArgument();
+if (backupPath) {
+  const dump = {
+    exportedAt: new Date().toISOString(),
+    project: 'sportbuddy-spb',
+    documentCount: plan.length,
+    documents: []
+  };
+  for (const item of plan) {
+    const snapshot = await db.collection(item.collection).doc(item.id).get();
+    dump.documents.push({ collection: item.collection, id: item.id, reason: item.reason, data: snapshot.data() ?? null });
+  }
+  writeFileSync(backupPath, JSON.stringify(dump, null, 2), { mode: 0o600 });
+  console.log(`Резервная копия удаляемого: ${backupPath} (${dump.documents.length} документов)\n`);
+}
+
 let deleted = 0;
 for (const item of plan) {
   await db.collection(item.collection).doc(item.id).delete();
@@ -191,4 +220,4 @@ for (const collection of await db.listCollections()) {
 }
 console.log(leftovers.length === 0 ? 'Проверка: демо-данных в базе не осталось.' : `Остались: ${leftovers.join(', ')}`);
 console.log('\nНе забудьте очистить локальный кэш клиентов (иначе старые посты останутся в браузере):');
-console.log("  localStorage.removeItem('sportbuddy_offline_cache_v3')");
+console.log("  localStorage.removeItem('sportbuddy_offline_cache_v4')");
