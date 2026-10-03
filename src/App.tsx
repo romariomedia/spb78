@@ -21,7 +21,7 @@ import {
   buildChatId, formatTimeLabel, getReportableChatThreads, subscribeChatThreads
 } from './services/chats';
 import { 
-  loadAppData, createTraining, toggleJoinTraining, toggleLikeProfile, 
+  loadAppData, loadFeedPosts, createTraining, toggleJoinTraining, toggleLikeProfile, 
   createPost, createComment, toggleLikePost, PremiumTrainingRequiredError,
   updateProfile, syncOfflineQueue, persistFreshProfile, setCurrentUserId, CURRENT_USER_ID, getOfflineQueue 
 } from './services/repository';
@@ -469,11 +469,20 @@ export default function App(): JSX.Element {
    * Realtime Firestore invalidation: posts, profiles and trainings published
    * by other devices appear without a manual reload. Repository remains the
    * sole normalizer/cache layer, so this listener stays intentionally thin.
+   *
+   * Если изменилась только лента (чужие лайки, комментарии, публикации),
+   * перечитываем лишь её: полный fetchAllData() читал бы профиль, всех
+   * пользователей, тренировки и приватные поля при каждом лайке.
    */
   useEffect(() => {
     if (!account) return;
-    const unsubscribe = subscribeAppInvalidation(() => {
+    const unsubscribe = subscribeAppInvalidation((sections) => {
       if (document.visibilityState === 'hidden') return;
+      const feedOnly = sections.size === 1 && sections.has('feed');
+      if (feedOnly) {
+        void loadFeedPosts().then(setFeedPosts).catch(() => undefined);
+        return;
+      }
       void fetchAllData();
     });
     return unsubscribe;

@@ -654,6 +654,33 @@ export async function loadAppData(): Promise<AppData> {
   return result;
 }
 
+/**
+ * Перечитывает только ленту.
+ *
+ * Нужна, когда изменилась исключительно коллекция feed (чужие лайки, комментарии,
+ * новые публикации): полный loadAppData() в этом случае читал бы ещё профиль,
+ * всех пользователей, тренировки и приватные поля — лишние запросы и задержка.
+ */
+export async function loadFeedPosts(): Promise<FeedPost[]> {
+  const cached = getOfflineCache();
+  const section = await readSection(
+    getDocsFromServer(collection(db, 'feed')).then((snap) => snap.docs
+      .map((item) => ({ ...item.data(), id: item.id }) as FeedPost)
+      .sort((a, b) => timestampValue(b.createdAt) - timestampValue(a.createdAt))),
+    () => cached?.feedPosts ?? [],
+    FIRESTORE_TIMEOUT_MS * 2
+  );
+
+  if (!section.stale) {
+    const mirror = getOfflineCache();
+    if (mirror) {
+      mirror.feedPosts = section.value;
+      saveOfflineCache(mirror);
+    }
+  }
+  return section.value;
+}
+
 // 2. createTraining — Premium-only at repository level, not just UI level
 export async function createTraining(
   newTraining: Omit<Training, 'id' | 'createdBy' | 'createdAt' | 'participantIds'>, creator: UserProfile

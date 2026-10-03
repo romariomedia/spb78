@@ -1,0 +1,45 @@
+name: SportBuddy quality gate
+
+# Проверки запускаются на каждый push и pull request: ветки в проекте короткие,
+# и лучше узнать о поломке сразу, чем после выката.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+# Отменяем предыдущий прогон для той же ссылки — экономим минуты на быстрых правках.
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Выгрузка исходников
+        uses: actions/checkout@v4
+
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Установка зафиксированных зависимостей
+        run: npm ci
+
+      - name: Синтаксис серверного кода
+        run: |
+          find api server shared -name '*.js' -type f -print0 | xargs -0 -n1 node --check
+
+      - name: Тесты
+        run: npm test
+
+      - name: Типы и сборка фронтенда
+        run: npm run build
+
+      # Тот же уровень строгости, что и в ops/prepare-release.sh: уязвимости
+      # уровня high блокируют релиз, поэтому должны ловиться здесь.
+      - name: Аудит зависимостей
+        run: npm audit --audit-level=high
