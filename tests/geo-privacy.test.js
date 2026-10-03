@@ -46,3 +46,14 @@ test('некорректные координаты отвергаются', () 
     assert.equal(protectedCoords(lat, lng, 'uid'), null);
   }
 });
+
+test('повторная защита не сдвигает точку (идемпотентность миграции)', () => {
+  const once = protectedCoords(SPB.lat, SPB.lng, 'uid-1');
+  const twice = protectedCoords(once.lat, once.lng, 'uid-1');
+  assert.deepEqual(twice, once);
+});
+
+test('значение на сетке остаётся как есть', () => {
+  const grid = { lat: 59.937, lng: 30.315 };
+  assert.deepEqual(protectedCoords(grid.lat, grid.lng, 'uid-1'), grid);
+});

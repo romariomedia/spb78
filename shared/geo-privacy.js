@@ -41,10 +41,16 @@ function hashSeed(seed) {
 
 const round = (value) => Number(value.toFixed(COORD_DECIMALS));
 
+/** Значение уже лежит на защищённой сетке (не точнее заданного числа знаков). */
+const onGrid = (value) => Number.isFinite(value) && round(value) === value;
+
 /**
  * Координаты для записи в базу: округление до сетки ≈110 м плюс стабильное
  * смещение 100–250 м. Восстановить точное место по хранилищу нельзя, а
  * расстояния и радиус отметки (300 м) остаются рабочими.
+ *
+ * Функция идемпотентна: значение, уже приведённое к сетке, возвращается без
+ * изменений — иначе повторный запуск миграции уводил бы точку всё дальше.
  *
  * @param lat точная широта
  * @param lng точная долгота
@@ -53,6 +59,7 @@ const round = (value) => Number(value.toFixed(COORD_DECIMALS));
  */
 export function protectedCoords(lat, lng, seed = '') {
   if (!isValidCoords(lat, lng)) return null;
+  if (onGrid(lat) && onGrid(lng)) return { lat, lng };
 
   const hash = hashSeed(seed);
   const angle = (hash % 360) * (Math.PI / 180);

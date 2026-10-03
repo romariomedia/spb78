@@ -3,6 +3,7 @@ import test from 'node:test';
 test.beforeEach(t => t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-09-01T12:00:00Z')}));
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
+import { protectedCoords } from '../shared/geo-privacy.js';
 const bundled = await build({entryPoints:['api/sportbuddy-mutation.js'],bundle:true,format:'esm',platform:'node',write:false,
   plugins:[{name:'fake-admin',setup(b){
     b.onResolve({filter:/^firebase-admin\//},args=>({path:args.path,namespace:'fake'}));
@@ -269,15 +270,18 @@ test('profile rejects broken coordinates and timestamps geolocation on the serve
   for (const updates of [{lat:null,lng:30},{lat:91,lng:30},{lat:59},{lat:'59',lng:30}]) {
     assert.equal((await f.request('a',{action:'profile',updates})).statusCode,400);
   }
-  assert.equal((await f.request('a',{action:'profile',updates:{lat:59.93,lng:30.31,lastGeoAt:1}})).statusCode,200);
+  assert.equal((await f.request('a',{action:'profile',updates:{lat:59.931234,lng:30.312345,lastGeoAt:1}})).statusCode,200);
   const stored=f.records.get('users/a');
   assert.equal(stored.lastGeoAt,Date.now());
   assert.equal(stored.hasUsedGeolocation,true);
-  // Точные координаты не сохраняются: в профиль идёт только защищённая точка.
+  // Точные координаты не сохраняются: в профиль идёт ровно защищённая точка.
+  const expected=protectedCoords(59.931234,30.312345,'a');
+  assert.equal(stored.lat,expected.lat);
+  assert.equal(stored.lng,expected.lng);
+  assert.notEqual(stored.lat,59.931234);
   for (const value of [stored.lat,stored.lng]) {
     assert.ok((String(value).split('.')[1]||'').length<=3,`слишком точные координаты: ${value}`);
   }
-  assert.ok(Math.abs(stored.lat-59.93)<0.005 && Math.abs(stored.lng-30.31)<0.005,`смещение слишком большое: ${stored.lat}, ${stored.lng}`);
 });
 test('check-in does not coerce missing location to zero', async()=>{
   const f=fixture({'users/a':premium(),'trainings/t':{...training(),lat:0,lng:0,createdBy:'a',participantIds:['a']}});
