@@ -35,10 +35,13 @@ Use the existing GitHub credentials on the VPS. Never place a token in commands
 or a remote URL. Example (if the source clone does not yet exist):
 
 ```bash
-git clone --branch fix/vps-vk-identity https://github.com/romariomedia/spb78.git /opt/sportbuddy-source
+git clone --branch main https://github.com/romariomedia/spb78.git /opt/sportbuddy-source
 cd /opt/sportbuddy-source
 git log -1 --oneline
 ```
+
+Актуальная линия — `main`. Деплой всегда делается из проверенного коммита, поэтому если работа
+шла в отдельной ветке, сначала влейте её в `main` (или используйте её коммит напрямую).
 
 Choose and record the FULL 40-character reviewed commit SHA, not a moving branch.
 Substitute it below:
