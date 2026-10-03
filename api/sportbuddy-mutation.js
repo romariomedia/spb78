@@ -1,6 +1,7 @@
 import { enqueueNotification } from '../server/notification-policy.js';
 import { isBetaActive, hasPremiumAccess } from '../shared/access-policy.js';
 import { photoVerificationPatch } from '../server/profile-verification.js';
+import { isValidCoords, protectedCoords } from '../shared/geo-privacy.js';
 import { cert, getApps, initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
@@ -48,10 +49,12 @@ async function bootstrapProfile(db, uid, incoming, claims = {}) {
     const cleanString=(v,max=500)=>String(v??'').trim().slice(0,max);
     const cleanArray=(v,max=20)=>Array.isArray(v)?v.filter(x=>typeof x==='string').map(x=>x.trim()).filter(Boolean).slice(0,max):[];
     const isVk = claims.vkVerified === true;
+    // Точные координаты не храним: в публичный профиль идёт только защищённая точка.
+    const startCoords = protectedCoords(Number(body.lat), Number(body.lng), uid) ?? { lat: 59.9386, lng: 30.3141 };
     const profile = {
       id:uid, name:cleanString(body.name,120)||'Новый спортсмен', age:Number.isFinite(Number(body.age))?Math.max(18,Math.min(100,Number(body.age))):25,
       gender, genderSet:body.genderSet===true, avatar:cleanString(body.avatar,2000), bio:cleanString(body.bio,1000), sports:cleanArray(body.sports,10),
-      locationName:cleanString(body.locationName,200)||'Санкт-Петербург', lat:Number.isFinite(Number(body.lat))?Number(body.lat):59.9386, lng:Number.isFinite(Number(body.lng))?Number(body.lng):30.3141,
+      locationName:cleanString(body.locationName,200)||'Санкт-Петербург', lat:startCoords.lat, lng:startCoords.lng,
       rating:0,ratingSum:0,ratingCount:0,totalWorkouts:0,totalDailyMedals:0,dailyMedalStreak:0,medalTier:'bronze',activeLooking:true,
       likedUserIds:[],matchIds:[],matchHistory:[],friendIds:[],friendRequestsSent:[],friendRequestsReceived:[],subscriptionPlan:'premium',
       premiumUntil:Timestamp.fromDate(trialEnd),trialPremiumEndsAt:trialEnd.toISOString(),rewardPremiumEndsAt:trialEnd.toISOString(),welcomeTrialGrantedAt:now.toISOString(),
@@ -72,9 +75,14 @@ async function profileMutation(db, uid, updates) {
   const pub={}, priv={};
   for (const [k,v] of Object.entries(updates||{})) { if(publicAllowed.has(k)) pub[k]=v; if(privateAllowed.has(k)) priv[k]=v; }
   if ('lat' in pub || 'lng' in pub) {
-    if (typeof pub.lat !== 'number' || typeof pub.lng !== 'number' || !Number.isFinite(pub.lat) || !Number.isFinite(pub.lng) || Math.abs(pub.lat) > 90 || Math.abs(pub.lng) > 180) {
+    if (!isValidCoords(pub.lat, pub.lng)) {
       throw Object.assign(new Error('Некорректные координаты'), {status:400});
     }
+    // Персистим только защищённую точку: точное местонахождение пользователя не хранится.
+    const safeCoords = protectedCoords(pub.lat, pub.lng, uid);
+    if (!safeCoords) throw Object.assign(new Error('Некорректные координаты'), {status:400});
+    pub.lat = safeCoords.lat;
+    pub.lng = safeCoords.lng;
     pub.lastGeoAt = Date.now();
     pub.lastSeenAt = Date.now();
     pub.hasUsedGeolocation = true;
@@ -364,7 +372,7 @@ async function checkinMutation(db, uid, body) {
   return db.runTransaction(async tx=>{const tSnap=await tx.get(trainingRef),cSnap=await tx.get(checkRef);if(!tSnap.exists)throw Object.assign(new Error('Тренировка не найдена'),{status:404});if(cSnap.exists)throw Object.assign(new Error('Вы уже отметились на этой тренировке'),{status:409});const t=tSnap.data();if(t.isCompleted)throw Object.assign(new Error('Тренировка уже завершена — отметка недоступна'),{status:409});if(String(t.dateKey||'')!==dayKey())throw Object.assign(new Error('Отметиться можно только в календарный день тренировки'),{status:409});if(uid!==t.createdBy&&!cleanArray(t.participantIds).includes(uid))throw Object.assign(new Error('Отметка доступна только записанным участникам и организатору'),{status:403});
     if(!Number.isFinite(Number(t.lat))||!Number.isFinite(Number(t.lng))||Math.abs(Number(t.lat))>90||Math.abs(Number(t.lng))>180)throw Object.assign(new Error('У тренировки не заданы корректные координаты'),{status:409});
     const toRad=x=>x*Math.PI/180, dLat=toRad(Number(t.lat)-lat), dLng=toRad(Number(t.lng)-lng), a=Math.sin(dLat/2)**2+Math.cos(toRad(lat))*Math.cos(toRad(Number(t.lat)))*Math.sin(dLng/2)**2, distance=Math.round(6371000*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a))); if(!Number.isFinite(distance)||distance>300)throw Object.assign(new Error(`Вы слишком далеко от места тренировки — ${distance} м. Подойдите ближе (не более 300 м).`),{status:409});
-    const userSnap=await tx.get(db.collection('users').doc(uid));const user=userSnap.data()||{};const timestamp=Date.now(),check={id:checkRef.id,trainingId,userId:uid,userName:String(user.name||''),userAvatar:String(user.avatar||''),lat,lng,distanceMeters:distance,arrivedAt:new Date(timestamp).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}),timestamp,...(String(body.note||'').trim()?{note:String(body.note).trim()}:{}),verified:true};const checked=[...cleanArray(t.checkedInUserIds),uid];tx.create(checkRef,check);tx.update(trainingRef,{checkedInUserIds:checked});return {checkIn:check,training:{...t,checkedInUserIds:checked},distanceMeters:distance};});
+    const userSnap=await tx.get(db.collection('users').doc(uid));const user=userSnap.data()||{};const timestamp=Date.now(),check={id:checkRef.id,trainingId,userId:uid,userName:String(user.name||''),userAvatar:String(user.avatar||''),distanceMeters:distance,arrivedAt:new Date(timestamp).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}),timestamp,...(String(body.note||'').trim()?{note:String(body.note).trim()}:{}),verified:true};const checked=[...cleanArray(t.checkedInUserIds),uid];tx.create(checkRef,check);tx.update(trainingRef,{checkedInUserIds:checked});return {checkIn:check,training:{...t,checkedInUserIds:checked},distanceMeters:distance};});
 }
 
 async function completeTraining(db, uid, trainingId) {

@@ -132,8 +132,12 @@ export interface TrainingCheckIn {
   userId: string;
   userName: string;
   userAvatar: string;
-  lat: number;
-  lng: number;
+  /**
+   * Координаты в отметке не хранятся: сервер пишет только distanceMeters.
+   * Поля оставлены необязательными для совместимости со старыми локальными кэшами.
+   */
+  lat?: number;
+  lng?: number;
   distanceMeters: number;
   accuracyMeters?: number;
   arrivedAt: string;   // human readable

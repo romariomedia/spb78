@@ -270,10 +270,25 @@ test('profile rejects broken coordinates and timestamps geolocation on the serve
     assert.equal((await f.request('a',{action:'profile',updates})).statusCode,400);
   }
   assert.equal((await f.request('a',{action:'profile',updates:{lat:59.93,lng:30.31,lastGeoAt:1}})).statusCode,200);
-  assert.equal(f.records.get('users/a').lastGeoAt,Date.now());
-  assert.equal(f.records.get('users/a').hasUsedGeolocation,true);
+  const stored=f.records.get('users/a');
+  assert.equal(stored.lastGeoAt,Date.now());
+  assert.equal(stored.hasUsedGeolocation,true);
+  // Точные координаты не сохраняются: в профиль идёт только защищённая точка.
+  for (const value of [stored.lat,stored.lng]) {
+    assert.ok((String(value).split('.')[1]||'').length<=3,`слишком точные координаты: ${value}`);
+  }
+  assert.ok(Math.abs(stored.lat-59.93)<0.005 && Math.abs(stored.lng-30.31)<0.005,`смещение слишком большое: ${stored.lat}, ${stored.lng}`);
 });
 test('check-in does not coerce missing location to zero', async()=>{
   const f=fixture({'users/a':premium(),'trainings/t':{...training(),lat:0,lng:0,createdBy:'a',participantIds:['a']}});
   assert.equal((await f.request('a',{action:'checkin',trainingId:'t',lat:null,lng:null})).statusCode,400);
+});
+test('check-in stores distance but never exact coordinates', async()=>{
+  const f=fixture({'users/a':premium(),'trainings/t':{...training(),createdBy:'a',participantIds:['a']}});
+  assert.equal((await f.request('a',{action:'checkin',trainingId:'t',lat:59.93,lng:30.31})).statusCode,200);
+  const stored=[...f.records.entries()].find(([path])=>path.startsWith('checkins/'))?.[1];
+  assert.ok(stored,'отметка должна быть записана');
+  assert.equal('lat' in stored,false);
+  assert.equal('lng' in stored,false);
+  assert.equal(typeof stored.distanceMeters,'number');
 });

@@ -117,7 +117,9 @@ service cloud.firestore {
     /* --------------------------- check-ins ----------------------------- */
 
     match /checkins/{checkinId} {
-      allow read: if isSignedIn();
+      // Отметка о прибытии — это место и время человека, поэтому читает только владелец.
+      // Организатор видит отметившихся через checkedInUserIds в документе тренировки.
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
       allow create, update, delete: if false;
     }
 
