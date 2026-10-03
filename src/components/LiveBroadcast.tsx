@@ -1,8 +1,6 @@
-import React, { useRef, useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  Radio, Video, VideoOff, Mic, MicOff, SwitchCamera,
-  Users as UsersIcon, Heart, X, MapPin, AlertCircle
+  Radio, Square, Video, VideoOff, Mic, MicOff, SwitchCamera, X, MapPin, AlertCircle
 } from 'lucide-react';
 import { triggerHapticImpact, triggerHapticNotification } from '../services/native';
 
@@ -11,7 +9,33 @@ interface LiveBroadcastProps {
   onClose: () => void;
   authorName: string;
   locationLabel: string;
-  onPublish: (title: string, durationSec: number, viewers: number) => void;
+  /**
+   * Запись завершена: файл для публикации в ленте и длительность в секундах.
+   * null означает, что устройство не смогло записать видео.
+   *
+   * Здесь намеренно нет «зрителей»: приложение не ведёт трансляцию, а честно
+   * записывает видео на устройстве — запись уходит в ленту обычной публикацией.
+   */
+  onPublish: (title: string, durationSec: number, file: File | null) => void;
+}
+
+/** Кодеки в порядке предпочтения: webm тянет Android/Chrome, mp4 — iOS/Safari. */
+const MIME_CANDIDATES = [
+  'video/webm;codecs=vp9,opus',
+  'video/webm;codecs=vp8,opus',
+  'video/webm',
+  'video/mp4'
+];
+
+function pickMimeType(): string | undefined {
+  if (typeof MediaRecorder === 'undefined') return undefined;
+  return MIME_CANDIDATES.find((type) => {
+    try {
+      return MediaRecorder.isTypeSupported(type);
+    } catch {
+      return false;
+    }
+  });
 }
 
 export const LiveBroadcast: React.FC<LiveBroadcastProps> = ({
@@ -19,15 +43,21 @@ export const LiveBroadcast: React.FC<LiveBroadcastProps> = ({
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const [live, setLive] = useState(false);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+
+  const [recording, setRecording] = useState(false);
+  const [seconds, setSeconds] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(true);
   const [facing, setFacing] = useState<'user' | 'environment'>('environment');
-  const [seconds, setSeconds] = useState(0);
-  const [viewers, setViewers] = useState(0);
-  const [hearts, setHearts] = useState(0);
-  const [title, setTitle] = useState('Тренировка в прямом эфире');
+  const [title, setTitle] = useState('Тренировка в Санкт-Петербурге');
+
+  const stopStream = () => {
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+  };
 
   const startCamera = async (mode: 'user' | 'environment') => {
     setError(null);
@@ -47,24 +77,29 @@ export const LiveBroadcast: React.FC<LiveBroadcastProps> = ({
   };
 
   useEffect(() => {
-    if (isOpen) startCamera(facing);
+    if (isOpen) void startCamera(facing);
     return () => {
-      streamRef.current?.getTracks().forEach((t) => t.stop());
-      streamRef.current = null;
+      const recorder = recorderRef.current;
+      if (recorder && recorder.state !== 'inactive') {
+        recorder.onstop = null;
+        try {
+          recorder.stop();
+        } catch {
+          /* уже остановлен */
+        }
+      }
+      chunksRef.current = [];
+      stopStream();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
-  // Broadcast timer + simulated audience growth
+  // Таймер записи. Никаких «зрителей» и реакций: только реальная длительность.
   useEffect(() => {
-    if (!live) return;
-    const timer = setInterval(() => {
-      setSeconds((s) => s + 1);
-      setViewers((v) => v + Math.floor(Math.random() * 3));
-      if (Math.random() > 0.6) setHearts((h) => h + Math.floor(Math.random() * 4) + 1);
-    }, 1000);
+    if (!recording) return;
+    const timer = setInterval(() => setSeconds((s) => s + 1), 1000);
     return () => clearInterval(timer);
-  }, [live]);
+  }, [recording]);
 
   if (!isOpen) return null;
 
@@ -82,20 +117,80 @@ export const LiveBroadcast: React.FC<LiveBroadcastProps> = ({
     triggerHapticImpact('light');
     const next = facing === 'user' ? 'environment' : 'user';
     setFacing(next);
-    startCamera(next);
+    void startCamera(next);
   };
 
-  const handleGoLive = () => {
-    triggerHapticNotification('success');
-    setLive(true);
-    setViewers(Math.floor(Math.random() * 6) + 3);
+  const handleStartRecording = () => {
+    const stream = streamRef.current;
+    const mimeType = pickMimeType();
+    if (!stream || !mimeType) {
+      setError('Это устройство не поддерживает запись видео. Опубликуйте видео из галереи.');
+      return;
+    }
+    try {
+      const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 2_500_000 });
+      chunksRef.current = [];
+      recorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) chunksRef.current.push(event.data);
+      };
+      recorder.onerror = () => setError('Сбой записи. Попробуйте ещё раз.');
+      recorder.start(1000);
+      recorderRef.current = recorder;
+      triggerHapticNotification('success');
+      setSeconds(0);
+      setRecording(true);
+    } catch {
+      setError('Не удалось начать запись видео.');
+    }
   };
 
-  const handleStop = () => {
+  const buildRecordingFile = (): File | null => {
+    const mimeType = recorderRef.current?.mimeType || 'video/webm';
+    const blob = new Blob(chunksRef.current, { type: mimeType });
+    chunksRef.current = [];
+    if (blob.size === 0) return null;
+    const extension = mimeType.includes('mp4') ? 'mp4' : 'webm';
+    return new File([blob], `training-${Date.now()}.${extension}`, { type: mimeType });
+  };
+
+  /** Остановка с сохранением: запись откроется в диалоге публикации с подписью. */
+  const handleFinish = () => {
     triggerHapticImpact('heavy');
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-    if (seconds > 2) onPublish(title, seconds, viewers);
-    setLive(false);
+    const duration = seconds;
+    const recorder = recorderRef.current;
+    const complete = (file: File | null) => {
+      stopStream();
+      if (duration > 2) onPublish(title.trim() || 'Тренировка', duration, file);
+      setRecording(false);
+      onClose();
+    };
+
+    if (recorder && recorder.state !== 'inactive') {
+      recorder.onstop = () => complete(buildRecordingFile());
+      try {
+        recorder.stop();
+        return;
+      } catch {
+        /* запись уже остановлена — завершаем обычным путём */
+      }
+    }
+    complete(buildRecordingFile());
+  };
+
+  /** Крестик во время записи: запись отменяется и никуда не публикуется. */
+  const handleDiscard = () => {
+    const recorder = recorderRef.current;
+    if (recorder && recorder.state !== 'inactive') {
+      recorder.onstop = null;
+      try {
+        recorder.stop();
+      } catch {
+        /* уже остановлен */
+      }
+    }
+    chunksRef.current = [];
+    setRecording(false);
+    stopStream();
     onClose();
   };
 
@@ -125,7 +220,7 @@ export const LiveBroadcast: React.FC<LiveBroadcastProps> = ({
             <AlertCircle className="w-12 h-12 text-rose-400" />
             <p className="text-sm text-slate-200 font-bold">{error}</p>
             <button
-              onClick={() => startCamera(facing)}
+              onClick={() => void startCamera(facing)}
               className="bg-emerald-500 text-slate-950 font-black px-5 py-2.5 rounded-2xl text-xs active:scale-95 transition"
             >
               Повторить
@@ -136,24 +231,19 @@ export const LiveBroadcast: React.FC<LiveBroadcastProps> = ({
         {/* Top overlay */}
         <div className="absolute top-0 inset-x-0 p-4 pt-safe flex items-start justify-between gap-2 bg-gradient-to-b from-slate-950/90 to-transparent">
           <div className="flex items-center gap-2">
-            {live ? (
+            {recording ? (
               <span className="flex items-center gap-1.5 bg-rose-500 text-white text-[10px] font-black px-2.5 py-1 rounded-lg shadow-lg">
-                <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" /> LIVE {mmss}
+                <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" /> ЗАПИСЬ {mmss}
               </span>
             ) : (
               <span className="bg-slate-900/90 border border-slate-700 text-slate-300 text-[10px] font-black px-2.5 py-1 rounded-lg">
-                ПРЕДПРОСМОТР
-              </span>
-            )}
-            {live && (
-              <span className="flex items-center gap-1 bg-slate-950/80 border border-slate-700 text-slate-200 text-[10px] font-bold px-2 py-1 rounded-lg">
-                <UsersIcon className="w-3 h-3 text-emerald-400" /> {viewers}
+                КАМЕРА ГОТОВА
               </span>
             )}
           </div>
 
           <button
-            onClick={live ? handleStop : onClose}
+            onClick={recording ? handleDiscard : onClose}
             className="p-2 bg-slate-950/80 border border-slate-700 text-slate-200 rounded-xl active:scale-90 transition"
             aria-label="Закрыть"
           >
@@ -161,40 +251,28 @@ export const LiveBroadcast: React.FC<LiveBroadcastProps> = ({
           </button>
         </div>
 
-        {/* Floating hearts */}
-        {live && hearts > 0 && (
-          <div className="absolute bottom-28 right-4 pointer-events-none">
-            <motion.div
-              key={hearts}
-              initial={{ opacity: 1, y: 0, scale: 0.6 }}
-              animate={{ opacity: 0, y: -110, scale: 1.25 }}
-              transition={{ duration: 1.8 }}
-            >
-              <Heart className="w-7 h-7 fill-rose-500 text-rose-500" />
-            </motion.div>
-          </div>
-        )}
-
         {/* Bottom info */}
         <div className="absolute bottom-0 inset-x-0 p-4 bg-gradient-to-t from-slate-950/95 to-transparent space-y-2">
           <p className="text-xs font-black text-white">{authorName}</p>
           <p className="text-[11px] text-emerald-400 flex items-center gap-1">
             <MapPin className="w-3 h-3" /> {locationLabel}
           </p>
-          {live && hearts > 0 && (
-            <p className="text-[11px] text-rose-300 font-bold">❤️ {hearts} реакций</p>
+          {recording && (
+            <p className="text-[11px] text-rose-300 font-bold">
+              Идёт запись · по остановке запись можно опубликовать в ленту
+            </p>
           )}
         </div>
       </div>
 
       {/* Controls */}
       <div className="bg-slate-900 border-t border-slate-800 p-4 pb-safe space-y-3">
-        {!live && (
+        {!recording && (
           <input
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Название трансляции"
+            placeholder="Название записи"
             className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-emerald-500"
           />
         )}
@@ -210,20 +288,20 @@ export const LiveBroadcast: React.FC<LiveBroadcastProps> = ({
             {micOn ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
           </button>
 
-          {live ? (
+          {recording ? (
             <button
-              onClick={handleStop}
-              className="px-7 py-4 bg-rose-500 hover:bg-rose-400 text-white font-black rounded-2xl text-sm shadow-[0_0_25px_rgba(244,63,94,0.5)] active:scale-95 transition"
+              onClick={handleFinish}
+              className="px-7 py-4 bg-rose-500 hover:bg-rose-400 text-white font-black rounded-2xl text-sm shadow-[0_0_25px_rgba(244,63,94,0.5)] active:scale-95 transition flex items-center gap-2"
             >
-              Завершить эфир
+              <Square className="w-4 h-4 fill-white" /> Остановить
             </button>
           ) : (
             <button
-              onClick={handleGoLive}
+              onClick={handleStartRecording}
               disabled={!!error}
               className="px-7 py-4 bg-gradient-to-r from-rose-500 to-rose-600 text-white font-black rounded-2xl text-sm shadow-[0_0_25px_rgba(244,63,94,0.5)] active:scale-95 transition disabled:opacity-50 flex items-center gap-2"
             >
-              <Radio className="w-4 h-4" /> Начать эфир
+              <Radio className="w-4 h-4" /> Начать запись
             </button>
           )}
 
@@ -240,11 +318,17 @@ export const LiveBroadcast: React.FC<LiveBroadcastProps> = ({
 
         <button
           onClick={handleFlip}
-          className="w-full py-2.5 bg-slate-950 border border-slate-800 text-slate-300 font-bold rounded-2xl text-xs active:scale-95 transition flex items-center justify-center gap-2"
+          disabled={recording}
+          className="w-full py-2.5 bg-slate-950 border border-slate-800 text-slate-300 font-bold rounded-2xl text-xs active:scale-95 transition flex items-center justify-center gap-2 disabled:opacity-50"
         >
           <SwitchCamera className="w-4 h-4" />
           {facing === 'user' ? 'Фронтальная камера' : 'Основная камера'}
         </button>
+
+        <p className="text-[10px] text-slate-500 text-center leading-snug">
+          Это запись видео, а не трансляция: после остановки добавьте подпись —
+          публикация появится в ленте.
+        </p>
       </div>
     </div>
   );

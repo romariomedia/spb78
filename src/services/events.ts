@@ -8,6 +8,7 @@ import {
 import { getSessionAccount } from './auth';
 import { triggerHapticImpact, triggerHapticNotification } from './native';
 import { hasAdminSession, getAdminSession, adminMutateEvent } from './adminAuth';
+import { ENABLE_SAMPLE_DATA } from '../lib/sampleData';
 
 const EVENTS_KEY = 'sportbuddy_official_events_v1';
 /* --------------------------------- access ---------------------------------- */
@@ -41,15 +42,29 @@ function requireAdminSession(): void {
 /* --------------------------------- storage --------------------------------- */
 
 function readAll(): OfficialEvent[] {
+  let stored: OfficialEvent[] | null = null;
   try {
     const raw = localStorage.getItem(EVENTS_KEY);
-    if (raw) return JSON.parse(raw) as OfficialEvent[];
+    if (raw) stored = JSON.parse(raw) as OfficialEvent[];
   } catch {
-    /* fallthrough to seed */
+    stored = null;
   }
-  const seeded = SEED_EVENTS;
-  writeAll(seeded);
-  return seeded;
+
+  if (stored) {
+    if (ENABLE_SAMPLE_DATA) return stored;
+    // Мероприятия, засеянные демо-режимом, вычищаются из кэша при первом
+    // чтении — иначе выдуманный Кубок SportBuddy остался бы у пользователя
+    // навсегда, даже после того как в базе появятся реальные мероприятия.
+    const cleaned = stored.filter((event) => !SEED_EVENT_IDS.has(event.id));
+    if (cleaned.length !== stored.length) writeAll(cleaned);
+    return cleaned;
+  }
+
+  // На чистом устройстве демо-мероприятия не создаются: раздел наполняется
+  // из Firestore через refreshEvents().
+  if (!ENABLE_SAMPLE_DATA) return [];
+  writeAll(SEED_EVENTS);
+  return SEED_EVENTS;
 }
 
 function writeAll(list: OfficialEvent[]): void {
@@ -62,7 +77,13 @@ function writeAll(list: OfficialEvent[]): void {
 
 /* ------------------------------- seed content ------------------------------- */
 
-const SEED_EVENTS: OfficialEvent[] = [
+/**
+ * Идентификаторы мероприятий из демо-набора. Заданы явно, потому что чистка
+ * локального кэша пользователя нужна и в production, где сам набор не подключён.
+ */
+const SEED_EVENT_IDS = new Set(['evt-spb-001', 'evt-spb-002', 'evt-spb-003']);
+
+const SEED_EVENTS: OfficialEvent[] = ENABLE_SAMPLE_DATA ? [
   {
     id: 'evt-spb-001',
     title: 'Кубок SportBuddy СПб по Падел 2х2',
@@ -142,7 +163,7 @@ const SEED_EVENTS: OfficialEvent[] = [
     createdAt: new Date(Date.now() - 3600000 * 70).toISOString(),
     isOfficial: true
   }
-];
+] : [];
 
 /* --------------------------------- queries --------------------------------- */
 

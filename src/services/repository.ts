@@ -18,6 +18,8 @@ import { getActiveTrainings } from './schedule';
 import { createFreshProfile } from './reset';
 import { callServer } from './serverApi';
 import { readSection } from './dataLoading';
+import { ENABLE_SAMPLE_DATA, LEGACY_DEMO_USER_IDS } from '../lib/sampleData';
+import { timestampValue } from '../utils/time';
 
 /**
  * Runtime identity of the signed-in local account.
@@ -29,17 +31,17 @@ export let CURRENT_USER_ID = 'user-me-1';
 export function setCurrentUserId(id: string): void {
   if (id.trim()) CURRENT_USER_ID = id;
 }
-// v2 deliberately invalidates the pre-release cache that contained
-// fabricated statistics for the old demo account.
-const OFFLINE_CACHE_KEY = 'sportbuddy_offline_cache_v3';
-const OFFLINE_QUEUE_KEY = 'sportbuddy_offline_queue_v3';
+// v4 инвалидирует зеркала, в которые успели попасть демонстрационные посты
+// («post-1…post-3» с датами-строками «Вчера»): после обновления у всех
+// пользователей локальный кэш создаётся заново из базы.
+const OFFLINE_CACHE_KEY = 'sportbuddy_offline_cache_v4';
+const OFFLINE_QUEUE_KEY = 'sportbuddy_offline_queue_v4';
 
 /**
- * Production never shows fabricated athletes, trainings or feed posts.
- * Set VITE_ENABLE_SAMPLE_DATA=true only for local visual development.
+ * Демо-данные включаются только в локальной разработке и только явным флагом.
+ * Флаг живёт в src/lib/sampleData.ts: его использует и модуль мероприятий,
+ * а в production он гарантированно false.
  */
-const ENABLE_SAMPLE_DATA =
-  import.meta.env.DEV && import.meta.env.VITE_ENABLE_SAMPLE_DATA === 'true';
 
 export interface AppData {
   currentUser: UserProfile;
@@ -245,11 +247,16 @@ const BASE_USERS: UserProfile[] = [
  * Index 0 is the real account; the rest are local sample profiles that
  * never reach Firestore and never appear in the community leaderboard.
  */
+/**
+ * Демонстрационное сообщество. В production массив пуст: выдуманных атлетов
+ * не должно быть ни в интерфейсе, ни в JS-бандле. Собственный профиль
+ * создаётся функцией createFreshProfile(), реальные люди приходят из Firestore.
+ */
 const INITIAL_USERS: UserProfile[] = ENABLE_SAMPLE_DATA
   ? BASE_USERS.map((u, index) =>
       index === 0 ? u : { ...u, isDemo: true, genderSet: true }
     )
-  : [BASE_USERS[0]!];
+  : [];
 
 /** Returns yyyy-mm-dd shifted by N days from today (seed data helper) */
 function seedDay(offset: number): string {
@@ -600,16 +607,23 @@ export async function loadAppData(): Promise<AppData> {
         return { user: cached.currentUser, missing: false };
       }, timeout
     ),
-    readSection(getDocsFromServer(collection(db, 'users')).then(snap => snap.docs.map(item =>
-      normalizeUserProfile({ ...item.data(), id: item.id })
-    )), () => cached?.allUsers ?? [], timeout),
+    readSection(getDocsFromServer(collection(db, 'users')).then(snap => snap.docs
+      // Служебные профили демо-режима не должны попадать в сообщество:
+      // реальные аккаунты создаются с id вида vk_* или Firebase-uid.
+      .filter(item => !LEGACY_DEMO_USER_IDS.includes(item.id))
+      .map(item => normalizeUserProfile({ ...item.data(), id: item.id }))
+      .filter(profile => profile.isDemo !== true)
+    ), () => cached?.allUsers ?? [], timeout),
     // No orderBy: legacy records without createdAt must remain visible.
     readSection(getDocsFromServer(collection(db, 'trainings')).then(snap => snap.docs.map(item =>
       ({ ...item.data(), id: item.id }) as Training
     )), () => cached?.trainings ?? INITIAL_TRAININGS, timeout),
     readSection(getDocsFromServer(collection(db, 'feed')).then(snap => snap.docs.map(item =>
       ({ ...item.data(), id: item.id }) as FeedPost
-    ).sort((a, b) => b.id.localeCompare(a.id))), () => cached?.feedPosts ?? [], timeout),
+    // Свежие публикации — строго сверху: порядок задаёт дата, а не строковый id.
+    // У старых документов id вида «post-1», у новых — «post_<время>_<random>»,
+    // поэтому лексикографический порядок не совпадал с хронологией.
+    ).sort((a, b) => timestampValue(b.createdAt) - timestampValue(a.createdAt))), () => cached?.feedPosts ?? [], timeout),
     readSection(getDocFromServer(doc(db, 'usersPrivate', uid)).then(snap =>
       snap.exists() ? snap.data() as Partial<UserProfile> : {}
     ), () => {

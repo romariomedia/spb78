@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Crown, Heart, MessageCircle, Share2, Send } from 'lucide-react';
 import { FeedPost } from '../lib/types';
 import { cldSrcSet, photoUrl, avatarUrl } from '../services/cloudinary';
+import { relativeTimeLabel } from '../utils/time';
 
 interface PostCardProps {
   post: FeedPost;
@@ -42,7 +43,7 @@ const PostCardInner: React.FC<PostCardProps> = ({
                 <Crown className="w-3.5 h-3.5 fill-amber-400 text-amber-400 drop-shadow" />
               )}
             </h4>
-            <p className="text-[11px] text-slate-400 mt-0.5">{post.createdAt}</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">{relativeTimeLabel(post.createdAt)}</p>
           </div>
         </div>
         <span className="text-[11px] font-bold px-2.5 py-1 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
@@ -143,7 +144,7 @@ const PostCardInner: React.FC<PostCardProps> = ({
                     <div className="bg-slate-900 p-2.5 rounded-2xl rounded-tl-none border border-slate-800 flex-1">
                       <div className="flex justify-between items-center mb-1">
                         <span className="font-bold text-emerald-400">{c.authorName}</span>
-                        <span className="text-[10px] text-slate-500">{c.createdAt}</span>
+                        <span className="text-[10px] text-slate-500">{relativeTimeLabel(c.createdAt)}</span>
                       </div>
                       <p className="text-slate-200 leading-snug">{c.content}</p>
                     </div>

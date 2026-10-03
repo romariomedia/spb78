@@ -1309,23 +1309,25 @@ export default function App(): JSX.Element {
     [trainings]
   );
 
-  // Publish a finished live broadcast into the feed
-  const handlePublishBroadcast = async (title: string, durationSec: number, viewers: number) => {
+  // Завершённая видеозапись тренировки уходит в ленту через тот же диалог
+  // подписи, что и обычное видео из галереи. Выдуманных зрителей нет:
+  // приложение не ведёт трансляцию, а записывает видео на устройстве.
+  const handlePublishBroadcast = (title: string, durationSec: number, file: File | null) => {
     if (!currentUser) return;
     if (!requirePublishingVerification()) return;
+
     const mins = Math.floor(durationSec / 60);
     const secs = durationSec % 60;
-    const post = await createPost(
-      `🔴 Прямой эфир завершён: «${title}». Длительность ${mins} мин ${secs} сек • ${viewers} зрителей смотрели трансляцию из ${currentUser.locationName}.`,
-      currentUser.sports[0] || 'Общее',
-      undefined,
-      'image',
-      currentUser
-    );
-    if (post) {
-      setFeedPosts(prev => [post, ...prev]);
-      triggerHapticNotification('success');
+    const duration = mins > 0 ? `${mins} мин ${secs} сек` : `${secs} сек`;
+
+    if (!file) {
+      notify('Устройство не поддержало видеозапись — опубликуйте видео или фото из галереи', 'err');
+      return;
     }
+
+    openCaptionDialog(file, true);
+    setPendingCaption(`🎥 Запись тренировки «${title}» · ${duration} · ${currentUser.locationName}`);
+    notify('Запись готова — добавьте подпись и опубликуйте');
   };
 
   /** Готовит выбранный файл и открывает модалку подписи. */
@@ -2436,11 +2438,11 @@ export default function App(): JSX.Element {
                         <span className={`relative inline-flex rounded-full h-2 w-2 ${canPublishToFeed ? 'bg-rose-500' : 'bg-slate-600'}`} />
                       </span>
                       <span className={`text-xs font-black ${canPublishToFeed ? 'text-rose-300' : 'text-slate-400'}`}>
-                        Прямой эфир {canPublishToFeed ? '' : '🔒'}
+                        Видеозапись {canPublishToFeed ? '' : '🔒'}
                       </span>
                     </div>
                     <p className="text-[10px] text-slate-400 leading-snug">
-                      Трансляция с места тренировки в СПб
+                      Запись видео с места тренировки
                     </p>
                   </button>
 
@@ -2966,7 +2968,7 @@ export default function App(): JSX.Element {
         onSubmitted={handleOrganizerRated}
       />
 
-      {/* Live broadcast studio (full screen) */}
+      {/* Video recording studio (full screen) */}
       <Suspense fallback={null}>
         <LiveBroadcast
           isOpen={isBroadcastOpen}

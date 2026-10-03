@@ -18,6 +18,13 @@ export default defineConfig({
   resolve: {
     alias: { "@": path.resolve(__dirname, "src") },
   },
+  server: {
+    watch: {
+      // Windows: временные папки редакторов/инструментов провоцируют EBUSY,
+      // и chokidar роняет дев-сервер целиком. Такие каталоги не отслеживаем.
+      ignored: ["**/*.tmpdir/**", "**/.*.tmpdir/**", "**/.git/**"],
+    },
+  },
   build: {
     target: "es2020",
     sourcemap: false,

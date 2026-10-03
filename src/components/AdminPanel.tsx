@@ -276,7 +276,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     <label className="block font-bold text-slate-300 mb-1">Название *</label>
                     <input
                       type="text" value={title} onChange={(e) => setTitle(e.target.value)}
-                      placeholder="Кубок SportBuddy СПб по Падел"
+                      placeholder="Турнир по паделу в Санкт-Петербурге"
                       className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-emerald-500"
                     />
                   </div>
