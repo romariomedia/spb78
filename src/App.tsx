@@ -8,7 +8,7 @@ import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-mo
 import { 
   Users, Dumbbell, Newspaper, MapPin, Heart, X as CloseIcon, 
   Filter, Plus, Share2, MessageCircle, Send, Zap, Crown, 
-  ChevronRight, Bell, WifiOff, RefreshCw,
+  ChevronRight, Bell, WifiOff, RefreshCw, Sparkles,
   Map as MapIcon, SlidersHorizontal, CheckCircle2,
   Calendar, ShieldAlert, Clock, Lock, UserPlus
 } from 'lucide-react';
@@ -116,6 +116,7 @@ import { BottomNav } from './components/BottomNav';
 import { Modal } from './components/Modal';
 import { ProgressBar } from './components/ProgressBar';
 import { RewardsSection } from './components/RewardsSection';
+import { WelcomeGuide, hasSeenWelcomeGuide, markWelcomeGuideSeen } from './components/WelcomeGuide';
 
 /* Тяжёлые экраны грузятся по требованию: карта (~45 КБ gzip), админка
    и студия эфира не нужны при первом рендере. */
@@ -177,6 +178,7 @@ export default function App(): JSX.Element {
   const [activeTab, setActiveTab] = useState<TabType>('discover');
   const [direction, setDirection] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isGuideOpen, setIsGuideOpen] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [isOffline, setIsOffline] = useState<boolean>(!navigator.onLine);
   const [pendingSyncCount, setPendingSyncCount] = useState<number>(getOfflineQueue().length);
@@ -476,6 +478,24 @@ export default function App(): JSX.Element {
     });
     return unsubscribe;
   }, [account?.id, fetchAllData]);
+
+  /**
+   * Приветственное окно о возможностях проекта.
+   *
+   * Показывается один раз на устройстве и только после того, как закрыт экран
+   * первого входа, — иначе два окна наложились бы друг на друга. Повторно
+   * открыть его можно кнопкой со звёздочкой в шапке.
+   */
+  useEffect(() => {
+    if (!currentUser || isLoading || welcomeTrialShown) return;
+    if (hasSeenWelcomeGuide()) return;
+    setIsGuideOpen(true);
+  }, [currentUser, isLoading, welcomeTrialShown]);
+
+  const closeGuide = useCallback(() => {
+    setIsGuideOpen(false);
+    markWelcomeGuideSeen();
+  }, []);
 
   // Swipe Card gesture tracking
   const dragX = useMotionValue(0);
@@ -1599,6 +1619,16 @@ export default function App(): JSX.Element {
                 <WifiOff className="w-3 h-3" /> Офлайн
               </span>
             )}
+
+            {/* Guide: что умеет проект — для новичков и по желанию */}
+            <button
+              onClick={() => { triggerHapticImpact('light'); setIsGuideOpen(true); }}
+              className="p-2 text-amber-300 hover:text-white bg-slate-900 border border-slate-800 rounded-xl transition active:scale-95"
+              aria-label="Возможности SportBuddy"
+              title="Что умеет SportBuddy"
+            >
+              <Sparkles className="w-4 h-4" />
+            </button>
 
             {/* Sync Refresh Button */}
             <button
@@ -2935,6 +2965,17 @@ export default function App(): JSX.Element {
           </p>
         </div>
       </Modal>
+
+      {/* Возможности проекта: показываются новичку один раз, дальше — по кнопке в шапке */}
+      <WelcomeGuide
+        isOpen={isGuideOpen}
+        onClose={closeGuide}
+        userName={currentUser?.name}
+        onStart={() => {
+          closeGuide();
+          setActiveTab('discover');
+        }}
+      />
 
       {/* Safety complaint: choose a real chat contact, then open a prefilled support email */}
       <ComplaintModal
