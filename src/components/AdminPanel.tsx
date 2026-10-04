@@ -20,6 +20,7 @@ import { triggerHapticImpact } from '../services/native';
 import { uploadMedia, photoUrl, videoPoster } from '../services/cloudinary';
 import { hasAdminSession } from '../services/adminAuth';
 import { compressImage } from '../services/media';
+import { PlacesAdminPanel } from './PlacesAdminPanel';
 
 import { SPORT_TAGS as SPORTS } from '../lib/types';
 
@@ -221,6 +222,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               ))}
             </div>
           </div>
+
+          <PlacesAdminPanel />
 
           <button
             onClick={() => {
