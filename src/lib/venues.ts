@@ -84,7 +84,7 @@ export const SPB_VENUES: SportVenue[] = [
   { id:'hockey-city', name:'Хоккейный город', sports:['Хоккей'], address:'Российский пр., 6, Санкт-Петербург', phone:'+7 812 245-15-29', hours:'07:00–00:00', rating:4.7, reviews:1601, status:'needs_confirmation' },
   { id:'energy-arena', name:'ENERGY Arena', sports:['Футбол','Теннис','Настольный теннис'], address:'Санкт-Петербург', hours:'24/7', website:'https://energyarena.ru/', status:'curated' },
   { id:'athletics-manege', name:'Легкоатлетический манеж', sports:['Теннис'], address:'Теннисная ал., 3а, Санкт-Петербург', phone:'+7 812 384-20-35', rating:4.6, reviews:378, status:'restricted' },
-  { id:'primorsky-multisport', name:'Спортивный комплекс Приморского района', sports:['Баскетбол','Волейбол'], address:'Приморский район, Санкт-Петербург', status:'needs_confirmation', note:'Резервная карточка: публиковать только после проверки точного объекта и контакта.' }
+  { id:'sk-optik', name:'Спортивный комплекс «Оптик»', sports:['Баскетбол','Волейбол','Настольный теннис'], address:'ул. Оптиков, 60, Санкт-Петербург', hours:'07:00–02:00', priceText:'от 1 000 ₽/ч', website:'https://go2sport.ru/clubs/sk-optik/', status:'curated', note:'Игровые и пляжные площадки; актуальное свободное время и стоимость подтверждайте у комплекса.' }
 ];
 
 export function venueMapUrl(venue: SportVenue): string {
