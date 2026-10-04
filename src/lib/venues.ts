@@ -14,6 +14,13 @@ export interface SportVenue {
   status: VenueCatalogStatus;
   note?: string;
   photos?: string[];
+  /** Direct confirmation by the venue/club, not inferred from public data. */
+  isVerified?: boolean;
+  /** Draft cards stay available to admin but are hidden from athletes. */
+  isPublished?: boolean;
+  contactName?: string;
+  amenities?: string[];
+  updatedAt?: string;
 }
 
 export const VENUE_SPORT_FILTERS = [
@@ -34,7 +41,7 @@ export const VENUE_SPORT_FILTERS = [
  * Статус "verified" появится только после прямого подтверждения площадкой.
  */
 export const SPB_VENUES: SportVenue[] = [
-  { id:'fabrika-futbola', name:'Фабрика Футбола', sports:['Футбол'], address:'Софийская ул., 14, Санкт-Петербург', phone:'+7 812 322-65-55', hours:'24/7', rating:4.7, reviews:1088, website:'https://xn--80aaacb4bok0apzlgg.xn--p1ai/', status:'curated', note:'Аренда футбольных и мини-футбольных полей.' },
+  { id:'fabrika-futbola', isPublished:true, name:'Фабрика Футбола', sports:['Футбол'], address:'Софийская ул., 14, Санкт-Петербург', phone:'+7 812 322-65-55', hours:'24/7', rating:4.7, reviews:1088, website:'https://xn--80aaacb4bok0apzlgg.xn--p1ai/', status:'curated', note:'Аренда футбольных и мини-футбольных полей.' },
   { id:'arena-krasny-treugolnik', name:'Арена Красный треугольник', sports:['Футбол'], address:'наб. Обводного канала, 136, Санкт-Петербург', phone:'+7 931 002-25-69', hours:'06:00–23:00', rating:4.4, reviews:477, status:'curated' },
   { id:'forward', name:'Футбольный центр Форвард', sports:['Футбол'], address:'просп. Обуховской Обороны, 105, Санкт-Петербург', phone:'+7 812 941-32-84', hours:'24/7', rating:4.4, reviews:381, status:'curated' },
   { id:'f-base', name:'F-Base', sports:['Футбол'], address:'ул. Латышских Стрелков, 19, Санкт-Петербург', phone:'+7 812 777-92-22', hours:'24/7', priceText:'от 4 000 ₽/ч', rating:4.6, reviews:169, status:'curated' },
