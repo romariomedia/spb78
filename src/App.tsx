@@ -1,3 +1,6 @@
+import { PhotoEditor } from './components/PhotoEditor';
+import { Stories } from './components/Stories';
+import { AvatarImage } from './components/AvatarImage';
 import { NotificationSettings } from './components/NotificationSettings';
 import { subscribeNotifications,restorePush,readNotifications } from './services/notifications';
 import { trainingGenderError, trainingGenderLabel } from './lib/trainingEligibility';
@@ -31,7 +34,6 @@ import {
   uploadToCloudinary, uploadMedia, uploadRemoteUrl,
   avatarUrl, photoUrl, cldUrl, videoPoster, CloudinaryUploadError
 } from './services/cloudinary';
-import { compressImage } from './services/media';
 import { joinedTrainingIds } from './services/dataLoading';
 import { subscribeAppInvalidation } from './services/realtime';
 import { 
@@ -246,6 +248,7 @@ export default function App(): JSX.Element {
   const [isCreatePostOpen, setIsCreatePostOpen] = useState(false);
   const [postContent, setPostContent] = useState('');
   const [postSportTag, setPostSportTag] = useState('Общее');
+  const [editingFeedPhoto, setEditingFeedPhoto] = useState<File | null>(null);
   const [postMediaUrl, setPostMediaUrl] = useState('');
   const [activeCommentPostId, setActiveCommentPostId] = useState<string | null>(null);
   const [newCommentText, setNewCommentText] = useState('');
@@ -1376,7 +1379,7 @@ export default function App(): JSX.Element {
     if (!isNativeApp) { mediaInputRef.current?.click(); return; }
     try {
       const file = await pickPhotoFromGallery();
-      if (file) openCaptionDialog(file);
+      if (file) setEditingFeedPhoto(file);
     } catch (error) {
       notify(error instanceof Error ? error.message : 'Галерея недоступна', 'err');
     }
@@ -1390,7 +1393,8 @@ export default function App(): JSX.Element {
     if (!requirePublishingVerification()) return;
 
     const isVideo = file.type.startsWith('video');
-    openCaptionDialog(isVideo ? file : await compressImage(file), isVideo);
+    if (isVideo) openCaptionDialog(file, true);
+    else setEditingFeedPhoto(file);
   };
 
   /** Публикация подготовленного медиа в ленту. */
@@ -1412,6 +1416,7 @@ export default function App(): JSX.Element {
         signal: ctrl.signal
       });
 
+      if (CURRENT_USER_ID !== currentUser.id) throw new Error('Аккаунт изменился. Откройте публикацию заново.');
       const post = await createPost(
         pendingCaption.trim() || 'Новая публикация',
         currentUser.sports[0] || 'Общее',
@@ -2154,7 +2159,7 @@ export default function App(): JSX.Element {
                           if (!u) return null;
                           return (
                             <div key={id} className="flex items-center gap-3 bg-slate-950 p-3 rounded-2xl border border-slate-800">
-                              <img src={avatarUrl(u.avatar, 40) || AVATAR_FALLBACK} alt="" width={40} height={40} loading="lazy" decoding="async" className="w-10 h-10 rounded-full object-cover border border-emerald-500/60" />
+                              <AvatarImage src={avatarUrl(u.avatar, 40) || AVATAR_FALLBACK} alt="" width={40} height={40} loading="lazy" decoding="async" className="w-10 h-10 rounded-full object-cover border border-emerald-500/60" />
                               <div className="flex-1 min-w-0">
                                 <h4 className="text-xs font-extrabold text-white">{u.name}</h4>
                                 <p className="text-[11px] text-slate-500 blur-[3px] select-none">Привет! Побегаем в субботу?</p>
@@ -2177,7 +2182,7 @@ export default function App(): JSX.Element {
                       >
                         <ChevronRight className="w-4 h-4 rotate-180" />
                       </button>
-                      <img
+                      <AvatarImage
                         src={avatarUrl(openChatCompanion.avatar, 88) || AVATAR_FALLBACK}
                         width={44} height={44} decoding="async"
                         alt={openChatCompanion.name}
@@ -2210,7 +2215,7 @@ export default function App(): JSX.Element {
                         return (
                           <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'} gap-2`}>
                             {!mine && (
-                              <img src={avatarUrl(openChatCompanion.avatar, 28) || AVATAR_FALLBACK} alt="" width={28} height={28} loading="lazy" decoding="async" className="w-7 h-7 rounded-full object-cover border border-slate-700 shrink-0 mt-auto" />
+                              <AvatarImage src={avatarUrl(openChatCompanion.avatar, 28) || AVATAR_FALLBACK} alt="" width={28} height={28} loading="lazy" decoding="async" className="w-7 h-7 rounded-full object-cover border border-slate-700 shrink-0 mt-auto" />
                             )}
                             <div
                               className={`max-w-[75%] px-3.5 py-2.5 rounded-2xl text-xs leading-relaxed shadow ${
@@ -2383,7 +2388,7 @@ export default function App(): JSX.Element {
                               className="w-full text-left bg-slate-900 border border-slate-800 hover:border-emerald-500/50 rounded-3xl p-3.5 transition active:scale-[0.99] shadow-lg flex items-center gap-3"
                             >
                               <div className="relative shrink-0">
-                                <img
+                                <AvatarImage
                                   src={avatarUrl(companion.avatar, 96) || AVATAR_FALLBACK}
                                   width={48} height={48} loading="lazy" decoding="async"
                                   alt={companion.name}
@@ -2456,6 +2461,8 @@ export default function App(): JSX.Element {
                     <span>Пост {canPublishToFeed ? '👑' : '🔒'}</span>
                   </button>
                 </div>
+
+                {currentUser && <Stories key={currentUser.id} user={currentUser} canPublish={canPublishToFeed} onLocked={()=>{requirePublishingVerification();}}/>}
 
                 {/* Live broadcast & gallery publishing */}
                 <div className="grid grid-cols-2 gap-2.5">
@@ -3069,11 +3076,11 @@ export default function App(): JSX.Element {
         {matchedUser && (
           <div className="text-center py-2 space-y-4">
             <div className="flex items-center justify-center gap-4">
-              <img src={avatarUrl(currentUser?.avatar, 160) || AVATAR_FALLBACK} alt="" width={80} height={80} decoding="async" className="w-20 h-20 rounded-full object-cover border-4 border-emerald-400 shadow-xl" />
+              <AvatarImage src={avatarUrl(currentUser?.avatar, 160) || AVATAR_FALLBACK} alt="" width={80} height={80} decoding="async" className="w-20 h-20 rounded-full object-cover border-4 border-emerald-400 shadow-xl" />
               <div className="w-12 h-12 rounded-full bg-emerald-500 text-slate-950 flex items-center justify-center font-black text-xl shadow-[0_0_20px_rgba(16,185,129,0.8)] z-10 animate-bounce">
                 🤝
               </div>
-              <img src={avatarUrl(matchedUser.avatar, 160) || AVATAR_FALLBACK} alt="" width={80} height={80} decoding="async" className="w-20 h-20 rounded-full object-cover border-4 border-emerald-400 shadow-xl" />
+              <AvatarImage src={avatarUrl(matchedUser.avatar, 160) || AVATAR_FALLBACK} alt="" width={80} height={80} decoding="async" className="w-20 h-20 rounded-full object-cover border-4 border-emerald-400 shadow-xl" />
             </div>
             
             <div>
@@ -3156,7 +3163,7 @@ export default function App(): JSX.Element {
             })()}
 
             <div className="flex items-center gap-3">
-              <img src={avatarUrl(selectedUserModal.avatar, 128) || AVATAR_FALLBACK} alt="" width={64} height={64} loading="lazy" decoding="async" className="w-16 h-16 rounded-full object-cover border-2 border-emerald-500 shadow" />
+              <AvatarImage src={avatarUrl(selectedUserModal.avatar, 128) || AVATAR_FALLBACK} alt="" width={64} height={64} loading="lazy" decoding="async" className="w-16 h-16 rounded-full object-cover border-2 border-emerald-500 shadow" />
               <div>
                 <h3 className="text-lg font-black text-white">{selectedUserModal.name}, {selectedUserModal.age}</h3>
                 <p className="text-xs text-emerald-400 flex items-center gap-1 mt-0.5">
@@ -3545,7 +3552,7 @@ export default function App(): JSX.Element {
                     <div key={uid} className={`flex items-center gap-2 px-2.5 py-2 rounded-xl border ${
                       arrived ? 'bg-emerald-500/10 border-emerald-500/50' : 'bg-slate-950 border-slate-800'
                     }`}>
-                      <img src={avatarUrl(u?.avatar, 28) || AVATAR_FALLBACK} alt="" width={28} height={28} loading="lazy" decoding="async" className="w-7 h-7 rounded-full object-cover" />
+                      <AvatarImage src={avatarUrl(u?.avatar, 28) || AVATAR_FALLBACK} alt="" width={28} height={28} loading="lazy" decoding="async" className="w-7 h-7 rounded-full object-cover" />
                       <div className="min-w-0 flex-1">
                         <p className="font-semibold text-white truncate text-xs flex items-center gap-1">
                           {u?.name || (isSelf ? 'Вы' : 'Участник')}
@@ -3619,6 +3626,8 @@ export default function App(): JSX.Element {
           </div>
         )}
       </Modal>
+
+      {editingFeedPhoto && <PhotoEditor file={editingFeedPhoto} onClose={()=>setEditingFeedPhoto(null)} onSave={file=>{setEditingFeedPhoto(null);openCaptionDialog(file);}}/>}
 
       {/* MODAL 6: CREATE POST */}
       <Modal

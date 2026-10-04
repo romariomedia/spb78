@@ -1,3 +1,4 @@
+import { AvatarImage } from './AvatarImage';
 import {Camera,Crown,MapPin,Star,Users,Heart,Dumbbell,Medal} from 'lucide-react';
 import {UserProfile} from '../lib/types';
 import {MEDAL_TIERS} from '../lib/medals';
@@ -14,7 +15,7 @@ export function ProfileSummary({user,friendsCount,isPremium,avatar,birthday,onUp
   return <div className="sb-profile-summary">
     <div className="sb-profile-identity">
       <div className="sb-profile-avatar">
-        <img src={avatar} width={72} height={72} decoding="async" alt={user.name}/>
+        <AvatarImage src={avatar} width={72} height={72} decoding="async" alt={user.name}/>
         <button onClick={onUpdateAvatar} aria-label="Обновить фото профиля"><Camera size={16}/></button>
       </div>
       <div className="sb-profile-name">

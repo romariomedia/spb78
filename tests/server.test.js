@@ -35,7 +35,7 @@ test('health, route forwarding and JSON errors', async t => {
   for (const path of ['/health', '/api/health']) {
     const result = await fetch(base + path);
     assert.equal(result.status, 200);
-    assert.equal((await result.json()).routesLoaded, 12);
+    assert.equal((await result.json()).routesLoaded, API_ROUTES.length);
   }
   const result = await fetch(base + '/api/sportbuddy-mutation', {
     method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"action":"bootstrapProfile"}'

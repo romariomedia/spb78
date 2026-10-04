@@ -1,3 +1,4 @@
+import { AvatarImage } from './AvatarImage';
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Crown, Heart, MessageCircle, Share2, Send } from 'lucide-react';
@@ -30,7 +31,7 @@ const PostCardInner: React.FC<PostCardProps> = ({
       {/* Author header */}
       <div className="p-4 pb-3 flex items-center justify-between border-b border-slate-800/60 bg-slate-900/80">
         <div className="flex items-center gap-3">
-          <img
+          <AvatarImage
             src={avatarUrl(post.authorAvatar, 80)}
             alt={post.authorName}
             loading="lazy"
