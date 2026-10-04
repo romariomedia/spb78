@@ -7,6 +7,7 @@ import {
   SPB_VENUES, VENUE_SPORT_FILTERS, SportVenue, venueMapUrl, venueScore
 } from '../lib/venues';
 import { refreshVenues } from '../services/venues';
+import { venueCover } from '../lib/venueCovers';
 import { triggerHapticImpact } from '../services/native';
 
 interface PlacesSectionProps {
@@ -46,18 +47,37 @@ function sportEmoji(sport: string): string {
 }
 
 const VenueHero: React.FC<{ venue: SportVenue; compact?: boolean }> = ({ venue, compact = false }) => {
-  const photo = venue.photos?.[0];
+  const ownPhoto = venue.photos?.[0];
+  const cover = venueCover(venue);
+  const image = ownPhoto || cover.url;
   return (
     <div className={`relative overflow-hidden bg-gradient-to-br from-emerald-500/25 via-slate-900 to-slate-950 ${compact ? 'h-32 sm:h-36' : 'h-52'}`}>
-      {photo ? (
-        <img src={photo} alt={venue.name} className="h-full w-full object-cover" loading="lazy" />
-      ) : (
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <div className="text-5xl">{sportEmoji(venue.sports[0] ?? '')}</div>
-          <p className="mt-3 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
-            Фото появятся после подтверждения площадкой
-          </p>
-        </div>
+      <img
+        src={image}
+        alt={ownPhoto ? venue.name : cover.kind === 'real' ? `${venue.name}: фото объекта` : `${venue.name}: иллюстративное фото площадки`}
+        className="h-full w-full object-cover"
+        loading={compact ? 'lazy' : 'eager'}
+        referrerPolicy="no-referrer"
+        onError={event => { event.currentTarget.style.display = 'none'; }}
+      />
+      {!ownPhoto && (
+        <span className={`absolute left-3 top-3 rounded-full border px-2.5 py-1 text-[9px] font-black backdrop-blur-md ${
+          cover.kind === 'real'
+            ? 'border-emerald-400/40 bg-emerald-950/75 text-emerald-200'
+            : 'border-white/15 bg-slate-950/75 text-slate-300'
+        }`}>
+          {cover.kind === 'real' ? 'Фото объекта' : 'Иллюстративное фото'}
+        </span>
+      )}
+      {!ownPhoto && !compact && (
+        <a
+          href={cover.sourceUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="absolute right-3 top-3 rounded-full border border-white/10 bg-slate-950/75 px-2.5 py-1 text-[9px] font-bold text-slate-300 backdrop-blur-md"
+        >
+          {cover.sourceLabel} · {cover.license}
+        </a>
       )}
       <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-slate-950 to-transparent" />
     </div>
