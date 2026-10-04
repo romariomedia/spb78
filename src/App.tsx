@@ -5,7 +5,6 @@ import { NotificationSettings } from './components/NotificationSettings';
 import { subscribeNotifications,restorePush,readNotifications } from './services/notifications';
 import { trainingGenderError, trainingGenderLabel } from './lib/trainingEligibility';
 import { BetaNotice } from './components/BetaNotice';
-import { CityPulse } from './components/CityPulse';
 import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense, JSX } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 import { 
@@ -1748,11 +1747,6 @@ export default function App(): JSX.Element {
             {/* ==================== TAB 1: DISCOVER (ЗНАКОМСТВА) ==================== */}
             {activeTab === 'discover' && (
               <div className="space-y-4">
-                <CityPulse trainingCount={trainings.length}
-                  onTrainings={() => handleTabChange('trainings')}
-                  onDiscover={() => document.getElementById('sb-discover-controls')?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' })}
-                  onSport={(sport) => { setTrainingSportFilter(sport); handleTabChange('trainings'); }}
-                />
                 {/* Mode Switcher & Filters Header */}
                 <div id="sb-discover-controls" className="flex flex-wrap gap-2 items-center justify-between bg-slate-900/80 p-3 rounded-2xl border border-slate-800">
                   <div className="flex items-center gap-1 text-xs font-bold text-slate-200">
