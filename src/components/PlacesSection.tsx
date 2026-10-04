@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ArrowLeft, Building2, CheckCircle2, ChevronRight, Clock3, ExternalLink,
   MapPin, Phone, Search, ShieldCheck, Star, Trophy, X
@@ -6,6 +6,7 @@ import {
 import {
   SPB_VENUES, VENUE_SPORT_FILTERS, SportVenue, venueMapUrl, venueScore
 } from '../lib/venues';
+import { refreshVenues } from '../services/venues';
 import { triggerHapticImpact } from '../services/native';
 
 interface PlacesSectionProps {
@@ -69,10 +70,22 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, o
   const [sort, setSort] = useState<SortMode>('recommended');
   const [selected, setSelected] = useState<SportVenue | null>(null);
   const [showOnlyReady, setShowOnlyReady] = useState(false);
+  const [catalog, setCatalog] = useState<SportVenue[]>(SPB_VENUES);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+    setCatalogLoading(true);
+    void refreshVenues(false)
+      .then(items => { if (!cancelled) setCatalog(items); })
+      .finally(() => { if (!cancelled) setCatalogLoading(false); });
+    return () => { cancelled = true; };
+  }, [isOpen]);
 
   const venues = useMemo(() => {
     const q = query.trim().toLocaleLowerCase('ru-RU');
-    const list = SPB_VENUES.filter(venue => {
+    const list = catalog.filter(venue => {
       if (showOnlyReady && venue.status !== 'curated') return false;
       if (sport !== 'Все' && !venue.sports.includes(sport)) return false;
       if (!q) return true;
@@ -86,7 +99,7 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, o
       if (sort === 'reviews') return (b.reviews ?? 0) - (a.reviews ?? 0);
       return venueScore(b) - venueScore(a);
     });
-  }, [query, sport, sort, showOnlyReady]);
+  }, [catalog, query, sport, sort, showOnlyReady]);
 
   if (!isOpen) return null;
 
@@ -108,7 +121,7 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, o
           </div>
           {!selected && (
             <span className="text-[11px] font-black px-2.5 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300">
-              {venues.length} из {SPB_VENUES.length}
+              {venues.length} из {catalog.length}
             </span>
           )}
         </div>
@@ -146,9 +159,13 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, o
 
               <div className={`mt-4 rounded-2xl border p-3 ${STATUS_COPY[selected.status].className}`}>
                 <p className="text-xs font-black flex items-center gap-1.5">
-                  <ShieldCheck className="w-4 h-4" /> {STATUS_COPY[selected.status].label}
+                  <ShieldCheck className="w-4 h-4" /> {selected.isVerified ? 'Проверено SportBuddy' : STATUS_COPY[selected.status].label}
                 </p>
-                <p className="mt-1 text-[11px] leading-relaxed opacity-90">{STATUS_COPY[selected.status].description}</p>
+                <p className="mt-1 text-[11px] leading-relaxed opacity-90">
+                  {selected.isVerified
+                    ? 'Площадка напрямую подтвердила карточку SportBuddy. Цена и свободное время всё равно согласовываются с владельцем.'
+                    : STATUS_COPY[selected.status].description}
+                </p>
               </div>
             </section>
 
@@ -298,6 +315,11 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, o
           </div>
 
           <div className="space-y-3">
+            {catalogLoading && (
+              <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 text-center text-xs font-bold text-slate-500">
+                Обновляем данные площадок…
+              </div>
+            )}
             {venues.map(venue => (
               <button
                 key={venue.id}
