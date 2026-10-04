@@ -3274,8 +3274,10 @@ export default function App(): JSX.Element {
           setSelectedVenueForTraining(null);
           setVenueRentalConfirmed(false);
         }}
-        title="Новая тренировка"
-        subtitle="Организуйте совместные пробежки или игры"
+        title={newTrSport === 'Походы' ? 'Новый поход' : 'Новая тренировка'}
+        subtitle={newTrSport === 'Походы'
+          ? 'Найдите компанию для активного отдыха и красивого маршрута'
+          : 'Организуйте совместные пробежки или игры'}
       >
         <form onSubmit={handleSubmitTraining} className="space-y-4 text-xs">
           {selectedVenueForTraining && (
@@ -3312,7 +3314,9 @@ export default function App(): JSX.Element {
             <input
               type="text"
               required
-              placeholder="Например: Утренняя интервальная беговая"
+              placeholder={newTrSport === 'Походы'
+                ? 'Например: Поход к Линдуловской роще'
+                : 'Например: Утренняя интервальная беговая'}
               value={newTrTitle}
               onChange={e => setNewTrTitle(e.target.value)}
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
@@ -3334,15 +3338,17 @@ export default function App(): JSX.Element {
             </div>
 
             <div>
-              <label className="block font-bold text-slate-300 mb-1">Уровень участников</label>
+              <label className="block font-bold text-slate-300 mb-1">
+                {newTrSport === 'Походы' ? 'Сложность маршрута' : 'Уровень участников'}
+              </label>
               <select
                 value={newTrLevel}
                 onChange={e => setNewTrLevel(e.target.value as any)}
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-100 focus:outline-none focus:border-emerald-500 font-semibold"
               >
-                <option value="amateur">Начинающие</option>
-                <option value="semi-pro">Любитель+</option>
-                <option value="pro">Профессионалы</option>
+                <option value="amateur">{newTrSport === 'Походы' ? 'Лёгкий' : 'Начинающие'}</option>
+                <option value="semi-pro">{newTrSport === 'Походы' ? 'Средний' : 'Любитель+'}</option>
+                <option value="pro">{newTrSport === 'Походы' ? 'Сложный' : 'Профессионалы'}</option>
               </select>
             </div>
           </div>
@@ -3398,14 +3404,18 @@ export default function App(): JSX.Element {
           <div className="bg-slate-950 p-3 rounded-2xl border border-slate-800 space-y-2">
             <div className="flex items-center justify-between">
               <span className="font-bold text-slate-300 flex items-center gap-1">
-                <MapPin className="w-4 h-4 text-emerald-400" /> Локация тренировки:
+                <MapPin className="w-4 h-4 text-emerald-400" /> {newTrSport === 'Походы' ? 'Точка старта:' : 'Локация тренировки:'}
               </span>
               <button
                 type="button"
                 onClick={() => setIsMapSelectorOpen(true)}
                 className="text-xs bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 font-bold px-3 py-1 rounded-lg border border-emerald-500/30 transition"
               >
-                {selectedVenueForTraining ? '📍 Подтвердить точку площадки' : '📍 Выбрать на карте Leaflet'}
+                {selectedVenueForTraining
+                  ? '📍 Подтвердить точку площадки'
+                  : newTrSport === 'Походы'
+                    ? '📍 Выбрать точку старта'
+                    : '📍 Выбрать на карте Leaflet'}
               </button>
             </div>
             <p className="font-semibold text-emerald-300 truncate">{newTrAddress}, {newTrCity}</p>
@@ -3413,10 +3423,14 @@ export default function App(): JSX.Element {
           </div>
 
           <div>
-            <label className="block font-bold text-slate-300 mb-1">Описание и план тренировки</label>
+            <label className="block font-bold text-slate-300 mb-1">
+              {newTrSport === 'Походы' ? 'Маршрут и план похода' : 'Описание и план тренировки'}
+            </label>
             <textarea
               rows={3}
-              placeholder="Что берем с собой, как находим друг друга, темп пробежки..."
+              placeholder={newTrSport === 'Походы'
+                ? 'Куда идём, примерная дистанция, продолжительность, что взять с собой и где встречаемся...'
+                : 'Что берем с собой, как находим друг друга, темп пробежки...'}
               value={newTrDesc}
               onChange={e => setNewTrDesc(e.target.value)}
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
@@ -3439,7 +3453,7 @@ export default function App(): JSX.Element {
               type="submit"
               className="px-6 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold rounded-xl transition shadow-[0_0_20px_rgba(16,185,129,0.5)] active:scale-95"
             >
-              Создать тренировку
+              {newTrSport === 'Походы' ? 'Создать поход' : 'Создать тренировку'}
             </button>
           </div>
         </form>
@@ -3449,8 +3463,8 @@ export default function App(): JSX.Element {
       <Modal
         isOpen={isMapSelectorOpen}
         onClose={() => setIsMapSelectorOpen(false)}
-        title="Выберите точку на карте"
-        subtitle="Кликните в любое место OpenStreetMap"
+        title={newTrSport === 'Походы' ? 'Выберите точку старта' : 'Выберите точку на карте'}
+        subtitle={newTrSport === 'Походы' ? 'Отметьте место сбора группы' : 'Кликните в любое место OpenStreetMap'}
         maxWidth="lg"
         footer={
           <button
@@ -3466,7 +3480,11 @@ export default function App(): JSX.Element {
         }
       >
         <div className="space-y-2">
-          <p className="text-xs text-slate-400">Нажмите на любую спортивную площадку, парк или стадион, чтобы прикрепить адрес:</p>
+          <p className="text-xs text-slate-400">
+            {newTrSport === 'Походы'
+              ? 'Отметьте точку, где участники собираются перед стартом маршрута:'
+              : 'Нажмите на любую спортивную площадку, парк или стадион, чтобы прикрепить адрес:'}
+          </p>
           <Suspense fallback={<MapFallback height="380px" />}>
             <LeafletMap
               center={newTrCoords}
