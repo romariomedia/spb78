@@ -15,6 +15,8 @@ try {
   const app = await createApiApp({ apiDir: join(root, 'api') });
   const {startNotificationWorker}=await import('./server/notification-worker.js');
   const stopNotifications=startNotificationWorker();
+  const {startStoryWorker}=await import('./server/story-worker.js');
+  const stopStories=startStoryWorker();
   const {stopNotificationStreams}=await import('./api/notifications.js');
   const server = app.listen(port, '127.0.0.1', () => {
     console.log(`SportBuddy API listening on 127.0.0.1:${port}`);
@@ -28,6 +30,7 @@ try {
     if (stopping) return;
     stopping = true;
     stopNotifications();
+    stopStories();
     stopNotificationStreams();
     const deadline = setTimeout(() => process.exit(1), 10_000);
     deadline.unref();
