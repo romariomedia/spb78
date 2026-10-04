@@ -118,10 +118,19 @@ export const REAL_COVER_PRIORITY_IDS = new Set([
   'athletics-manege'
 ]);
 
+const DEFAULT_COVER: VenueCover = {
+  url: commonsFile('FIFA approved football pitch.jpg'),
+  kind: 'illustrative',
+  sourceUrl: commonsPage('FIFA approved football pitch.jpg'),
+  sourceLabel: 'Wikimedia Commons',
+  credit: 'ARKSDiyar',
+  license: 'CC BY-SA 4.0'
+};
+
 export function venueCover(venue: SportVenue): VenueCover {
   const exact = REAL_COVERS[venue.id];
   if (exact) return exact;
 
   const primary = venue.sports[0] || 'Футбол';
-  return ILLUSTRATIVE[primary] || ILLUSTRATIVE['Футбол'];
+  return ILLUSTRATIVE[primary] ?? DEFAULT_COVER;
 }
