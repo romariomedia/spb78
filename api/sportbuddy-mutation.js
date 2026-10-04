@@ -290,7 +290,7 @@ async function trainingMutation(db, uid, body) {
       isCompleted:false, checkedInUserIds:[], ratedParticipantIds:[], organizerRatedByParticipantIds:[], createdAt:new Date().toISOString() };
     await db.runTransaction(async tx=>{
       tx.create(db.collection('trainings').doc(id),training);
-      enqueueNotification(tx,db,{id:`training-new:${id}`,actorId:uid,broadcast:true,category:'trainings',kind:'training_new',entityId:id,title:'Новая тренировка рядом',message:training.title,link:'#training='+encodeURIComponent(id)});
+      enqueueNotification(tx,db,{id:`training-new:${id}`,actorId:uid,broadcast:true,category:'trainings',kind:'training_new',entityId:id,title:training.sport==='Походы'?'Новый поход рядом':'Новая тренировка рядом',message:training.title,link:'#training='+encodeURIComponent(id)});
     });
     return { training };
   }
