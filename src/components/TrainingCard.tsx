@@ -59,6 +59,14 @@ const TrainingCardInner: React.FC<TrainingCardProps> = ({
         {tr.title}
       </h3>
 
+      {tr.venueName && (
+        <div className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-black text-emerald-300">
+          <MapPin className="w-3 h-3 shrink-0" />
+          <span className="truncate">{tr.venueName}</span>
+          {tr.venueRentalConfirmed && <span className="text-emerald-400">✓ аренда подтверждена организатором</span>}
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-2 my-3 text-xs text-slate-300">
         <div className="flex items-center gap-1.5 bg-slate-950 p-2 rounded-xl border border-slate-800/80">
           <Calendar className="w-4 h-4 text-emerald-400 shrink-0" />
