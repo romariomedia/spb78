@@ -97,7 +97,7 @@ export async function loginFirebaseAccount(
 export async function requestFirebasePasswordReset(email: string): Promise<FirebaseAuthResult> {
   try {
     await sendPasswordResetEmail(auth, email, {
-      url: 'https://sportbuddy78.pro',
+      url: typeof window !== 'undefined' ? window.location.origin : 'https://sportbuddy78.pro',
       handleCodeInApp: false
     });
     return { ok: true };
@@ -138,6 +138,8 @@ function mapAuthError(code?: string): string {
       return 'Слишком много попыток, повторите позже';
     case 'auth/network-request-failed':
       return 'Нет соединения с сервером';
+    case 'auth/unauthorized-domain':
+      return 'Этот домен не разрешён в Firebase Authentication';
     default:
       return 'Не удалось выполнить вход';
   }

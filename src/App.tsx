@@ -119,6 +119,8 @@ import { Modal } from './components/Modal';
 import { ProgressBar } from './components/ProgressBar';
 import { RewardsSection } from './components/RewardsSection';
 import { WelcomeGuide, hasSeenWelcomeGuide, markWelcomeGuideSeen } from './components/WelcomeGuide';
+import { PlacesSection } from './components/PlacesSection';
+import { SportVenue } from './lib/venues';
 
 /* Тяжёлые экраны грузятся по требованию: карта (~45 КБ gzip), админка
    и студия эфира не нужны при первом рендере. */
@@ -243,6 +245,9 @@ export default function App(): JSX.Element {
   const [newTrAddress, setNewTrAddress] = useState('Локация на карте');
   const [newTrCity, setNewTrCity] = useState('Санкт-Петербург');
   const [isMapSelectorOpen, setIsMapSelectorOpen] = useState(false);
+  const [isPlacesOpen, setIsPlacesOpen] = useState(false);
+  const [selectedVenueForTraining, setSelectedVenueForTraining] = useState<SportVenue | null>(null);
+  const [venueRentalConfirmed, setVenueRentalConfirmed] = useState(false);
 
   // Feed State
   const [isCreatePostOpen, setIsCreatePostOpen] = useState(false);
@@ -1026,6 +1031,10 @@ export default function App(): JSX.Element {
     e.preventDefault();
     if (!newTrTitle.trim() || !currentUser) return;
     if (!newTrLocationSelected) { notify('Выберите место встречи на карте', 'err'); return; }
+    if (selectedVenueForTraining && !venueRentalConfirmed) {
+      notify('Подтвердите, что аренда площадки согласована с владельцем', 'err');
+      return;
+    }
 
     // UI guard — Free athletes can still browse and join, but not organize.
     if (!isPremium) {
@@ -1052,7 +1061,12 @@ export default function App(): JSX.Element {
         level: newTrLevel,
         participantsMax: Number(newTrMax) || 10,
         participantGender: newTrGender,
-        description: newTrDesc
+        description: newTrDesc,
+        ...(selectedVenueForTraining ? {
+          venueId: selectedVenueForTraining.id,
+          venueName: selectedVenueForTraining.name,
+          venueRentalConfirmed
+        } : {})
       }, currentUser);
     } catch (err) {
       if (err instanceof PremiumTrainingRequiredError) {
@@ -1075,6 +1089,32 @@ export default function App(): JSX.Element {
     setNewTrGender('any');
     setNewTrTitle('');
     setNewTrDesc('');
+    setSelectedVenueForTraining(null);
+    setVenueRentalConfirmed(false);
+  };
+
+  /** Starts the organizer flow from a SportBuddy Places card. */
+  const handleCreateTrainingFromVenue = (venue: SportVenue) => {
+    triggerHapticImpact('medium');
+    setIsPlacesOpen(false);
+
+    if (!isPremium) {
+      triggerHapticNotification('warning');
+      setProfileSection('tariff');
+      handleTabChange('profile');
+      return;
+    }
+
+    setSelectedVenueForTraining(venue);
+    setVenueRentalConfirmed(false);
+    setNewTrAddress(venue.address);
+    setNewTrCity('Санкт-Петербург');
+    setNewTrLocationSelected(false);
+
+    const compatibleSport = venue.sports.find(item => SPORTS.includes(item));
+    if (compatibleSport) setNewTrSport(compatibleSport);
+
+    setIsCreateTrainingOpen(true);
   };
 
   /** Entry point for the "Создать" button — Free users are sent to tariff. */
@@ -1086,6 +1126,8 @@ export default function App(): JSX.Element {
       handleTabChange('profile');
       return;
     }
+    setSelectedVenueForTraining(null);
+    setVenueRentalConfirmed(false);
     setIsCreateTrainingOpen(true);
   };
 
@@ -1958,17 +2000,26 @@ export default function App(): JSX.Element {
                     <h2 className="text-lg font-black text-white tracking-tight">Спортивные тренировки</h2>
                     <p className="text-xs text-slate-400">Находите группы или организуйте свои пробежки</p>
                   </div>
-                  <button
-                    onClick={handleOpenCreateTraining}
-                    className={`font-black px-4 py-2.5 rounded-2xl text-xs transition flex items-center gap-1.5 shadow active:scale-95 shrink-0 ${
-                      isPremium
-                        ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-[0_0_20px_rgba(16,185,129,0.5)]'
-                        : 'bg-slate-800 border border-amber-500/40 text-amber-300 hover:bg-slate-700'
-                    }`}
-                  >
-                    {isPremium ? <Plus className="w-4 h-4 stroke-[3]" /> : <Crown className="w-4 h-4 fill-amber-300" />}
-                    {isPremium ? 'Создать' : 'Создать PRO'}
-                  </button>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => { triggerHapticImpact('light'); setIsPlacesOpen(true); }}
+                      className="font-black px-3 py-2.5 rounded-2xl text-xs transition flex items-center gap-1.5 bg-slate-900 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10 active:scale-95"
+                    >
+                      <MapPin className="w-4 h-4" />
+                      Площадки
+                    </button>
+                    <button
+                      onClick={handleOpenCreateTraining}
+                      className={`font-black px-4 py-2.5 rounded-2xl text-xs transition flex items-center gap-1.5 shadow active:scale-95 ${
+                        isPremium
+                          ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-[0_0_20px_rgba(16,185,129,0.5)]'
+                          : 'bg-slate-800 border border-amber-500/40 text-amber-300 hover:bg-slate-700'
+                      }`}
+                    >
+                      {isPremium ? <Plus className="w-4 h-4 stroke-[3]" /> : <Crown className="w-4 h-4 fill-amber-300" />}
+                      {isPremium ? 'Создать' : 'Создать PRO'}
+                    </button>
+                  </div>
                 </div>
 
                 {/* Pending participant ratings for the organizer */}
@@ -3036,6 +3087,12 @@ export default function App(): JSX.Element {
         />
       </Suspense>
 
+      <PlacesSection
+        isOpen={isPlacesOpen}
+        onClose={() => setIsPlacesOpen(false)}
+        onCreateTraining={handleCreateTrainingFromVenue}
+      />
+
       {/* 3. Bottom Navigation Bar */}
       <BottomNav
         activeTab={activeTab}
@@ -3219,17 +3276,54 @@ export default function App(): JSX.Element {
       {/* MODAL 3: CREATE TRAINING */}
       <Modal
         isOpen={isCreateTrainingOpen}
-        onClose={() => setIsCreateTrainingOpen(false)}
-        title="Новая тренировка"
-        subtitle="Организуйте совместные пробежки или игры"
+        onClose={() => {
+          setIsCreateTrainingOpen(false);
+          setSelectedVenueForTraining(null);
+          setVenueRentalConfirmed(false);
+        }}
+        title={newTrSport === 'Походы' ? 'Новый поход' : 'Новая тренировка'}
+        subtitle={newTrSport === 'Походы'
+          ? 'Найдите компанию для активного отдыха и красивого маршрута'
+          : 'Организуйте совместные пробежки или игры'}
       >
         <form onSubmit={handleSubmitTraining} className="space-y-4 text-xs">
+          {selectedVenueForTraining && (
+            <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-3.5 space-y-3">
+              <div className="flex items-start gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-emerald-500 text-slate-950 flex items-center justify-center shrink-0">
+                  <MapPin className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className="font-black text-emerald-200">Площадка: {selectedVenueForTraining.name}</p>
+                  <p className="mt-0.5 text-[11px] text-slate-300">{selectedVenueForTraining.address}</p>
+                  <p className="mt-1 text-[10px] text-slate-500">
+                    SportBuddy не бронирует площадку автоматически. Сначала согласуйте дату и время с владельцем.
+                  </p>
+                </div>
+              </div>
+
+              <label className="flex items-start gap-2.5 rounded-xl border border-slate-700 bg-slate-950/70 p-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={venueRentalConfirmed}
+                  onChange={event => setVenueRentalConfirmed(event.target.checked)}
+                  className="mt-0.5 h-4 w-4 accent-emerald-500"
+                />
+                <span className="text-[11px] leading-relaxed text-slate-200">
+                  Я самостоятельно связался с площадкой и подтверждаю, что аренда на выбранное время согласована.
+                </span>
+              </label>
+            </div>
+          )}
+
           <div>
             <label className="block font-bold text-slate-300 mb-1">Название тренировки *</label>
             <input
               type="text"
               required
-              placeholder="Например: Утренняя интервальная беговая"
+              placeholder={newTrSport === 'Походы'
+                ? 'Например: Поход к Линдуловской роще'
+                : 'Например: Утренняя интервальная беговая'}
               value={newTrTitle}
               onChange={e => setNewTrTitle(e.target.value)}
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
@@ -3251,15 +3345,17 @@ export default function App(): JSX.Element {
             </div>
 
             <div>
-              <label className="block font-bold text-slate-300 mb-1">Уровень участников</label>
+              <label className="block font-bold text-slate-300 mb-1">
+                {newTrSport === 'Походы' ? 'Сложность маршрута' : 'Уровень участников'}
+              </label>
               <select
                 value={newTrLevel}
                 onChange={e => setNewTrLevel(e.target.value as any)}
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-100 focus:outline-none focus:border-emerald-500 font-semibold"
               >
-                <option value="amateur">Начинающие</option>
-                <option value="semi-pro">Любитель+</option>
-                <option value="pro">Профессионалы</option>
+                <option value="amateur">{newTrSport === 'Походы' ? 'Лёгкий' : 'Начинающие'}</option>
+                <option value="semi-pro">{newTrSport === 'Походы' ? 'Средний' : 'Любитель+'}</option>
+                <option value="pro">{newTrSport === 'Походы' ? 'Сложный' : 'Профессионалы'}</option>
               </select>
             </div>
           </div>
@@ -3315,14 +3411,18 @@ export default function App(): JSX.Element {
           <div className="bg-slate-950 p-3 rounded-2xl border border-slate-800 space-y-2">
             <div className="flex items-center justify-between">
               <span className="font-bold text-slate-300 flex items-center gap-1">
-                <MapPin className="w-4 h-4 text-emerald-400" /> Локация тренировки:
+                <MapPin className="w-4 h-4 text-emerald-400" /> {newTrSport === 'Походы' ? 'Точка старта:' : 'Локация тренировки:'}
               </span>
               <button
                 type="button"
                 onClick={() => setIsMapSelectorOpen(true)}
                 className="text-xs bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 font-bold px-3 py-1 rounded-lg border border-emerald-500/30 transition"
               >
-                📍 Выбрать на карте Leaflet
+                {selectedVenueForTraining
+                  ? '📍 Подтвердить точку площадки'
+                  : newTrSport === 'Походы'
+                    ? '📍 Выбрать точку старта'
+                    : '📍 Выбрать на карте Leaflet'}
               </button>
             </div>
             <p className="font-semibold text-emerald-300 truncate">{newTrAddress}, {newTrCity}</p>
@@ -3330,10 +3430,14 @@ export default function App(): JSX.Element {
           </div>
 
           <div>
-            <label className="block font-bold text-slate-300 mb-1">Описание и план тренировки</label>
+            <label className="block font-bold text-slate-300 mb-1">
+              {newTrSport === 'Походы' ? 'Маршрут и план похода' : 'Описание и план тренировки'}
+            </label>
             <textarea
               rows={3}
-              placeholder="Что берем с собой, как находим друг друга, темп пробежки..."
+              placeholder={newTrSport === 'Походы'
+                ? 'Куда идём, примерная дистанция, продолжительность, что взять с собой и где встречаемся...'
+                : 'Что берем с собой, как находим друг друга, темп пробежки...'}
               value={newTrDesc}
               onChange={e => setNewTrDesc(e.target.value)}
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
@@ -3343,7 +3447,11 @@ export default function App(): JSX.Element {
           <div className="pt-2 flex justify-end gap-2 border-t border-slate-800">
             <button
               type="button"
-              onClick={() => setIsCreateTrainingOpen(false)}
+              onClick={() => {
+                setIsCreateTrainingOpen(false);
+                setSelectedVenueForTraining(null);
+                setVenueRentalConfirmed(false);
+              }}
               className="px-4 py-2.5 bg-slate-800 text-slate-300 font-bold rounded-xl transition"
             >
               Отменить
@@ -3352,7 +3460,7 @@ export default function App(): JSX.Element {
               type="submit"
               className="px-6 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold rounded-xl transition shadow-[0_0_20px_rgba(16,185,129,0.5)] active:scale-95"
             >
-              Создать тренировку
+              {newTrSport === 'Походы' ? 'Создать поход' : 'Создать тренировку'}
             </button>
           </div>
         </form>
@@ -3362,8 +3470,8 @@ export default function App(): JSX.Element {
       <Modal
         isOpen={isMapSelectorOpen}
         onClose={() => setIsMapSelectorOpen(false)}
-        title="Выберите точку на карте"
-        subtitle="Кликните в любое место OpenStreetMap"
+        title={newTrSport === 'Походы' ? 'Выберите точку старта' : 'Выберите точку на карте'}
+        subtitle={newTrSport === 'Походы' ? 'Отметьте место сбора группы' : 'Кликните в любое место OpenStreetMap'}
         maxWidth="lg"
         footer={
           <button
@@ -3379,7 +3487,11 @@ export default function App(): JSX.Element {
         }
       >
         <div className="space-y-2">
-          <p className="text-xs text-slate-400">Нажмите на любую спортивную площадку, парк или стадион, чтобы прикрепить адрес:</p>
+          <p className="text-xs text-slate-400">
+            {newTrSport === 'Походы'
+              ? 'Отметьте точку, где участники собираются перед стартом маршрута:'
+              : 'Нажмите на любую спортивную площадку, парк или стадион, чтобы прикрепить адрес:'}
+          </p>
           <Suspense fallback={<MapFallback height="380px" />}>
             <LeafletMap
               center={newTrCoords}

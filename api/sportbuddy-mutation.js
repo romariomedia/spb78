@@ -277,14 +277,20 @@ async function trainingMutation(db, uid, body) {
     if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat)>90 || Math.abs(lng)>180) throw Object.assign(new Error('Некорректные координаты'),{status:400});
     const parsedDate = new Date(dateKey + 'T00:00:00Z');
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey) || !Number.isFinite(parsedDate.getTime()) || parsedDate.toISOString().slice(0,10)!==dateKey || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) throw Object.assign(new Error('Некорректная дата или время тренировки'),{status:400});
+    const venueId = typeof data.venueId === 'string' ? data.venueId.trim().slice(0,120) : '';
+    const venueName = typeof data.venueName === 'string' ? data.venueName.trim().slice(0,160) : '';
+    const venueRentalConfirmed = data.venueRentalConfirmed === true;
+    if (venueId && !venueRentalConfirmed) throw Object.assign(new Error('Подтвердите аренду выбранной площадки'), { status: 400 });
     const training = { id, participantGender, title:data.title.trim(), sport:String(data.sport || ''), dateKey, time,
       dateLabel:String(data.dateLabel || dateKey), locationName:String(data.locationName || ''), address:String(data.address || ''),
       lat, lng, level:['amateur','semi-pro','pro'].includes(data.level)?data.level:'amateur', participantsMax:max,
-      description:String(data.description || '').slice(0,2000), createdBy:uid, participantIds:[uid],
+      description:String(data.description || '').slice(0,2000),
+      ...(venueId ? { venueId, venueName: venueName || String(data.address || '').slice(0,160), venueRentalConfirmed:true } : {}),
+      createdBy:uid, participantIds:[uid],
       isCompleted:false, checkedInUserIds:[], ratedParticipantIds:[], organizerRatedByParticipantIds:[], createdAt:new Date().toISOString() };
     await db.runTransaction(async tx=>{
       tx.create(db.collection('trainings').doc(id),training);
-      enqueueNotification(tx,db,{id:`training-new:${id}`,actorId:uid,broadcast:true,category:'trainings',kind:'training_new',entityId:id,title:'Новая тренировка рядом',message:training.title,link:'#training='+encodeURIComponent(id)});
+      enqueueNotification(tx,db,{id:`training-new:${id}`,actorId:uid,broadcast:true,category:'trainings',kind:'training_new',entityId:id,title:training.sport==='Походы'?'Новый поход рядом':'Новая тренировка рядом',message:training.title,link:'#training='+encodeURIComponent(id)});
     });
     return { training };
   }

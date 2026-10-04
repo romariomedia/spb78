@@ -263,9 +263,12 @@ export const SPORTS: string[] = [
   'Футбол',
   'Теннис',
   'Баскетбол',
+  'Волейбол',
   'Падел',
+  'Настольный теннис',
   'Хоккей',
   'Велопрогулка',
+  'Походы',
   'Воркаут'
 ];
 
@@ -280,9 +283,12 @@ export const SPORT_ICONS: Record<string, string> = {
   'Футбол': '⚽️',
   'Теннис': '🎾',
   'Баскетбол': '🏀',
+  'Волейбол': '🏐',
   'Падел': '🎾',
+  'Настольный теннис': '🏓',
   'Хоккей': '🏒',
   'Велопрогулка': '🚴',
+  'Походы': '🥾',
   'Воркаут': '🤸',
   'Общее': '🏅'
 };
@@ -372,6 +378,11 @@ export interface Training {
   participantsMax: number;
   participantIds: string[];
   description: string;
+  /** Optional SportBuddy Places reference selected by the organizer. */
+  venueId?: string;
+  venueName?: string;
+  /** Organizer declaration only: they confirmed rental directly with the venue. */
+  venueRentalConfirmed?: boolean;
   createdBy: string;
   createdAt: string;
   /** Machine-readable date yyyy-mm-dd (calendar + countdown) */

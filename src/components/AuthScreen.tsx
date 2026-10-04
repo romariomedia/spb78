@@ -1,5 +1,4 @@
 import { isBetaActive } from '../lib/release';
-import { NevaScene } from './CityPulse';
 import { useEffect, useRef, useState } from 'react';
 import * as VKID from '@vkid/sdk';
 import { motion } from 'framer-motion';
@@ -52,17 +51,16 @@ interface Props {
   initialNotice?: string;
 }
 
-/** Compact SB78 mark with the Admiralty spire as a St. Petersburg signal. */
+/** Official SportBuddy78 brand mark. */
 function BrandMark() {
   return (
-    <div className="relative flex h-[72px] w-[72px] items-center justify-center overflow-hidden rounded-[26px] border border-emerald-300/50 bg-slate-950 shadow-[0_0_34px_rgba(16,185,129,0.3)]">
-      <span className="absolute inset-0 bg-[radial-gradient(circle_at_48%_28%,rgba(52,211,153,0.3),transparent_46%)]" />
-      <svg viewBox="0 0 72 72" className="relative h-full w-full" aria-hidden>
-        <path d="M36 8l2 13 4 4-6 3-6-3 4-4z" fill="#fbbf24" />
-        <path d="M29 30h14l-2.5 20h-9z" fill="#34d399" />
-        <path d="M20 53c8-6 24-6 32 0" fill="none" stroke="#34d399" strokeWidth="2" opacity=".72" />
-        <text x="36" y="66" textAnchor="middle" fill="#f8fafc" fontSize="12" fontWeight="800" fontFamily="Arial, sans-serif">78</text>
-      </svg>
+    <div className="relative flex h-[72px] w-[72px] items-center justify-center overflow-hidden rounded-[26px] border border-emerald-300/50 bg-black shadow-[0_0_34px_rgba(16,185,129,0.3)]">
+      <img
+        src="/sportbuddy78-logo.png.png"
+        alt="SportBuddy78"
+        className="h-full w-full object-cover"
+        draggable={false}
+      />
     </div>
   );
 }
@@ -352,7 +350,19 @@ export function AuthScreen({ onAuthenticated, initialNotice = '' }: Props) {
               <MapPin className="h-3 w-3 text-sky-400" /> Новая Голландия
             </span>
           </motion.div>
-          <div className="sb-auth-neva"><NevaScene/></div>
+          <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.42, duration: 0.65, ease: 'easeOut' }}
+            className="mt-6 overflow-hidden rounded-[28px] border border-emerald-400/20 bg-slate-950 shadow-[0_24px_70px_rgba(0,0,0,0.45)]"
+          >
+            <img
+              src="/sportbuddy78-hero.png.png"
+              alt="SportBuddy78 — найди своих, двигайся вместе"
+              className="block aspect-video w-full object-cover"
+              draggable={false}
+            />
+          </motion.div>
         </section>
 
         {/* Authentication panel */}
