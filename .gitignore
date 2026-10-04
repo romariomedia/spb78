@@ -7,3 +7,9 @@ dist/
 *.jks
 *.keystore
 coverage/
+
+android/local.properties
+android/.gradle/
+android/build/
+android/app/build/
+android/keystore.properties

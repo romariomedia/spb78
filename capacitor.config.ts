@@ -7,15 +7,11 @@ const config: CapacitorConfig = {
   server: {
     androidScheme: 'https',
     hostname: 'sportbuddy78.pro',
-    cleartext: true,
+    cleartext: false,
   },
   android: {
-    allowMixedContent: true,
-    // RuStore release signing is configured in android/app/build.gradle
-    buildOptions: {
-      keystorePath: 'sportbuddy-release.keystore',
-      keystoreAlias: 'sportbuddy',
-    },
+    allowMixedContent: false,
+
   },
   plugins: {
     SplashScreen: {

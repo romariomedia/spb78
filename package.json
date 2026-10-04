@@ -11,13 +11,15 @@
     "android:vk-callback": "node scripts/patch-android-vk-callback.mjs",
     "start": "node server.js",
     "test:server": "node --test tests/server.test.js",
-    "test": "node --test tests/*.test.js"
+    "test": "node --test tests/*.test.js",
+    "android:prepare": "npm run build && cap sync android && npm run android:vk-callback",
+    "android:open": "cap open android"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.0",
     "@capacitor/app": "^8.1.1",
     "@capacitor/camera": "^8.2.1",
-    "@capacitor/cli": "^7.6.8",
+    "@capacitor/cli": "8.5.0",
     "@capacitor/core": "^8.4.2",
     "@capacitor/geolocation": "^8.2.0",
     "@capacitor/haptics": "^8.0.2",

@@ -10,7 +10,7 @@ if (!fs.existsSync(manifestPath)) {
 
 let xml = fs.readFileSync(manifestPath, 'utf8');
 const marker = 'android:scheme="https"\n        android:host="sportbuddy78.pro"\n        android:pathPrefix="/vk-callback"';
-if (xml.includes(marker)) {
+if (xml.includes(marker) || /<data\b[^>]*android:scheme="https"[^>]*android:host="sportbuddy78\.pro"[^>]*android:pathPrefix="\/vk-callback"[^>]*\/>/s.test(xml)) {
   console.log('VK callback intent-filter already present.');
   process.exit(0);
 }
