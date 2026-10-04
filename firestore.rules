@@ -79,6 +79,16 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    /* -------------------------- venues catalog -------------------------- */
+
+    match /venues/{venueId} {
+      // Athletes can read the managed catalog. All writes go through the
+      // OTP-protected Admin SDK endpoint, so the client can never publish
+      // or "verify" a venue by itself.
+      allow read: if isSignedIn();
+      allow create, update, delete: if false;
+    }
+
     /* ------------------------------ feed ------------------------------- */
 
     match /feed/{postId} {
