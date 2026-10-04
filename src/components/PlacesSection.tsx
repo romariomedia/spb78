@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  ArrowLeft, Building2, CheckCircle2, ChevronRight, Clock3, ExternalLink,
+  ArrowLeft, Building2, CheckCircle2, ChevronLeft, ChevronRight, Clock3, ExternalLink,
   MapPin, Phone, Search, ShieldCheck, Star, Trophy, X
 } from 'lucide-react';
 import {
@@ -48,7 +48,7 @@ function sportEmoji(sport: string): string {
 const VenueHero: React.FC<{ venue: SportVenue; compact?: boolean }> = ({ venue, compact = false }) => {
   const photo = venue.photos?.[0];
   return (
-    <div className={`relative overflow-hidden bg-gradient-to-br from-emerald-500/25 via-slate-900 to-slate-950 ${compact ? 'h-36' : 'h-52'}`}>
+    <div className={`relative overflow-hidden bg-gradient-to-br from-emerald-500/25 via-slate-900 to-slate-950 ${compact ? 'h-32 sm:h-36' : 'h-52'}`}>
       {photo ? (
         <img src={photo} alt={venue.name} className="h-full w-full object-cover" loading="lazy" />
       ) : (
@@ -64,6 +64,77 @@ const VenueHero: React.FC<{ venue: SportVenue; compact?: boolean }> = ({ venue, 
   );
 };
 
+const VenueGallery: React.FC<{ venue: SportVenue }> = ({ venue }) => {
+  const photos = venue.photos?.filter(Boolean) ?? [];
+  const [index, setIndex] = useState(0);
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+
+  useEffect(() => setIndex(0), [venue.id]);
+
+  if (!photos.length) return <VenueHero venue={venue} />;
+
+  const go = (next: number) => {
+    const normalized = (next + photos.length) % photos.length;
+    setIndex(normalized);
+  };
+
+  return (
+    <div
+      className="relative h-[46vh] min-h-[260px] max-h-[430px] overflow-hidden bg-slate-950"
+      onTouchStart={event => setTouchStart(event.touches[0]?.clientX ?? null)}
+      onTouchEnd={event => {
+        if (touchStart === null) return;
+        const end = event.changedTouches[0]?.clientX ?? touchStart;
+        const delta = end - touchStart;
+        if (Math.abs(delta) > 45) go(index + (delta < 0 ? 1 : -1));
+        setTouchStart(null);
+      }}
+    >
+      <img
+        src={photos[index]}
+        alt={`${venue.name}: фото ${index + 1}`}
+        className="h-full w-full object-cover"
+        loading="eager"
+      />
+      <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-slate-950 via-slate-950/35 to-transparent" />
+      {photos.length > 1 && (
+        <>
+          <button
+            type="button"
+            aria-label="Предыдущее фото"
+            onClick={() => go(index - 1)}
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-slate-950/70 border border-white/10 backdrop-blur flex items-center justify-center active:scale-95"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          <button
+            type="button"
+            aria-label="Следующее фото"
+            onClick={() => go(index + 1)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-slate-950/70 border border-white/10 backdrop-blur flex items-center justify-center active:scale-95"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
+          <div className="absolute bottom-4 inset-x-0 flex items-center justify-center gap-1.5">
+            {photos.map((_, dot) => (
+              <button
+                key={dot}
+                type="button"
+                aria-label={`Фото ${dot + 1}`}
+                onClick={() => setIndex(dot)}
+                className={`h-1.5 rounded-full transition-all ${dot === index ? 'w-6 bg-white' : 'w-1.5 bg-white/50'}`}
+              />
+            ))}
+          </div>
+          <div className="absolute top-3 right-3 rounded-full bg-slate-950/70 border border-white/10 px-2.5 py-1 text-[10px] font-black backdrop-blur">
+            {index + 1}/{photos.length}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
 export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, onCreateTraining }) => {
   const [query, setQuery] = useState('');
   const [sport, setSport] = useState<string>('Все');
@@ -75,12 +146,21 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, o
 
   useEffect(() => {
     if (!isOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
     let cancelled = false;
     setCatalogLoading(true);
     void refreshVenues(false)
       .then(items => { if (!cancelled) setCatalog(items); })
       .finally(() => { if (!cancelled) setCatalogLoading(false); });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) setSelected(null);
   }, [isOpen]);
 
   const venues = useMemo(() => {
@@ -104,13 +184,13 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, o
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[80] bg-slate-950 text-white overflow-y-auto">
-      <div className="sticky top-0 z-20 border-b border-slate-800 bg-slate-950/95 backdrop-blur-xl">
-        <div className="mx-auto max-w-3xl px-4 py-3 flex items-center gap-3">
+    <div className="fixed inset-0 z-[80] bg-slate-950 text-white overflow-y-auto overscroll-contain [padding-bottom:env(safe-area-inset-bottom)]">
+      <div className="sticky top-0 z-30 border-b border-slate-800 bg-slate-950/95 backdrop-blur-xl [padding-top:env(safe-area-inset-top)]">
+        <div className="mx-auto max-w-3xl px-4 py-2.5 flex items-center gap-3">
           <button
             type="button"
             onClick={() => { triggerHapticImpact('light'); selected ? setSelected(null) : onClose(); }}
-            className="w-10 h-10 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center active:scale-95"
+            className="w-11 h-11 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center active:scale-95"
             aria-label={selected ? 'Назад к площадкам' : 'Закрыть площадки'}
           >
             {selected ? <ArrowLeft className="w-5 h-5" /> : <X className="w-5 h-5" />}
@@ -129,7 +209,7 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, o
 
       {selected ? (
         <div className="mx-auto max-w-3xl pb-28">
-          <VenueHero venue={selected} />
+          <VenueGallery venue={selected} />
 
           <div className="px-4 -mt-3 relative z-10 space-y-4">
             <section className="rounded-3xl border border-slate-800 bg-slate-900 p-4 shadow-2xl">
@@ -180,6 +260,19 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, o
               </div>
             </section>
 
+            {!!selected.amenities?.length && (
+              <section className="rounded-2xl border border-slate-800 bg-slate-900 p-3.5">
+                <p className="text-[10px] uppercase tracking-wide font-black text-slate-500 mb-2">Удобства</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {selected.amenities.map(item => (
+                    <span key={item} className="rounded-xl border border-slate-700 bg-slate-950 px-2.5 py-1.5 text-[10px] font-bold text-slate-300">
+                      {item}
+                    </span>
+                  ))}
+                </div>
+              </section>
+            )}
+
             {selected.note && (
               <section className="rounded-2xl border border-slate-800 bg-slate-900 p-3.5 text-xs text-slate-300 leading-relaxed">
                 {selected.note}
@@ -195,7 +288,7 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, o
                 {selected.phone ? (
                   <a
                     href={`tel:${selected.phone.replace(/[^+\d]/g, '')}`}
-                    className="rounded-2xl bg-emerald-500 text-slate-950 font-black text-xs py-3 flex items-center justify-center gap-1.5 active:scale-95"
+                    className="min-h-12 rounded-2xl bg-emerald-500 text-slate-950 font-black text-xs py-3 flex items-center justify-center gap-1.5 active:scale-95"
                   >
                     <Phone className="w-4 h-4" /> Позвонить
                   </a>
@@ -206,7 +299,7 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, o
                   href={venueMapUrl(selected)}
                   target="_blank"
                   rel="noreferrer"
-                  className="rounded-2xl bg-slate-800 border border-slate-700 text-white font-black text-xs py-3 flex items-center justify-center gap-1.5 active:scale-95"
+                  className="min-h-12 rounded-2xl bg-slate-800 border border-slate-700 text-white font-black text-xs py-3 flex items-center justify-center gap-1.5 active:scale-95"
                 >
                   <MapPin className="w-4 h-4" /> На карте
                 </a>
@@ -223,7 +316,7 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, o
               )}
             </section>
 
-            <section className="rounded-3xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+            <section className="rounded-3xl border border-emerald-500/30 bg-emerald-500/10 p-4 mb-24">
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-emerald-500 text-slate-950 flex items-center justify-center shrink-0">
                   <Trophy className="w-5 h-5" />
@@ -231,10 +324,15 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, o
                 <div>
                   <h4 className="text-sm font-black text-emerald-200">Организуйте тренировку здесь</h4>
                   <p className="mt-1 text-[11px] leading-relaxed text-slate-300">
-                    Договоритесь с площадкой о времени, затем создайте тренировку. Перед публикацией SportBuddy попросит подтвердить, что аренда согласована.
+                    Сначала договоритесь с площадкой о времени. SportBuddy не бронирует аренду автоматически.
                   </p>
                 </div>
               </div>
+            </section>
+          </div>
+
+          <div className="fixed bottom-0 inset-x-0 z-40 border-t border-slate-800 bg-slate-950/95 backdrop-blur-xl p-3 [padding-bottom:max(0.75rem,env(safe-area-inset-bottom))]">
+            <div className="mx-auto max-w-3xl">
               <button
                 type="button"
                 disabled={selected.status === 'restricted'}
@@ -242,12 +340,12 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, o
                   triggerHapticImpact('medium');
                   onCreateTraining(selected);
                 }}
-                className="mt-3 w-full rounded-2xl bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-black text-sm py-3.5 flex items-center justify-center gap-2 active:scale-[0.99]"
+                className="w-full min-h-14 rounded-2xl bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-black text-sm px-4 flex items-center justify-center gap-2 active:scale-[0.99] shadow-[0_0_24px_rgba(16,185,129,0.25)]"
               >
                 <CheckCircle2 className="w-4 h-4" />
-                {selected.status === 'restricted' ? 'Сначала подтвердите доступность аренды' : 'Создать тренировку на площадке'}
+                {selected.status === 'restricted' ? 'Сначала уточните аренду' : 'Создать тренировку здесь'}
               </button>
-            </section>
+            </div>
           </div>
         </div>
       ) : (
@@ -266,17 +364,18 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, o
             </div>
           </section>
 
-          <div className="relative">
+          <div className="sticky z-20 bg-slate-950/95 backdrop-blur-xl pt-1 pb-2 -mx-4 px-4 [top:calc(64px+env(safe-area-inset-top))]">
+            <div className="relative">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
             <input
               value={query}
               onChange={event => setQuery(event.target.value)}
               placeholder="Название, адрес или вид спорта"
-              className="w-full rounded-2xl border border-slate-800 bg-slate-900 pl-10 pr-4 py-3 text-sm outline-none focus:border-emerald-500 placeholder:text-slate-600"
+              className="w-full min-h-12 rounded-2xl border border-slate-800 bg-slate-900 pl-10 pr-4 py-3 text-sm outline-none focus:border-emerald-500 placeholder:text-slate-600"
             />
-          </div>
+            </div>
 
-          <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
+          <div className="mt-2 flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
             {VENUE_SPORT_FILTERS.map(item => (
               <button
                 key={item}
@@ -293,7 +392,7 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, o
             ))}
           </div>
 
-          <div className="flex items-center justify-between gap-2">
+          <div className="mt-2 flex items-center justify-between gap-2">
             <button
               type="button"
               onClick={() => setShowOnlyReady(value => !value)}
@@ -313,6 +412,7 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, o
               <option value="reviews">По отзывам</option>
             </select>
           </div>
+          </div>
 
           <div className="space-y-3">
             {catalogLoading && (
@@ -325,13 +425,20 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, o
                 key={venue.id}
                 type="button"
                 onClick={() => { triggerHapticImpact('light'); setSelected(venue); }}
-                className="w-full overflow-hidden rounded-3xl border border-slate-800 bg-slate-900 text-left active:scale-[0.995] transition shadow-xl"
+                className="w-full overflow-hidden rounded-3xl border border-slate-800 bg-slate-900 text-left active:scale-[0.995] transition shadow-xl touch-manipulation"
               >
                 <VenueHero venue={venue} compact />
                 <div className="p-4">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <h3 className="font-black text-sm truncate">{venue.name}</h3>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <h3 className="font-black text-sm truncate">{venue.name}</h3>
+                        {venue.isVerified && (
+                          <span className="shrink-0 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[8px] font-black text-emerald-300">
+                            ✓ Проверено
+                          </span>
+                        )}
+                      </div>
                       <p className="mt-1 text-[11px] text-slate-400 truncate">{venue.address}</p>
                     </div>
                     <ChevronRight className="w-4 h-4 text-slate-600 shrink-0 mt-1" />
