@@ -8,7 +8,7 @@
 
 export const VKID_WEB_APP_ID = 54699979;
 export const VKID_ANDROID_APP_ID = 54714060;
-export const VKID_WEB_REDIRECT_URL = 'https://sportbuddy78.pro';
+export const VKID_WEB_REDIRECT_URL = typeof window !== 'undefined' ? window.location.origin : 'https://sportbuddy78.pro';
 export const VKID_ANDROID_REDIRECT_URL = 'https://sportbuddy78.pro/vk-callback';
 
 /**
