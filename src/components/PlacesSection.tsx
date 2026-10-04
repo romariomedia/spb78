@@ -52,7 +52,7 @@ const VenueHero: React.FC<{ venue: SportVenue; compact?: boolean }> = ({ venue, 
         <img src={photo} alt={venue.name} className="h-full w-full object-cover" loading="lazy" />
       ) : (
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <div className="text-5xl">{sportEmoji(venue.sports[0])}</div>
+          <div className="text-5xl">{sportEmoji(venue.sports[0] ?? '')}</div>
           <p className="mt-3 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
             Фото появятся после подтверждения площадкой
           </p>
