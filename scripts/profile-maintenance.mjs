@@ -13,7 +13,7 @@ async function photoStatus(url){
  if(u.protocol!=='https:'||!safeHost(u.hostname))return `проверить вручную (${u.hostname})`;
  try{const r=await fetch(url,{redirect:'error',signal:AbortSignal.timeout(8000),headers:{Range:'bytes=0-0'}});await r.body?.cancel();return `${u.hostname}: HTTP ${r.status}`;}catch{return `${u.hostname}: недоступно/таймаут`;}
 }
-const createdTime=p=>p.createdAt?.toMillis?p.createdAt.toMillis():typeof p.createdAt==='number'?p.createdAt:Date.parse(p.createdAt||'');
+const createdTime=p=>{const value=p.registeredAt??p.createdAt;return value?.toMillis?value.toMillis():typeof value==='number'?value:Date.parse(value||'');};
 function eligible(p){return p.name?.trim()==='Новый спортсмен'&&p.isVerified!==true&&!(p.photoPortfolio?.length)&&(!p.avatar||p.avatar.includes('avatar-placeholder'))&&Date.now()-createdTime(p)>86400000;}
 const docs=archive?await Promise.all(uids.map(id=>db.collection('users').doc(id).get())):(await db.collection('users').get()).docs;
 for(const doc of docs){
