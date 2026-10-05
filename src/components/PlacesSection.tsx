@@ -8,6 +8,7 @@ import {
 } from '../lib/venues';
 import { refreshVenues } from '../services/venues';
 import { venueCover } from '../lib/venueCovers';
+import { venuePrice } from '../lib/venuePricing';
 import { triggerHapticImpact } from '../services/native';
 
 interface PlacesSectionProps {
@@ -47,39 +48,51 @@ function sportEmoji(sport: string): string {
 }
 
 const VenueHero: React.FC<{ venue: SportVenue; compact?: boolean }> = ({ venue, compact = false }) => {
-  const ownPhoto = venue.photos?.[0];
   const cover = venueCover(venue);
-  const image = ownPhoto || cover.url;
+  const ownPhoto = venue.photos?.[0];
+  const [failed, setFailed] = useState<string[]>([]);
+  useEffect(() => setFailed([]), [venue.id, ownPhoto, cover.url]);
+  const image = [ownPhoto, cover.url].find(url => url && !failed.includes(url));
+  const editorialPhoto = image === cover.url && !!image;
   return (
-    <div className={`relative overflow-hidden bg-gradient-to-br from-emerald-500/25 via-slate-900 to-slate-950 ${compact ? 'h-32 sm:h-36' : 'h-52'}`}>
-      <img
-        src={image}
-        alt={ownPhoto ? venue.name : cover.kind === 'real' ? `${venue.name}: фото объекта` : `${venue.name}: иллюстративное фото площадки`}
-        className="h-full w-full object-cover"
-        loading={compact ? 'lazy' : 'eager'}
-        referrerPolicy="no-referrer"
-        onError={event => { event.currentTarget.style.display = 'none'; }}
-      />
-      {!ownPhoto && (
-        <span className={`absolute left-3 top-3 rounded-full border px-2.5 py-1 text-[9px] font-black backdrop-blur-md ${
-          cover.kind === 'real'
-            ? 'border-emerald-400/40 bg-emerald-950/75 text-emerald-200'
-            : 'border-white/15 bg-slate-950/75 text-slate-300'
-        }`}>
-          {cover.kind === 'real' ? 'Фото объекта' : 'Иллюстративное фото'}
-        </span>
+    <div className={`relative overflow-hidden bg-gradient-to-br from-emerald-500/20 via-slate-900 to-slate-950 ${compact ? 'h-40 sm:h-48' : 'h-64'}`}>
+      {image ? (
+        <img src={image} alt={`${venue.name}: фото объекта`} className="h-full w-full object-cover"
+          loading={compact ? 'lazy' : 'eager'} decoding="async" referrerPolicy="no-referrer"
+          onError={() => setFailed(previous => [...previous, image])} />
+      ) : (
+        <div className="flex h-full items-center justify-center gap-4 px-6 text-slate-400">
+          <Building2 className="h-10 w-10 shrink-0 text-emerald-300/50" />
+          <div><p className="text-xs font-bold text-slate-200">{venue.name}</p>
+            <p className="mt-1 text-[11px]">Фото площадки уточняется</p></div>
+        </div>
       )}
-      {!ownPhoto && !compact && (
-        <a
-          href={cover.sourceUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="absolute right-3 top-3 rounded-full border border-white/10 bg-slate-950/75 px-2.5 py-1 text-[9px] font-bold text-slate-300 backdrop-blur-md"
-        >
-          {cover.sourceLabel} · {cover.license}
+      {image && <span className="absolute left-3 top-3 rounded-full border border-white/20 bg-slate-950/70 px-2.5 py-1 text-[9px] font-bold text-white backdrop-blur-md">Фото объекта</span>}
+      {editorialPhoto && !compact && (
+        <a href={cover.sourceUrl} target="_blank" rel="noreferrer"
+          className="absolute bottom-3 right-3 z-10 max-w-[80%] rounded-xl bg-slate-950/80 px-3 py-2 text-[10px] text-slate-200 backdrop-blur-md">
+          {cover.sourceLabel}{cover.license ? ` · ${cover.license}` : ''} ↗
+          {cover.credit && <span className="block text-[9px] text-slate-400">{cover.credit}</span>}
         </a>
       )}
-      <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-slate-950 to-transparent" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-slate-950/50 to-transparent" />
+    </div>
+  );
+};
+
+const VenuePriceInfo: React.FC<{ venue: SportVenue; compact?: boolean }> = ({ venue, compact = false }) => {
+  const price = venuePrice(venue);
+  return (
+    <div className={compact ? 'mt-3 rounded-xl border border-emerald-500/15 bg-emerald-500/5 px-3 py-2.5' : 'mt-1'}>
+      <p className="text-sm font-black text-emerald-300">{price.text}</p>
+      <p className="mt-1 text-[11px] leading-relaxed text-slate-400">{price.condition}</p>
+      {!compact && price.sourceUrl && <>
+        <p className="mt-2 text-xs leading-relaxed text-slate-400">{price.note} Итоговую цену и свободное время подтвердите перед арендой.</p>
+        <a href={price.sourceUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-emerald-300">
+          Тариф на сайте площадки <ExternalLink className="h-3 w-3" />
+        </a>
+        <p className="mt-1 text-[10px] text-slate-500">Проверено {price.checkedAt?.split('-').reverse().join('.')}</p>
+      </>}
     </div>
   );
 };
@@ -269,10 +282,10 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, o
               </div>
             </section>
 
-            <section className="grid grid-cols-2 gap-2">
+            <section className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <div className="rounded-2xl border border-slate-800 bg-slate-900 p-3">
                 <p className="text-[10px] uppercase text-slate-500 font-bold">Цена</p>
-                <p className="mt-1 text-sm font-black text-white">{selected.priceText || 'Уточнить'}</p>
+                <VenuePriceInfo venue={selected} />
               </div>
               <div className="rounded-2xl border border-slate-800 bg-slate-900 p-3">
                 <p className="text-[10px] uppercase text-slate-500 font-bold">Часы работы</p>
@@ -470,9 +483,10 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, o
                         {venue.reviews ? <span className="text-slate-500 font-medium">({venue.reviews})</span> : null}
                       </span>
                     ) : null}
-                    {venue.priceText ? <span className="font-black text-emerald-300">{venue.priceText}</span> : null}
+
                     {venue.hours ? <span className="flex items-center gap-1 text-slate-400"><Clock3 className="w-3 h-3" />{venue.hours}</span> : null}
                   </div>
+                  <VenuePriceInfo venue={venue} compact />
                   <div className="mt-3 flex flex-wrap gap-1">
                     {venue.sports.slice(0, 4).map(item => (
                       <span key={item} className="rounded-lg bg-slate-950 border border-slate-800 px-2 py-1 text-[9px] font-bold text-slate-400">

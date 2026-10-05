@@ -1,33 +1,29 @@
-# SportBuddy Places — cover images
+# Площадки: фотографии и тарифы
 
-The Places catalogue uses a separate cover registry in `src/lib/venueCovers.ts`.
-This changes only the face of each card. Venue galleries in `venue.photos` remain independent and can be replaced gradually by administrators.
+Редакторская проверка: 5 октября 2026 года. Состав каталога — прежние 51 объект.
 
-## Rules
-- A cover marked **Фото объекта** is an exact photograph of that venue.
-- A cover marked **Иллюстративное фото** is a representative image for the sport and must not be presented as a photograph of that specific venue.
-- Venue-owned gallery photos always take priority over the fallback cover.
-- External reusable images are loaded from Wikimedia Commons and the detail view links back to the source/license.
-- Do not add images scraped from Yandex/Google/2GIS or commercial listing sites without explicit reuse rights.
+## Фотографии
 
-## Exact venue covers currently cleared for use
-- `siburb-arena` — “6559.2. St. Petersburg. Sibur Arena Complex.jpg”, GAlexandrova, CC BY-SA 4.0.
-- `ice-palace` — “Ice Palace Saint Petersburg.jpg”, Anton Kudris / mmultipass, CC BY 2.0.
-- `hockey-city` — “Хоккейный город (главный фасад).jpg”, Wikimedia Commons; keep the source link visible and verify the file-page license before any local redistribution.
+`src/lib/venuePhotos.json` содержит 23 фотографии конкретных объектов: ссылку на исходный файл, страницу источника, локальный WebP и дату проверки. Снимки проверены визуально; логотипы, рекламные макеты, портреты тренеров и стоковые снимки с сайтов исключены. Фотографии предоставлены открытыми страницами клубов, федерации баскетбола и карточками спортивных каталогов. Размещение запрошено владельцем SportBuddy.
 
-## Top-10 target for exact photography
-1. Ледовый дворец
-2. Сибур Арена
-3. Хоккейный город
-4. NOVA ARENA
-5. Фабрика Футбола
-6. Песок
-7. МСК им. В. И. Алексеева
-8. Топ-Спин
-9. Пляж — центр пляжных видов спорта
-10. Легкоатлетический манеж
+Файлы в `public/venue-covers/` оптимизированы до 960×720 (вписывание без увеличения, WebP). Общий объём около 1,3 МБ; загрузка карточек отложенная. Внешний сервер клуба не нужен для показа этих обложек.
 
-For targets without a clearly reusable exact photo, the app deliberately keeps a labelled illustrative cover until the venue supplies/permits a real image. This avoids presenting a different facility as the real object and avoids unlicensed commercial reuse.
+Для Сибур Арены, Ледового дворца и Хоккейного города сохранены прежние индивидуальные фотографии Wikimedia Commons с атрибуцией. Итого индивидуальные обложки есть у 26 объектов. У 25 остальных нет надёжно установленного снимка конкретного объекта: вместо повторяющихся фотографий других залов показывается «Фото площадки уточняется». Они остаются в каталоге. Фотографии, загруженные администратором, имеют приоритет; при ошибке основной обложки используется редакторская фотография, затем текстовая заглушка.
 
-## Representative cover sources
-The registry currently contains freely reusable Wikimedia Commons images for football, basketball, volleyball, tennis, padel, table tennis and ice hockey. Attribution and license metadata are stored alongside each URL.
+Особенно важно уточнить адрес RIO (сейчас только индекс), филиал «Оптика» и источники для небольших муниципальных/ледовых объектов. Фото другой площадки того же бренда нельзя назначать автоматически.
+
+## Тарифы
+
+`src/lib/venuePrices.json` содержит 15 стартовых тарифов из официальных источников: сумму, объект аренды, время действия, ограничения, ссылку и дату проверки. Тариф WIN WIN прочитан из изображения прайс-листа на официальном сайте.
+
+Это стоимость аренды, а не цена группового занятия, свободного посещения или абонемента. Для ВМЯЧ и WIN WIN выбран обычный парный корт; более дешёвый одиночный корт указан отдельно в примечании. У «Пляжа» минимальная цена относится к наличному расчёту. У «Динамо» выбран крытый корт, чтобы летний открытый корт не задавал цену осеннего каталога. Доступность времени и итоговая сумма подтверждаются площадкой.
+
+У остальных объектов — «Цена по запросу». Ранее внесённые в стартовый список цифры без подтверждённого тарифа не выдаются за актуальные. Например, F-Base просит уточнять цены сезона 2026/27 по телефону, URBO рассчитывает аренду по запросу.
+
+`venuePrice()` применяет редакторские данные при отображении: это работает для исходного списка, старых документов Firestore и кеша. Базу не перезаписываем. Отличающаяся от стартовой цена администратора имеет приоритет, без ложной ссылки на редакторскую проверку. Изменение такого приоритета в будущем требует отдельного поля происхождения/даты тарифа в админке.
+
+## Обновление
+
+Для нового тарифа откройте официальный прайс, проверьте объект, единицу оплаты, расписание и условия. Обновите запись JSON и дату. Для нового фото сохраните оптимизированный файл и запись со ссылками на источник. Не добавляйте один снимок нескольким объектам.
+
+Проверки: `node --test tests/venue-catalog.test.js`, `npm run build`. Тесты проверяют применение тарифов к старым карточкам, приоритет правок администратора, отсутствие подставных обложек, существование/размер/уникальность файлов и источники данных.

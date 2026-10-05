@@ -1,0 +1,122 @@
+{
+  "fabrika-futbola": {
+    "amount": 3300,
+    "unit": "поле / час",
+    "condition": "Будни 07:00–14:00 · специальный тариф",
+    "note": "Не действует для турниров и массовых мероприятий. Вечерняя аренда дороже.",
+    "sourceUrl": "https://xn--80aaacb4bok0apzlgg.xn--p1ai/price.html",
+    "checkedAt": "2026-10-05"
+  },
+  "top-spin": {
+    "amount": 900,
+    "unit": "стол / час",
+    "condition": "Будни 10:00–17:00 · до 4 игроков",
+    "note": "Вечером и в выходные — 1 300 ₽/час.",
+    "sourceUrl": "https://topspin-club.ru/about_club/prices_table_tennis",
+    "checkedAt": "2026-10-05"
+  },
+  "pesok": {
+    "amount": 2500,
+    "unit": "площадка / час",
+    "condition": "Будни 09:00–18:00 · для физических лиц",
+    "note": "Вечером и в выходные — 4 000 ₽/час.",
+    "sourceUrl": "https://sportpesok.com/pricing/",
+    "checkedAt": "2026-10-05"
+  },
+  "alekseev": {
+    "amount": 2200,
+    "unit": "зал / час",
+    "condition": "Аренда волейбольного зала",
+    "note": "Стартовая цена на сайте комплекса; конкретный зал и время уточняйте при бронировании.",
+    "sourceUrl": "https://alexclub.ru/volleyball-arenda/",
+    "checkedAt": "2026-10-05"
+  },
+  "arena-300": {
+    "amount": 1800,
+    "unit": "зал / час",
+    "condition": "Будни 10:00–12:00 · весь зал",
+    "note": "Аренда половины зала и свободное посещение оплачиваются по другим тарифам.",
+    "sourceUrl": "https://arena300.ru/spotrzal",
+    "checkedAt": "2026-10-05"
+  },
+  "hasansky": {
+    "amount": 3000,
+    "unit": "корт / час",
+    "condition": "Будни 22:00–00:00",
+    "note": "В дневные и вечерние часы действуют другие тарифы.",
+    "sourceUrl": "https://x19.spb.ru/mobile/price/",
+    "checkedAt": "2026-10-05"
+  },
+  "plyazh-fuchika": {
+    "amount": 2000,
+    "unit": "площадка / час",
+    "condition": "Будни 09:00–17:00 · наличный расчёт",
+    "note": "По счёту с НДС — от 2 400 ₽/час. Вечером и в выходные дороже.",
+    "sourceUrl": "https://plyazhspb.ru/prices.html",
+    "checkedAt": "2026-10-05"
+  },
+  "nikiforov-tennis": {
+    "amount": 3400,
+    "unit": "корт / час",
+    "condition": "Будни 22:00–00:00 · сезон 2026/27",
+    "note": "В остальные часы цена выше; доступность корта уточняйте при бронировании.",
+    "sourceUrl": "https://tennisspb.ru/ceny/",
+    "checkedAt": "2026-10-05"
+  },
+  "vysota": {
+    "amount": 2800,
+    "unit": "корт / час",
+    "condition": "Будни 08:00–10:00",
+    "note": "Вечером в будни — до 4 800 ₽/час.",
+    "sourceUrl": "https://visotasport.ru/tennisarenda",
+    "checkedAt": "2026-10-05"
+  },
+  "ozerki-tennis": {
+    "amount": 2000,
+    "unit": "корт / час",
+    "condition": "Будни 07:00–08:00 или выходные 22:00–00:00",
+    "note": "Разовая почасовая аренда; сезонный абонемент имеет отдельный тариф.",
+    "sourceUrl": "https://tennis-ozerki.ru/",
+    "checkedAt": "2026-10-05"
+  },
+  "matchball": {
+    "amount": 600,
+    "unit": "стол / час",
+    "condition": "Будни 09:00–12:00",
+    "note": "После 16:00 и в выходные — 800 ₽/час. Более 3 игроков: доплата.",
+    "sourceUrl": "https://matchball.club/prais/",
+    "checkedAt": "2026-10-05"
+  },
+  "vmyach": {
+    "amount": 2500,
+    "unit": "корт / час",
+    "condition": "Panoramic 2×2 · будни 08:00–16:00 и 23:00–08:00",
+    "note": "До 4 игроков. В будни 16:00–23:00 — 5 000 ₽/час. Инвентарь и тренер оплачиваются отдельно. Для турниров и мероприятий отдельные условия.",
+    "sourceUrl": "https://vball.ru/padel",
+    "checkedAt": "2026-10-05"
+  },
+  "sosnovka-park": {
+    "amount": 4000,
+    "unit": "поле / час",
+    "condition": "Поле 40×20 м",
+    "note": "На сайте указана стартовая цена; стоимость выбранного времени подтвердите у администратора.",
+    "sourceUrl": "https://parksosnovka.ru/",
+    "checkedAt": "2026-10-05"
+  },
+  "dinamo-beach": {
+    "amount": 2800,
+    "unit": "корт / час",
+    "condition": "Крытый корт · будни 07:00–09:00",
+    "note": "Тариф «Счастливые часы». Вечером и в выходные — 4 800 ₽/час. Открытые корты имеют сезонные тарифы.",
+    "sourceUrl": "https://dinamobeach.ru/czeny/",
+    "checkedAt": "2026-10-05"
+  },
+  "win-win-padel": {
+    "amount": 4200,
+    "unit": "корт / час",
+    "condition": "Panoramic · будни 07:00–17:00",
+    "note": "Без тренера. Вечером и в выходные — 4 900 ₽/час. Одиночный корт Single — от 3 800 ₽/час. Прокат инвентаря оплачивается отдельно.",
+    "sourceUrl": "https://padelww.ru/#popup:price",
+    "checkedAt": "2026-10-05"
+  }
+}

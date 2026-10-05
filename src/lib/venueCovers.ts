@@ -1,6 +1,7 @@
 import type { SportVenue } from './venues';
+import photos from './venuePhotos.json';
 
-export type VenueCoverKind = 'real' | 'illustrative';
+export type VenueCoverKind = 'real' | 'missing';
 
 export interface VenueCover {
   url: string;
@@ -46,91 +47,16 @@ const REAL_COVERS: Record<string, VenueCover> = {
   }
 };
 
-const ILLUSTRATIVE: Record<string, VenueCover> = {
-  'Футбол': {
-    url: commonsFile('FIFA approved football pitch.jpg'),
-    kind: 'illustrative',
-    sourceUrl: commonsPage('FIFA approved football pitch.jpg'),
-    sourceLabel: 'Wikimedia Commons',
-    credit: 'ARKSDiyar',
-    license: 'CC BY-SA 4.0'
-  },
-  'Баскетбол': {
-    url: commonsFile('Indoor Basketball Court in Karlovasi, Samos.jpg'),
-    kind: 'illustrative',
-    sourceUrl: commonsPage('Indoor Basketball Court in Karlovasi, Samos.jpg'),
-    sourceLabel: 'Wikimedia Commons',
-    credit: 'Samosatwikipedia',
-    license: 'CC BY-SA 4.0'
-  },
-  'Волейбол': {
-    url: commonsFile('The Eastern Command Volleyball Championship 2014-15 being held at the ENC Indoor Volleyball court (3).JPG'),
-    kind: 'illustrative',
-    sourceUrl: commonsPage('The Eastern Command Volleyball Championship 2014-15 being held at the ENC Indoor Volleyball court (3).JPG'),
-    sourceLabel: 'Wikimedia Commons',
-    credit: 'Indian Navy',
-    license: 'GODL-India'
-  },
-  'Теннис': {
-    url: commonsFile('The Indoor Tennis Court.jpg'),
-    kind: 'illustrative',
-    sourceUrl: commonsPage('The Indoor Tennis Court.jpg'),
-    sourceLabel: 'Wikimedia Commons',
-    credit: 'Triplph10',
-    license: 'CC BY-SA 4.0'
-  },
-  'Падел': {
-    url: commonsFile('University of Cambridge Padel Courts.jpg'),
-    kind: 'illustrative',
-    sourceUrl: commonsPage('University of Cambridge Padel Courts.jpg'),
-    sourceLabel: 'Wikimedia Commons',
-    credit: 'OCHAPPS',
-    license: 'CC BY-SA 4.0'
-  },
-  'Настольный теннис': {
-    url: commonsFile('Indoor Game Table Tennis.jpg'),
-    kind: 'illustrative',
-    sourceUrl: commonsPage('Indoor Game Table Tennis.jpg'),
-    sourceLabel: 'Wikimedia Commons',
-    credit: 'ManoBV16',
-    license: 'CC0 1.0'
-  },
-  'Хоккей': {
-    url: commonsFile('ICE ARENA Letňany interiér.jpg'),
-    kind: 'illustrative',
-    sourceUrl: commonsPage('ICE ARENA Letňany interiér.jpg'),
-    sourceLabel: 'Wikimedia Commons',
-    credit: 'Wikimedia Commons contributor',
-    license: 'CC BY-SA 4.0'
-  }
-};
-
-export const REAL_COVER_PRIORITY_IDS = new Set([
-  'ice-palace',
-  'siburb-arena',
-  'hockey-city',
-  'nova-arena',
-  'fabrika-futbola',
-  'pesok',
-  'alekseev',
-  'top-spin',
-  'plyazh-fuchika',
-  'athletics-manege'
-]);
-
-const DEFAULT_COVER: VenueCover = {
-  url: commonsFile('FIFA approved football pitch.jpg'),
-  kind: 'illustrative',
-  sourceUrl: commonsPage('FIFA approved football pitch.jpg'),
-  sourceLabel: 'Wikimedia Commons',
-  credit: 'ARKSDiyar',
-  license: 'CC BY-SA 4.0'
+/** No generic stock photo: an unknown venue must not look like another venue. */
+const MISSING_COVER: VenueCover = {
+  url: '', kind: 'missing', sourceUrl: '', sourceLabel: '', credit: '', license: ''
 };
 
 export function venueCover(venue: SportVenue): VenueCover {
-  const exact = REAL_COVERS[venue.id];
-  if (exact) return exact;
-
-  const primary = venue.sports[0] || 'Футбол';
-  return ILLUSTRATIVE[primary] ?? DEFAULT_COVER;
+  const photo = photos[venue.id as keyof typeof photos];
+  if (photo) return {
+    url: photo.url, kind: 'real', sourceUrl: photo.sourceUrl,
+    sourceLabel: photo.sourceLabel, credit: '', license: ''
+  };
+  return REAL_COVERS[venue.id] ?? MISSING_COVER;
 }
