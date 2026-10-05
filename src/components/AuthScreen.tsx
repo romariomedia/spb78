@@ -1,3 +1,4 @@
+import { beginVkRedirect, consumeVkRedirect, cleanVkCallback } from '../services/vkRedirect';
 import { isBetaActive } from '../lib/release';
 import { useEffect, useRef, useState } from 'react';
 import * as VKID from '@vkid/sdk';
@@ -86,8 +87,12 @@ export function AuthScreen({ onAuthenticated, initialNotice = '' }: Props) {
 
   const oAuthContainerRef = useRef<HTMLDivElement>(null);
 
+  const vkInFlight = useRef(false);
+
   // Shared tail of the VK ID flow: exchange code → profile → local account.
   const finishVkLogin = async (code: string, deviceId: string) => {
+    if (vkInFlight.current) return;
+    vkInFlight.current = true;
     setError('');
     setVkBusy(true);
     try {
@@ -119,8 +124,9 @@ export function AuthScreen({ onAuthenticated, initialNotice = '' }: Props) {
 
       onAuthenticated(result.account, result.isNewAccount ?? false, getHighQualityVKAvatar((u.avatar as string) || ''));
     } catch {
-      setError('Не удалось войти. Попробуйте позже.');
+      setError('Не удалось обменять код VK ID (VK-EXCHANGE). Начните вход заново. Если окно ВК закрывается или зависает, используйте вход в этой вкладке.');
     } finally {
+      vkInFlight.current = false;
       setVkBusy(false);
     }
   };
@@ -175,9 +181,34 @@ export function AuthScreen({ onAuthenticated, initialNotice = '' }: Props) {
         app: VK_APP_ID,
         redirectUrl: VK_REDIRECT_URL,
         responseMode: VKID.ConfigResponseMode.Callback,
+        mode: VKID.ConfigAuthMode.InNewTab,
+        state: '', codeVerifier: '',
         source: VKID.ConfigSource.LOWCODE,
         scope: 'email'
       });
+
+      // Redirect mode returns to the web root, not the Android App Link.
+      const callbackUrl = new URL(window.location.href);
+      if (!isNativeApp && callbackUrl.pathname === '/' &&
+          (callbackUrl.searchParams.has('code') || callbackUrl.searchParams.has('error'))) {
+        window.history.replaceState({}, document.title, cleanVkCallback(new URL(callbackUrl)));
+        try {
+          const tx = consumeVkRedirect(sessionStorage, callbackUrl);
+          if (callbackUrl.searchParams.has('error')) {
+            setError('Вход через ВК отменён или отклонён (VK-CANCELLED). Можно попробовать снова.');
+          } else {
+            const code = callbackUrl.searchParams.get('code');
+            const deviceId = callbackUrl.searchParams.get('device_id');
+            if (!code || !deviceId) throw new Error('incomplete callback');
+            VKID.Config.update({ state: tx.state, codeVerifier: tx.codeVerifier, redirectUrl: tx.redirectUrl });
+            void finishVkLogin(code, deviceId).finally(() => {
+              VKID.Config.update({ state: '', codeVerifier: '' });
+            });
+          }
+        } catch {
+          setError('Сессия входа ВК истекла или открыта в другой вкладке (VK-SESSION). Начните вход заново в этой вкладке.');
+        }
+      }
 
       const container = oAuthContainerRef.current;
       if (container) {
@@ -218,6 +249,24 @@ export function AuthScreen({ onAuthenticated, initialNotice = '' }: Props) {
   }, []);
 
   useEffect(() => setNotice(initialNotice), [initialNotice]);
+
+  const handleVkRedirect = async () => {
+    if (vkInFlight.current) return;
+    setError('');
+    setVkBusy(true);
+    try {
+      const tx = beginVkRedirect(sessionStorage, VKID_WEB_REDIRECT_URL);
+      VKID.Config.update({ mode: VKID.ConfigAuthMode.Redirect,
+        responseMode: VKID.ConfigResponseMode.Redirect,
+        state: tx.state, codeVerifier: tx.codeVerifier, redirectUrl: tx.redirectUrl });
+      await VKID.Auth.login();
+    } catch {
+      setError('Не удалось начать вход ВК (VK-START). Проверьте, разрешено ли сайту сохранять данные, и повторите попытку.');
+      VKID.Config.update({ mode: VKID.ConfigAuthMode.InNewTab,
+        responseMode: VKID.ConfigResponseMode.Callback, state: '', codeVerifier: '' });
+      setVkBusy(false);
+    }
+  };
 
   const handleBiometric = async () => {
     triggerHapticImpact('medium');
@@ -405,6 +454,14 @@ export function AuthScreen({ onAuthenticated, initialNotice = '' }: Props) {
               </div>
             )}
           </div>
+
+          {!isNativeApp && (
+            <button type="button" disabled={vkBusy} onClick={handleVkRedirect}
+              className="mt-3 w-full rounded-2xl border border-sky-400/30 bg-sky-400/10 px-4 py-3 text-sm font-semibold text-sky-200 disabled:opacity-50">
+              Войти через ВК в этой вкладке
+              <span className="mt-1 block text-xs font-normal text-slate-400">Если обычный вход не открывается или выдаёт ошибку</span>
+            </button>
+          )}
 
           {biometricAvailable && (
             <button
