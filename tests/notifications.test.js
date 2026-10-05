@@ -101,3 +101,23 @@ test('notification API cannot unregister another account device and rate limits 
   const job=[...f.rows].find(([key])=>key.startsWith('notificationOutbox/'))[1];assert.deepEqual(job.recipients,['a']);
   assert.equal((await request(f,'a',{action:'test'})).statusCode,429);
 });
+
+test('friend request reaches inbox and FCM with the same destination exactly once',async()=>{
+  const f=fixture({'users/b':{},'pushDevices/d':{uid:'b',token:'token',updatedAt:Date.now()},'friendRequests/a__b':{fromId:'a',toId:'b',status:'pending',requestVersion:'v1'}});
+  const j={...job(),category:'friends',kind:'friend_request',entityId:'a__b',requestVersion:'v1',message:'Роман хочет добавить вас в друзья.',link:'#profile-friends'};
+  await deliverNotification(f.db,f.messaging,j,'b');await deliverNotification(f.db,f.messaging,j,'b');
+  assert.equal(f.rows.get('notificationInboxes/b').entries.length,1);
+  assert.equal(f.sends.length,1);assert.equal(f.sends[0].data.link,'#profile-friends');assert.equal(f.sends[0].data.recipient,'b');
+});
+test('cancelled, accepted, deleted or superseded friend requests are not delivered',async()=>{
+  for(const request of [undefined,{status:'declined',requestVersion:'v1'},{status:'accepted',requestVersion:'v1'},{status:'pending',requestVersion:'v2'}]){
+    const f=fixture({'users/b':{},...(request?{'friendRequests/a__b':{fromId:'a',toId:'b',...request}}:{})});
+    await deliverNotification(f.db,f.messaging,{...job(),category:'friends',kind:'friend_request',entityId:'a__b',requestVersion:'v1'},'b');
+    assert.equal(f.rows.has('notificationInboxes/b'),false);assert.equal(f.sends.length,0);
+  }
+});
+test('friend request remains available in inbox without a push token',async()=>{
+  const f=fixture({'users/b':{},'friendRequests/a__b':{fromId:'a',toId:'b',status:'pending',requestVersion:'v1'}});
+  await deliverNotification(f.db,f.messaging,{...job(),category:'friends',kind:'friend_request',entityId:'a__b',requestVersion:'v1'},'b');
+  assert.equal(f.rows.get('notificationInboxes/b').entries[0].type,'friend_request');assert.equal(f.sends.length,0);
+});

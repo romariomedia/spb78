@@ -296,3 +296,49 @@ test('check-in stores distance but never exact coordinates', async()=>{
   assert.equal('lng' in stored,false);
   assert.equal(typeof stored.distanceMeters,'number');
 });
+
+test('friend requests atomically enqueue one named notification and acceptance retries are idempotent',async()=>{
+  const f=fixture({'users/a':{...premium(),name:'Роман'},'users/b':{...premium(),name:'Анна'}});
+  const outbox=()=>[...f.records].filter(([key])=>key.startsWith('notificationOutbox/')).map(([,value])=>value);
+  await f.request('a',{action:'friend',operation:'send',targetUserId:'b'});
+  await f.request('a',{action:'friend',operation:'send',targetUserId:'b'});
+  assert.equal(outbox().length,1);
+  assert.equal(outbox()[0].kind,'friend_request');assert.deepEqual(outbox()[0].recipients,['b']);
+  assert.match(outbox()[0].message,/Роман/);assert.equal(outbox()[0].link,'#profile-friends');
+  assert.equal(outbox()[0].requestVersion,f.records.get('friendRequests/a__b').requestVersion);
+  for(let i=0;i<2;i++)assert.equal((await f.request('b',{action:'friend',operation:'accept',targetUserId:'a'})).statusCode,200);
+  assert.equal(outbox().length,2);assert.equal(outbox()[1].kind,'friend_accepted');assert.deepEqual(outbox()[1].recipients,['a']);
+  assert.deepEqual(f.records.get('users/a').friendIds,['b']);assert.deepEqual(f.records.get('users/b').friendIds,['a']);
+  assert.deepEqual(f.records.get('users/a').friendRequestsSent,[]);assert.deepEqual(f.records.get('users/b').friendRequestsReceived,[]);
+});
+test('cancel and resend at the same timestamp produce distinct notification identities',async()=>{
+  const f=fixture({'users/a':premium(),'users/b':premium()});
+  await f.request('a',{action:'friend',operation:'send',targetUserId:'b'});
+  const first=f.records.get('friendRequests/a__b').requestVersion;
+  await f.request('a',{action:'friend',operation:'cancel',targetUserId:'b'});
+  await f.request('a',{action:'friend',operation:'send',targetUserId:'b'});
+  assert.notEqual(f.records.get('friendRequests/a__b').requestVersion,first);
+  assert.equal([...f.records.keys()].filter(k=>k.startsWith('notificationOutbox/')).length,2);
+});
+test('crossed friend requests become one friendship; blocked users cannot send or accept',async()=>{
+  const f=fixture({'users/a':premium(),'users/b':premium()});
+  await f.request('a',{action:'friend',operation:'send',targetUserId:'b'});
+  assert.equal((await f.request('b',{action:'friend',operation:'send',targetUserId:'a'})).statusCode,200);
+  assert.deepEqual(f.records.get('users/a').friendIds,['b']);assert.deepEqual(f.records.get('users/b').friendIds,['a']);
+  for(const blocked of ['a','b']){
+    const x=fixture({'users/a':premium(),'users/b':premium()});
+    x.records.get('users/'+blocked).blockedUserIds=[blocked==='a'?'b':'a'];
+    assert.equal((await x.request('a',{action:'friend',operation:'send',targetUserId:'b'})).statusCode,403);
+    assert.equal(x.records.has('friendRequests/a__b'),false);
+  }
+});
+
+test('friend Premium policy is enforced on server and respects the open beta period',async t=>{
+  const f=fixture({'users/a':{},'users/b':{}});
+  assert.equal((await f.request('a',{action:'friend',operation:'send',targetUserId:'b'})).statusCode,403);
+  t.mock.timers.setTime(Date.parse('2026-10-05T12:00:00Z'));
+  assert.equal((await f.request('a',{action:'friend',operation:'send',targetUserId:'b'})).statusCode,200);
+  t.mock.timers.setTime(Date.parse('2027-01-01T00:00:00Z'));
+  assert.equal((await f.request('b',{action:'friend',operation:'accept',targetUserId:'a'})).statusCode,403);
+  assert.equal((await f.request('a',{action:'friend',operation:'cancel',targetUserId:'b'})).statusCode,200);
+});

@@ -47,7 +47,7 @@ export async function sendFriendRequest(user: UserProfile, targetId: string): Pr
   triggerHapticImpact('medium'); const next=await persist(user,'send',targetId); triggerHapticNotification('success'); return next;
 }
 export async function acceptFriendRequest(user: UserProfile, targetId: string): Promise<UserProfile> {
-  triggerHapticNotification('success'); return persist(user,'accept',targetId);
+  const next = await persist(user,'accept',targetId); triggerHapticNotification('success'); return next;
 }
 export async function declineFriendRequest(user: UserProfile, targetId: string): Promise<UserProfile> {
   triggerHapticImpact('light'); return persist(user,'decline',targetId);

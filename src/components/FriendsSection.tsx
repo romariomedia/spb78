@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
+import { AvatarImage } from './AvatarImage';
 import { motion } from 'framer-motion';
 import { UserPlus, UserCheck, UserX, Crown, MessageCircle, Users2, Lock } from 'lucide-react';
 import { UserProfile } from '../lib/types';
 import {
-  getFriends, getIncomingRequests, acceptFriendRequest,
-  declineFriendRequest, removeFriend
+  getFriends, acceptFriendRequest,
+  declineFriendRequest, removeFriend, cancelFriendRequest
 } from '../services/friends';
 import { CollapsibleCard } from './CollapsibleCard';
 
@@ -12,6 +13,7 @@ interface FriendsSectionProps {
   user: UserProfile;
   allUsers: UserProfile[];
   isPremium: boolean;
+  syncError?: boolean;
   onUpdateUser: (user: UserProfile) => void;
   onOpenProfile: (target: UserProfile) => void;
   onOpenChat: (target: UserProfile) => void;
@@ -19,10 +21,21 @@ interface FriendsSectionProps {
 }
 
 export const FriendsSection: React.FC<FriendsSectionProps> = ({
-  user, allUsers, isPremium, onUpdateUser, onOpenProfile, onOpenChat, onGoPremium
+  user, allUsers, isPremium, syncError, onUpdateUser, onOpenProfile, onOpenChat, onGoPremium
 }) => {
   const friends = getFriends(user, allUsers);
-  const requests = getIncomingRequests(user, allUsers);
+  const requests = (user.friendRequestsReceived || []).map(id => allUsers.find(u => u.id === id) || {id, name: 'Спортсмен', avatar: '', sports: []});
+  const outgoing = user.friendRequestsSent || [];
+  const [pending, setPending] = useState(false);
+  const busy = useRef(false);
+  const [feedback, setFeedback] = useState<{text: string; error: boolean} | null>(null);
+  const run = async (action: () => Promise<UserProfile>, success: string) => {
+    if (busy.current) return;
+    busy.current = true; setPending(true); setFeedback(null);
+    try { onUpdateUser(await action()); setFeedback({text: success, error: false}); }
+    catch (error) { setFeedback({text: error instanceof Error ? error.message : 'Не удалось выполнить действие. Попробуйте ещё раз.', error: true}); }
+    finally { busy.current = false; setPending(false); }
+  };
 
   if (!isPremium) {
     return (
@@ -49,7 +62,7 @@ export const FriendsSection: React.FC<FriendsSectionProps> = ({
     <CollapsibleCard
       storageKey="sportbuddy_profile_friends_open_v1"
       className="bg-slate-900 border border-slate-800"
-      defaultOpen={false}
+      defaultOpen={requests.length > 0}
       icon={
         <div className="w-11 h-11 rounded-2xl bg-emerald-500/15 border border-emerald-500/40 flex items-center justify-center">
           <Users2 className="w-5 h-5 text-emerald-400" />
@@ -59,15 +72,17 @@ export const FriendsSection: React.FC<FriendsSectionProps> = ({
       subtitle="Спортивное сообщество СПб"
       collapsedSummary={
         requests.length > 0
-          ? `${friends.length} друзей • ${requests.length} новых заявок`
-          : `${friends.length} друзей`
+          ? `${(user.friendIds || []).length} друзей • ${requests.length} новых заявок`
+          : `${(user.friendIds || []).length} друзей`
       }
       badge={
         <span className="text-[10px] font-black bg-emerald-500/20 text-emerald-300 px-2 py-1 rounded-lg border border-emerald-500/40">
-          {requests.length > 0 ? `+${requests.length}` : friends.length}
+          {requests.length > 0 ? `+${requests.length}` : (user.friendIds || []).length}
         </span>
       }
     >
+      {syncError && <p role="status" className="text-xs text-amber-300">Не удалось обновить друзей. Сохранили последние данные и повторяем подключение.</p>}
+      {feedback && <p role={feedback.error ? 'alert' : 'status'} className={`text-xs ${feedback.error ? 'text-rose-300' : 'text-emerald-300'}`}>{feedback.text}</p>}
       {/* Incoming requests */}
       {requests.length > 0 && (
         <div className="space-y-2">
@@ -80,21 +95,23 @@ export const FriendsSection: React.FC<FriendsSectionProps> = ({
               layout
               className="bg-slate-950 border border-amber-500/40 rounded-2xl p-3 flex items-center gap-3"
             >
-              <img src={r.avatar} alt={r.name} loading="lazy"
+              <AvatarImage src={r.avatar} alt={r.name} loading="lazy"
                 className="w-10 h-10 rounded-full object-cover border border-amber-400 shrink-0" />
               <div className="flex-1 min-w-0">
                 <h5 className="text-xs font-extrabold text-white truncate">{r.name}</h5>
                 <p className="text-[10px] text-slate-400 truncate">{r.sports.slice(0, 2).join(' • ')}</p>
               </div>
               <button
-                onClick={async () => onUpdateUser(await acceptFriendRequest(user, r.id))}
+                disabled={pending}
+                onClick={() => void run(() => acceptFriendRequest(user, r.id), "Заявка принята — вы теперь друзья!")}
                 className="p-2 bg-emerald-500 text-slate-950 rounded-xl active:scale-90 transition shrink-0"
                 aria-label="Принять"
               >
                 <UserCheck className="w-4 h-4" />
               </button>
               <button
-                onClick={async () => onUpdateUser(await declineFriendRequest(user, r.id))}
+                disabled={pending}
+                onClick={() => void run(() => declineFriendRequest(user, r.id), "Заявка отклонена")}
                 className="p-2 bg-slate-800 text-rose-400 border border-slate-700 rounded-xl active:scale-90 transition shrink-0"
                 aria-label="Отклонить"
               >
@@ -105,8 +122,20 @@ export const FriendsSection: React.FC<FriendsSectionProps> = ({
         </div>
       )}
 
+      {outgoing.length > 0 && <div className="space-y-2">
+        <h4 className="text-[11px] font-black uppercase tracking-wider text-slate-400">Отправленные заявки ({outgoing.length})</h4>
+        {outgoing.map(id => {
+          const target = allUsers.find(u => u.id === id);
+          return <div key={id} className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-950 p-3">
+            <AvatarImage src={target?.avatar || ''} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" />
+            <div className="min-w-0 flex-1"><p className="truncate text-xs font-bold">{target?.name || 'Спортсмен'}</p><p className="text-[10px] text-slate-500">Ожидаем ответа</p></div>
+            <button disabled={pending} onClick={() => void run(() => cancelFriendRequest(user, id), 'Заявка отменена')} className="rounded-xl bg-slate-800 px-3 py-2 text-xs text-slate-300 disabled:opacity-50">Отменить</button>
+          </div>;
+        })}
+      </div>}
+      {(user.friendIds || []).length > friends.length && <p role="status" className="text-xs text-slate-400">Часть анкет друзей пока не загружена. Обновите данные приложения.</p>}
       {/* Friends list */}
-      {friends.length === 0 ? (
+      {(user.friendIds || []).length === 0 ? (
         <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 text-center space-y-2">
           <UserPlus className="w-8 h-8 text-slate-600 mx-auto" />
           <p className="text-xs font-bold text-slate-300">Список друзей пуст</p>
@@ -123,7 +152,7 @@ export const FriendsSection: React.FC<FriendsSectionProps> = ({
               className="bg-slate-950 border border-slate-800 hover:border-emerald-500/40 rounded-2xl p-3 flex items-center gap-3 transition"
             >
               <button onClick={() => onOpenProfile(f)} className="shrink-0">
-                <img src={f.avatar} alt={f.name} loading="lazy"
+                <AvatarImage src={f.avatar} alt={f.name} loading="lazy"
                   className="w-11 h-11 rounded-full object-cover border-2 border-emerald-500/60" />
               </button>
 
@@ -148,7 +177,8 @@ export const FriendsSection: React.FC<FriendsSectionProps> = ({
                 <MessageCircle className="w-4 h-4" />
               </button>
               <button
-                onClick={async () => onUpdateUser(await removeFriend(user, f.id))}
+                disabled={pending}
+                onClick={() => { if (window.confirm(`Удалить ${f.name} из друзей?`)) void run(() => removeFriend(user, f.id), "Пользователь удалён из друзей"); }}
                 className="p-2 bg-slate-900 text-slate-500 hover:text-rose-400 border border-slate-800 rounded-xl active:scale-90 transition shrink-0"
                 aria-label="Удалить из друзей"
               >

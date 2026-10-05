@@ -8,6 +8,14 @@ export async function deliverNotification(db,messaging,job,uid) {
   if(!userSnap.exists)return;
   const user={...userSnap.data(),id:uid},prefs=cleanSettings(prefSnap.data());
   if((user.blockedUserIds||[]).includes(job.actorId)||(job.kind!=='push_test'&&!prefs[job.category]))return;
+  // A queued request may have been cancelled, accepted or replaced before delivery.
+  if(job.kind==='friend_request') {
+    const latest=await db.collection('friendRequests').doc(job.entityId || `${job.actorId}__${uid}`).get();
+    const request=latest.data();
+    if(!latest.exists || request.status!=='pending' || request.fromId!==job.actorId || request.toId!==uid) return;
+    if(job.requestVersion && request.requestVersion!==job.requestVersion) return;
+    if(!job.requestVersion && request.createdAt>job.createdAt) return;
+  }
   if(job.kind==='training_new') {
     const latest=await db.collection('trainings').doc(job.entityId).get();
     if(!latest.exists||!matchesTraining(user,latest.data(),prefs.radiusKm))return;

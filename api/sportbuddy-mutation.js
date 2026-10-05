@@ -105,32 +105,36 @@ async function profileMutation(db, uid, updates) {
 
 async function friendMutation(db, uid, body) {
   const op=String(body.operation||''), target=String(body.targetUserId||''); if(!target||target===uid) throw Object.assign(new Error('Некорректный пользователь'),{status:400});
+  const requestVersion = randomUUID();
   const meRef=db.collection('users').doc(uid), targetRef=db.collection('users').doc(target), reqRef=db.collection('friendRequests').doc(`${uid}__${target}`), reverseRef=db.collection('friendRequests').doc(`${target}__${uid}`), friendshipRef=db.collection('friendships').doc([uid,target].sort().join('__'));
   return db.runTransaction(async tx=>{
     const meS=await tx.get(meRef), tarS=await tx.get(targetRef), reqS=await tx.get(reqRef), revS=await tx.get(reverseRef), frS=await tx.get(friendshipRef);
     if(!meS.exists||!tarS.exists) throw Object.assign(new Error('Пользователь не найден'),{status:404});
     const me=meS.data(), tar=tarS.data(), friends=cleanArray(me.friendIds), sent=cleanArray(me.friendRequestsSent), received=cleanArray(me.friendRequestsReceived), targetFriends=cleanArray(tar.friendIds);
     const now=Date.now();
+    if (['send','accept'].includes(op) && !premiumActive(me)) throw Object.assign(new Error('Добавление в друзья доступно с Premium'), {status:403});
+    if (['send','accept'].includes(op) && (cleanArray(me.blockedUserIds).includes(target) || cleanArray(tar.blockedUserIds).includes(uid))) throw Object.assign(new Error('Добавление в друзья недоступно'), {status:403});
     if(op==='send'){
       if(frS.exists || (reqS.exists && reqS.data().status === 'pending')) return {friendIds:friends,friendRequestsSent:sent,friendRequestsReceived:received};
       if(revS.exists && revS.data().status==='pending'){
         const nf=[...new Set([...friends,target])], nt=[...new Set([...targetFriends,uid])];
         tx.update(meRef,{friendIds:nf,friendRequestsReceived:received.filter(x=>x!==target),friendRequestsSent:sent.filter(x=>x!==target)});
         tx.update(targetRef,{friendIds:nt,friendRequestsReceived:cleanArray(tar.friendRequestsReceived).filter(x=>x!==uid),friendRequestsSent:cleanArray(tar.friendRequestsSent).filter(x=>x!==uid)});
-        enqueueNotification(tx,db,{id:`friend-accepted:${reverseRef.id}:${revS.data().createdAt}`,actorId:uid,recipients:[target],category:'friends',kind:'friend_accepted',title:'Заявка принята',message:'У вас новый друг в SportBuddy.',link:'#profile-friends'});
+        enqueueNotification(tx,db,{id:`friend-accepted:${reverseRef.id}:${revS.data().requestVersion || revS.data().createdAt}`,actorId:uid,recipients:[target],category:'friends',kind:'friend_accepted',title:'Заявка принята',message:`${String(me.name || 'Спортсмен').slice(0,80)} принял(а) вашу заявку в друзья.`,link:'#profile-friends'});
       tx.update(reverseRef,{status:'accepted',updatedAt:now}); tx.create(friendshipRef,{participantIds:[uid,target],createdAt:now});
         return {friendIds:nf,friendRequestsSent:sent.filter(x=>x!==target),friendRequestsReceived:received.filter(x=>x!==target)};
       }
-      enqueueNotification(tx,db,{id:`friend-request:${reqRef.id}:${now}`,actorId:uid,recipients:[target],category:'friends',kind:'friend_request',title:'Новая заявка в друзья',message:'Вас хотят добавить в друзья. Откройте SportBuddy, чтобы ответить.',link:'#profile-friends'});
-      tx.set(reqRef,{id:reqRef.id,fromId:uid,toId:target,status:'pending',createdAt:now});
+      enqueueNotification(tx,db,{id:`friend-request:${reqRef.id}:${requestVersion}`,entityId:reqRef.id,requestVersion,actorId:uid,recipients:[target],category:'friends',kind:'friend_request',title:'Новая заявка в друзья',message:`${String(me.name || 'Спортсмен').slice(0,80)} хочет добавить вас в друзья.`,link:'#profile-friends'});
+      tx.set(reqRef,{id:reqRef.id,fromId:uid,toId:target,status:'pending',createdAt:now,requestVersion});
       const ns=[...new Set([...sent,target])]; tx.update(meRef,{friendRequestsSent:ns});
       const nr=[...new Set([...cleanArray(tar.friendRequestsReceived),uid])]; tx.update(targetRef,{friendRequestsReceived:nr});
       return {friendIds:friends,friendRequestsSent:ns,friendRequestsReceived:received};
     }
     if(op==='accept'){
+      if (frS.exists) return {friendIds:friends,friendRequestsSent:sent,friendRequestsReceived:received};
       if(!revS.exists||revS.data().status!=='pending') throw Object.assign(new Error('Заявка не найдена'),{status:404});
       const nf=[...new Set([...friends,target])], nt=[...new Set([...targetFriends,uid])];
-      enqueueNotification(tx,db,{id:`friend-accepted:${reverseRef.id}:${revS.data().createdAt}`,actorId:uid,recipients:[target],category:'friends',kind:'friend_accepted',title:'Заявка принята',message:'У вас новый друг в SportBuddy.',link:'#profile-friends'});
+      enqueueNotification(tx,db,{id:`friend-accepted:${reverseRef.id}:${revS.data().requestVersion || revS.data().createdAt}`,actorId:uid,recipients:[target],category:'friends',kind:'friend_accepted',title:'Заявка принята',message:`${String(me.name || 'Спортсмен').slice(0,80)} принял(а) вашу заявку в друзья.`,link:'#profile-friends'});
       tx.update(reverseRef,{status:'accepted',updatedAt:now}); if(reqS.exists) tx.update(reqRef,{status:'accepted',updatedAt:now});
       tx.set(friendshipRef,{participantIds:[uid,target],createdAt:frS.exists?frS.data().createdAt:now},{merge:true});
       tx.update(meRef,{friendIds:nf,friendRequestsReceived:received.filter(x=>x!==target)}); tx.update(targetRef,{friendIds:nt,friendRequestsSent:cleanArray(tar.friendRequestsSent).filter(x=>x!==uid)});

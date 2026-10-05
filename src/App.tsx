@@ -111,7 +111,7 @@ import {
   initFriendsState, getFriendStatus, sendFriendRequest,
   acceptFriendRequest, cancelFriendRequest
 } from './services/friends';
-import { subscribeIncomingFriendRequests, subscribeFriendships } from './services/friendRealtime';
+import { subscribeIncomingFriendRequests, subscribeOutgoingFriendRequests, subscribeFriendships } from './services/friendRealtime';
 import { hasPersonalPhoto, hoursUntilDeletion, calculateAge, formatBirthDate, getDiscoveryPhoto } from './services/profile';
 import { BottomNav } from './components/BottomNav';
 import { Modal } from './components/Modal';
@@ -719,26 +719,19 @@ export default function App(): JSX.Element {
     return subscribeChatThreads(currentUser, chatCategory, setChatThreads);
   }, [currentUser, chatCategory]);
 
-  /** Realtime incoming friend requests + in-app notification for recipient. */
+  const [friendSyncErrors, setFriendSyncErrors] = useState<Record<string, boolean>>({});
   useEffect(() => {
     if (!currentUser) return;
-    return subscribeIncomingFriendRequests(currentUser.id, (requests) => {
-      const receivedIds = requests.map((request) => request.fromId);
-      setCurrentUser((previous) => previous ? {
-        ...previous,
-        friendRequestsReceived: receivedIds
-      } : previous);
-
-
-    });
-  }, [currentUser?.id, allUsers]);
-
-  /** Friendships are shared Firestore documents, so both sides update live. */
-  useEffect(() => {
-    if (!currentUser) return;
-    return subscribeFriendships(currentUser.id, (friendIds) => {
-      setCurrentUser((previous) => previous ? { ...previous, friendIds } : previous);
-    });
+    const uid = currentUser.id;
+    setFriendSyncErrors({});
+    const error = (key: string) => (failed: boolean) => setFriendSyncErrors(previous => ({...previous, [key]: failed}));
+    const patch = (updates: Partial<UserProfile>) => setCurrentUser(previous => previous?.id === uid ? {...previous, ...updates} : previous);
+    const stops = [
+      subscribeIncomingFriendRequests(uid, requests => patch({friendRequestsReceived: requests.map(r => r.fromId)}), error('incoming')),
+      subscribeOutgoingFriendRequests(uid, requests => patch({friendRequestsSent: requests.map(r => r.toId)}), error('outgoing')),
+      subscribeFriendships(uid, friendIds => patch({friendIds}), error('friends'))
+    ];
+    return () => stops.forEach(stop => stop());
   }, [currentUser?.id]);
 
   // Scan the latest incoming message for unsafe (non-sport) meeting suggestions
@@ -803,7 +796,7 @@ export default function App(): JSX.Element {
     }else if(link.startsWith('#training=')){
       let id;try{id=decodeURIComponent(link.slice(10));}catch{return;}
       setActiveTab('trainings');const training=trainings.find(t=>t.id===id);if(!training)return;setSelectedTraining(training);
-    }else if(link==='#profile-friends'){try{localStorage.setItem('sportbuddy_profile_friends_open_v1','1');}catch{/* UI preference only */}setFriendsNotificationVersion(v=>v+1);setActiveTab('profile');setTimeout(()=>document.getElementById('profile-friends')?.scrollIntoView({behavior:'smooth'}),100);}
+    }else if(link==='#profile-friends'){try{localStorage.setItem('sportbuddy_profile_friends_open_v1','1');}catch{/* UI preference only */}setFriendsNotificationVersion(v=>v+1);setProfileSection('overview');setActiveTab('profile');setTimeout(()=>document.getElementById('profile-friends')?.scrollIntoView({behavior:'smooth'}),100);}
     else if(link.startsWith('#event=')){
       let id;try{id=decodeURIComponent(link.slice(7));}catch{return;}
       setActiveTab('trainings');
@@ -862,19 +855,29 @@ export default function App(): JSX.Element {
     setTimeout(() => handleOpenChat(chatId), 120);
   };
 
-  // Friend request actions from any profile card
-  const handleFriendAction = async (target: UserProfile) => {
-    if (!currentUser) return;
-    if (!isPremium) {
-      notify('Добавление в друзья доступно с Premium.', 'err');
-      return;
-    }
-    const status = getFriendStatus(currentUser, target.id);
-    let updated = currentUser;
-    if (status === 'none') updated = await sendFriendRequest(currentUser, target.id);
-    else if (status === 'received') updated = await acceptFriendRequest(currentUser, target.id);
-    else if (status === 'sent') updated = await cancelFriendRequest(currentUser, target.id);
-    setCurrentUser(updated);
+  const friendActionBusy = useRef(false);
+  const applyFriendUpdate = (updated: UserProfile) => {
+    setCurrentUser(previous => previous?.id === updated.id ? {
+      ...previous, friendIds: updated.friendIds,
+      friendRequestsSent: updated.friendRequestsSent, friendRequestsReceived: updated.friendRequestsReceived
+    } : previous);
+  };
+  // Shared handling for profile and training participant actions.
+  const handleFriendAction = async (target: Pick<UserProfile, 'id'>) => {
+    if (!currentUser || friendActionBusy.current) return;
+    if (!isPremium) { notify('Добавление в друзья доступно с Premium.', 'err'); return; }
+    friendActionBusy.current = true;
+    try {
+      const status = getFriendStatus(currentUser, target.id);
+      let updated = currentUser;
+      if (status === 'none') updated = await sendFriendRequest(currentUser, target.id);
+      else if (status === 'received') updated = await acceptFriendRequest(currentUser, target.id);
+      else if (status === 'sent') updated = await cancelFriendRequest(currentUser, target.id);
+      applyFriendUpdate(updated);
+      if (status !== 'friends') notify(updated.friendIds?.includes(target.id) ? 'Вы теперь друзья!' : status === 'sent' ? 'Заявка отменена' : 'Заявка отправлена', 'ok');
+    } catch (error) {
+      notify(error instanceof Error ? error.message : 'Не удалось изменить заявку. Попробуйте ещё раз.', 'err');
+    } finally { friendActionBusy.current = false; }
   };
 
   // Filtered Discovery Candidates
@@ -2790,8 +2793,9 @@ export default function App(): JSX.Element {
                 <div id="profile-friends" /><FriendsSection key={friendsNotificationVersion}
                   user={currentUser}
                   allUsers={allUsers}
+                  syncError={Object.values(friendSyncErrors).some(Boolean)}
                   isPremium={isPremium}
-                  onUpdateUser={(u) => setCurrentUser(u)}
+                  onUpdateUser={applyFriendUpdate}
                   onOpenProfile={(u) => setSelectedUserModal(u)}
                   onOpenChat={goToFriendChat}
                   onGoPremium={() => setProfileSection('tariff')}
@@ -3670,12 +3674,7 @@ export default function App(): JSX.Element {
                       </div>
                       {canBeFriend && status === 'none' && (
                         <button
-                          onClick={async () => {
-                            if (!currentUser) return;
-                            const next = await sendFriendRequest(currentUser, uid);
-                            setCurrentUser(next);
-                            triggerHapticNotification('success');
-                          }}
+                          onClick={() => void handleFriendAction({id: uid})}
                           className="flex items-center gap-1 rounded-full bg-emerald-500 px-2.5 py-1.5 text-[10px] font-black text-slate-950 active:scale-95 transition"
                         >
                           <UserPlus className="w-3 h-3" /> В друзья
@@ -3686,12 +3685,7 @@ export default function App(): JSX.Element {
                       )}
                       {canBeFriend && status === 'received' && (
                         <button
-                          onClick={async () => {
-                            if (!currentUser) return;
-                            const next = await acceptFriendRequest(currentUser, uid);
-                            setCurrentUser(next);
-                            triggerHapticNotification('success');
-                          }}
+                          onClick={() => void handleFriendAction({id: uid})}
                           className="flex items-center gap-1 rounded-full bg-emerald-500 px-2.5 py-1.5 text-[10px] font-black text-slate-950 active:scale-95 transition"
                         >
                           <CheckCircle2 className="w-3 h-3" /> Принять
