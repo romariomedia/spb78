@@ -1,7 +1,7 @@
 import { initializeApp,getApps,cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { requireAdminSession,writeAdminAudit } from '../server/admin-control.js';
-import { publicClaimToken,verificationClaimId } from '../server/sport-id-verification.js';
+import { claimFingerprint,claimFromPassport,publicClaimToken,verificationClaimId } from '../server/sport-id-verification.js';
 
 if(!getApps().length)initializeApp({credential:cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY||'{}'))});
 const clean=(value,max=500)=>typeof value==='string'?value.trim().slice(0,max):'';
@@ -30,6 +30,13 @@ export default async function handler(req,res){
     const now=Date.now();
 
     if(operation==='approve'){
+      const userSnap=await db.collection('users').doc(request.userId).get();
+      if(!userSnap.exists)return res.status(404).json({error:'Пользователь не найден.'});
+      let currentClaim;
+      try{currentClaim=claimFromPassport(userSnap.data()?.sportPassport||{},request);}catch{
+        return res.status(409).json({error:'Факт в Спортивном ID был изменён или удалён. Попросите спортсмена отправить новую заявку.'});
+      }
+      if(claimFingerprint(currentClaim)!==request.fingerprint)return res.status(409).json({error:'Данные в Спортивном ID изменились после отправки заявки. Нужна новая заявка.'});
       const claimId=verificationClaimId(request.userId,request);
       const claimRef=db.collection('sportVerifiedClaims').doc(claimId);
       const claim={
