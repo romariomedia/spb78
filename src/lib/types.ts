@@ -25,6 +25,7 @@ export interface UserProfile {
   avatar: string;
   bio: string;
   sports: string[];
+  districtId?: string;
   locationName: string;
   lat: number;
   lng: number;
@@ -370,6 +371,7 @@ export interface Training {
   sport: string;
   dateLabel: string;
   time: string;
+  districtId?: string;
   locationName: string;
   address: string;
   lat: number;

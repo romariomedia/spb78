@@ -1,3 +1,5 @@
+import { DistrictSelect } from './DistrictSelect';
+import { getDistrict } from '../../shared/districts.js';
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
@@ -28,7 +30,7 @@ export const ProfileEditor: React.FC<ProfileEditorProps> = ({ user, onUpdateUser
   const [bio, setBio] = useState(user.bio);
   const [birthDate, setBirthDate] = useState(user.birthDate || '');
   const [hideBirthDate, setHideBirthDate] = useState(!!user.hideBirthDate);
-  const [locationName, setLocationName] = useState(user.locationName);
+  const [districtId, setDistrictId] = useState(getDistrict(user.districtId)?.id || '');
   const [sports, setSports] = useState<string[]>(user.sports || []);
   const [activeLooking, setActiveLooking] = useState(user.activeLooking);
   const [error, setError] = useState<string | null>(null);
@@ -61,7 +63,7 @@ export const ProfileEditor: React.FC<ProfileEditorProps> = ({ user, onUpdateUser
       bio: bio.trim(),
       birthDate: birthDate || undefined,
       hideBirthDate,
-      locationName: locationName.trim(),
+      districtId,
       sports,
       activeLooking,
       ...(age !== null ? { age } : {})
@@ -251,15 +253,10 @@ export const ProfileEditor: React.FC<ProfileEditorProps> = ({ user, onUpdateUser
           />
         </div>
 
-        <div>
-          <label className="block text-xs font-bold text-slate-300 mb-1.5">Район Санкт-Петербурга</label>
-          <input
-            type="text"
-            value={locationName}
-            onChange={(e) => setLocationName(e.target.value)}
-            placeholder="Крестовский остров, СПб"
-            className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-emerald-500 transition"
-          />
+        <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-3.5 space-y-2">
+          <DistrictSelect value={districtId} onChange={setDistrictId} label="Район проживания" emptyLabel="Не указывать район" />
+          <p className="text-xs text-slate-400">Поможет находить тренировки поблизости. Район виден в профиле, точный адрес не нужен.</p>
+          {!user.districtId && user.locationName && <p className="text-xs text-slate-500">Ранее указано: {user.locationName}</p>}
         </div>
 
         {/* Birth date with privacy toggle */}

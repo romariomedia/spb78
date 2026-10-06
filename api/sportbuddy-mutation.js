@@ -1,3 +1,4 @@
+import { validateDistrictId } from '../shared/districts.js';
 import { enqueueNotification } from '../server/notification-policy.js';
 import { isBetaActive, hasPremiumAccess } from '../shared/access-policy.js';
 import { photoVerificationPatch } from '../server/profile-verification.js';
@@ -54,6 +55,7 @@ async function bootstrapProfile(db, uid, incoming, claims = {}) {
     const profile = {
       id:uid, name:cleanString(body.name,120)||'Новый спортсмен', age:Number.isFinite(Number(body.age))?Math.max(18,Math.min(100,Number(body.age))):25,
       gender, genderSet:body.genderSet===true, avatar:cleanString(body.avatar,2000), bio:cleanString(body.bio,1000), sports:cleanArray(body.sports,10),
+      ...(body.districtId !== undefined ? {districtId:validateDistrictId(body.districtId)} : {}),
       locationName:cleanString(body.locationName,200)||'Санкт-Петербург', lat:startCoords.lat, lng:startCoords.lng,
       rating:0,ratingSum:0,ratingCount:0,totalWorkouts:0,totalDailyMedals:0,dailyMedalStreak:0,medalTier:'bronze',activeLooking:true,
       likedUserIds:[],matchIds:[],matchHistory:[],friendIds:[],friendRequestsSent:[],friendRequestsReceived:[],subscriptionPlan:'premium',
@@ -70,10 +72,11 @@ async function bootstrapProfile(db, uid, incoming, claims = {}) {
 }
 
 async function profileMutation(db, uid, updates) {
-  const publicAllowed = new Set(['age','gender','genderSet','bio','sports','locationName','lat','lng','activeLooking','avatar','photoPortfolio','legalAcceptedAt','themeAccent','themeSurface','hasUsedGeolocation','lastSeenAt','lastGeoAt']);
+  const publicAllowed = new Set(['age','gender','genderSet','bio','sports','districtId','locationName','lat','lng','activeLooking','avatar','photoPortfolio','legalAcceptedAt','themeAccent','themeSurface','hasUsedGeolocation','lastSeenAt','lastGeoAt']);
   const privateAllowed = new Set(['phone','hidePhone','birthDate','hideBirthDate','deviceId']);
   const pub={}, priv={};
   for (const [k,v] of Object.entries(updates||{})) { if(publicAllowed.has(k)) pub[k]=v; if(privateAllowed.has(k)) priv[k]=v; }
+  if ('districtId' in pub) pub.districtId = validateDistrictId(pub.districtId);
   if ('lat' in pub || 'lng' in pub) {
     if (!isValidCoords(pub.lat, pub.lng)) {
       throw Object.assign(new Error('Некорректные координаты'), {status:400});
@@ -285,7 +288,8 @@ async function trainingMutation(db, uid, body) {
     const venueName = typeof data.venueName === 'string' ? data.venueName.trim().slice(0,160) : '';
     const venueRentalConfirmed = data.venueRentalConfirmed === true;
     if (venueId && !venueRentalConfirmed) throw Object.assign(new Error('Подтвердите аренду выбранной площадки'), { status: 400 });
-    const training = { id, participantGender, title:data.title.trim(), sport:String(data.sport || ''), dateKey, time,
+    const districtId = data.districtId === undefined ? '' : validateDistrictId(data.districtId);
+    const training = { id, districtId, participantGender, title:data.title.trim(), sport:String(data.sport || ''), dateKey, time,
       dateLabel:String(data.dateLabel || dateKey), locationName:String(data.locationName || ''), address:String(data.address || ''),
       lat, lng, level:['amateur','semi-pro','pro'].includes(data.level)?data.level:'amateur', participantsMax:max,
       description:String(data.description || '').slice(0,2000),

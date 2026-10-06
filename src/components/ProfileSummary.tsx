@@ -1,3 +1,4 @@
+import { districtLabel } from '../../shared/districts.js';
 import { AvatarImage } from './AvatarImage';
 import {Camera,Crown,MapPin,Star,Users,Heart,Dumbbell,Medal} from 'lucide-react';
 import {UserProfile} from '../lib/types';
@@ -21,7 +22,7 @@ export function ProfileSummary({user,friendsCount,isPremium,avatar,birthday,onUp
       <div className="sb-profile-name">
         {isPremium&&<span className="sb-profile-premium"><Crown size={11}/> Premium</span>}
         <h3>{user.name}<span className="sb-profile-age">, {user.age}</span></h3>
-        <p className="sb-profile-location"><MapPin size={13}/><span>{user.locationName}</span></p>
+        <p className="sb-profile-location"><MapPin size={13}/><span>{districtLabel(user.districtId) || user.locationName}</span></p>
         {birthday&&<p className="sb-profile-birthday">{birthday}</p>}
       </div>
     </div>

@@ -1,3 +1,5 @@
+import { DistrictSelect } from './components/DistrictSelect';
+import { districtLabel, getDistrict, matchesDistrict } from '../shared/districts.js';
 import { PhotoEditor } from './components/PhotoEditor';
 import { Stories } from './components/Stories';
 import { AvatarImage } from './components/AvatarImage';
@@ -220,6 +222,8 @@ export default function App(): JSX.Element {
   const [selectedUserModal, setSelectedUserModal] = useState<UserProfile | null>(null);
 
   // Training Creation & Filter State
+  const [trainingDistrictFilter, setTrainingDistrictFilter] = useState('');
+  const [newTrDistrict, setNewTrDistrict] = useState('');
   const [trainingSportFilter, setTrainingSportFilter] = useState<string>('Все');
   const [trainingLevelFilter, setTrainingLevelFilter] = useState<'all' | 'amateur' | 'semi-pro' | 'pro'>('all');
   const [calendarDay, setCalendarDay] = useState<string | null>(null);
@@ -905,13 +909,14 @@ export default function App(): JSX.Element {
   // Filtered Trainings
   const filteredTrainings = useMemo(() => {
     return trainings.filter(tr => {
+      if (!matchesDistrict(tr, trainingDistrictFilter)) return false;
       if (trainingSportFilter !== 'Все' && tr.sport !== trainingSportFilter) return false;
       if (trainingLevelFilter !== 'all' && tr.level !== trainingLevelFilter) return false;
       if (onlyMyTrainings && !tr.participantIds.includes(CURRENT_USER_ID)) return false;
       if (calendarDay && getTrainingDayKey(tr) !== calendarDay) return false;
       return true;
     });
-  }, [trainings, trainingSportFilter, trainingLevelFilter, onlyMyTrainings, calendarDay]);
+  }, [trainings, trainingDistrictFilter, trainingSportFilter, trainingLevelFilter, onlyMyTrainings, calendarDay]);
 
   /** O(1) organiser lookup — avoids allUsers.find() inside every card */
   const creatorsById = useMemo(
@@ -1032,6 +1037,7 @@ export default function App(): JSX.Element {
   const handleSubmitTraining = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTrTitle.trim() || !currentUser) return;
+    if (!getDistrict(newTrDistrict)) { notify('Выберите район места встречи', 'err'); return; }
     if (!newTrLocationSelected) { notify('Выберите место встречи на карте', 'err'); return; }
     if (selectedVenueForTraining && !venueRentalConfirmed) {
       notify('Подтвердите, что аренда площадки согласована с владельцем', 'err');
@@ -1056,6 +1062,7 @@ export default function App(): JSX.Element {
         dateLabel: `${formatFullDate(newTrDate)}, ${newTrTime}`,
         dateKey: newTrDate,
         time: newTrTime,
+        districtId: newTrDistrict,
         locationName: newTrCity,
         address: newTrAddress,
         lat: newTrCoords.lat,
@@ -1089,6 +1096,7 @@ export default function App(): JSX.Element {
 
     // Reset fields
     setNewTrGender('any');
+    setNewTrDistrict('');
     setNewTrTitle('');
     setNewTrDesc('');
     setSelectedVenueForTraining(null);
@@ -1111,6 +1119,7 @@ export default function App(): JSX.Element {
     setVenueRentalConfirmed(false);
     setNewTrAddress(venue.address);
     setNewTrCity('Санкт-Петербург');
+    setNewTrDistrict('');
     setNewTrLocationSelected(false);
 
     const compatibleSport = venue.sports.find(item => SPORTS.includes(item));
@@ -1900,7 +1909,7 @@ export default function App(): JSX.Element {
                                 </h3>
                                 <p className="text-xs text-slate-300 flex items-center gap-1 mt-0.5">
                                   <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0" /> 
-                                  {currentCandidate.locationName}{hasCurrentLocation && currentCandidate.hasUsedGeolocation && <span className="text-amber-400 font-bold"> • ~{calculateDistanceKm(userCoords.lat, userCoords.lng, currentCandidate.lat, currentCandidate.lng).toFixed(1)} км</span>}
+                                  {districtLabel(currentCandidate.districtId) || currentCandidate.locationName}{hasCurrentLocation && currentCandidate.hasUsedGeolocation && <span className="text-amber-400 font-bold"> • ~{calculateDistanceKm(userCoords.lat, userCoords.lng, currentCandidate.lat, currentCandidate.lng).toFixed(1)} км</span>}
                                 </p>
                               </div>
 
@@ -2102,6 +2111,13 @@ export default function App(): JSX.Element {
                       </button>
                     ))}
                   </div>
+
+                  <DistrictSelect value={trainingDistrictFilter} onChange={setTrainingDistrictFilter} label="Район места встречи" emptyLabel="Все районы" />
+                  <div className="flex flex-wrap gap-2">
+                    {getDistrict(currentUser?.districtId) && <button type="button" onClick={() => setTrainingDistrictFilter(currentUser?.districtId || '')} className="min-h-11 px-3 text-xs font-bold text-emerald-300 rounded-xl bg-emerald-500/10">Мой район</button>}
+                    {trainingDistrictFilter && <button type="button" onClick={() => setTrainingDistrictFilter('')} className="min-h-11 px-3 text-xs text-slate-300">Все районы</button>}
+                  </div>
+                  {trainingDistrictFilter && <p className="text-xs text-slate-400">Тренировки без указанного района доступны в разделе «Все районы».</p>}
 
                   {/* Level selector */}
                   <div className="flex gap-1 pt-1 border-t border-slate-800/80">
@@ -3222,7 +3238,7 @@ export default function App(): JSX.Element {
               <div>
                 <h3 className="text-lg font-black text-white">{selectedUserModal.name}, {selectedUserModal.age}</h3>
                 <p className="text-xs text-emerald-400 flex items-center gap-1 mt-0.5">
-                  <MapPin className="w-3.5 h-3.5 shrink-0" /> {selectedUserModal.locationName}
+                  <MapPin className="w-3.5 h-3.5 shrink-0" /> {districtLabel(selectedUserModal.districtId) || selectedUserModal.locationName}
                 </p>
                 <div className="mt-1">
                   <StarRating value={Math.round(computeAverageRating(selectedUserModal))} size="sm" readOnly />
@@ -3357,6 +3373,9 @@ export default function App(): JSX.Element {
               </select>
             </div>
           </div>
+
+          <DistrictSelect value={newTrDistrict} onChange={setNewTrDistrict} label="Район места встречи" emptyLabel="Выберите район" required />
+          <p className="text-xs text-slate-400">Укажите район тренировки, даже если живёте в другом. Для похода — район старта.</p>
 
           <div className="grid grid-cols-3 gap-2">
             <div>
@@ -3631,7 +3650,7 @@ export default function App(): JSX.Element {
               </div>
               <div className="flex items-center gap-2 text-slate-200">
                 <MapPin className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Место: <b>{selectedTraining.locationName}</b> ({selectedTraining.address})</span>
+                <span>Место: <b>{selectedTraining.locationName}</b> ({selectedTraining.address}){districtLabel(selectedTraining.districtId) && <span className="block mt-1 text-emerald-300">{districtLabel(selectedTraining.districtId)}</span>}</span>
               </div>
             </div>
 

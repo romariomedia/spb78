@@ -342,3 +342,35 @@ test('friend Premium policy is enforced on server and respects the open beta per
   assert.equal((await f.request('b',{action:'friend',operation:'accept',targetUserId:'a'})).statusCode,403);
   assert.equal((await f.request('a',{action:'friend',operation:'cancel',targetUserId:'b'})).statusCode,200);
 });
+
+test('profile district is validated, preserved by unrelated updates and can be cleared', async()=>{
+  const f=fixture({'users/a':{...premium(),locationName:'Старое описание',lat:59.93,lng:30.31}});
+  let r=await f.request('a',{action:'profile',updates:{districtId:'lo-vyborgsky'}});
+  assert.equal(r.statusCode,200);
+  assert.equal(r.body.profile.districtId,'lo-vyborgsky');
+  assert.equal(r.body.profile.locationName,'Старое описание');
+  assert.equal(r.body.profile.lat,59.93);
+  r=await f.request('a',{action:'profile',updates:{bio:'Бег'}});
+  assert.equal(r.body.profile.districtId,'lo-vyborgsky');
+  for(const value of ['Выборгский','unknown',42,{}]) {
+    r=await f.request('a',{action:'profile',updates:{districtId:value}});
+    assert.equal(r.statusCode,400);
+    assert.equal(f.records.get('users/a').districtId,'lo-vyborgsky');
+  }
+  r=await f.request('a',{action:'profile',updates:{districtId:''}});
+  assert.equal(r.statusCode,200);assert.equal(r.body.profile.districtId,'');
+});
+
+test('training district belongs to meeting place, rejects forged values and permits legacy clients',async()=>{
+  const f=fixture({'users/a':{...premium(),districtId:'spb-vyborgsky'},'users/b':{...premium(),districtId:'lo-luzhsky'}});
+  const r=await f.request('a',{action:'training',operation:'createTraining',training:{...training(),districtId:'lo-vyborgsky'}});
+  assert.equal(r.statusCode,200);assert.equal(r.body.training.districtId,'lo-vyborgsky');
+  const joined=await f.request('b',{action:'training',operation:'toggleJoinTraining',trainingId:r.body.training.id});
+  assert.equal(joined.statusCode,200);
+  for(const districtId of ['Выборгский',123,{}]) {
+    const bad=await f.request('a',{action:'training',operation:'createTraining',training:{...training(),districtId}});
+    assert.equal(bad.statusCode,400);
+  }
+  const legacy=await f.request('a',{action:'training',operation:'createTraining',training:training()});
+  assert.equal(legacy.statusCode,200);assert.equal(legacy.body.training.districtId,'');
+});

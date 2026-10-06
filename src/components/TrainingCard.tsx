@@ -1,3 +1,4 @@
+import { districtLabel } from '../../shared/districts.js';
 import { trainingGenderError, trainingGenderLabel } from '../lib/trainingEligibility';
 import React from 'react';
 import { Calendar, MapPin } from 'lucide-react';
@@ -67,6 +68,7 @@ const TrainingCardInner: React.FC<TrainingCardProps> = ({
         </div>
       )}
 
+      {districtLabel(tr.districtId) && <p className="mt-2 text-xs text-emerald-300 break-words">{districtLabel(tr.districtId)}</p>}
       <div className="grid grid-cols-2 gap-2 my-3 text-xs text-slate-300">
         <div className="flex items-center gap-1.5 bg-slate-950 p-2 rounded-xl border border-slate-800/80">
           <Calendar className="w-4 h-4 text-emerald-400 shrink-0" />

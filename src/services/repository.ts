@@ -554,6 +554,7 @@ export async function persistFreshProfile(profile: UserProfile): Promise<UserPro
       avatar: profile.avatar,
       bio: profile.bio,
       sports: profile.sports,
+      ...(profile.districtId !== undefined ? {districtId:profile.districtId} : {}),
       locationName: profile.locationName,
       lat: profile.lat,
       lng: profile.lng,
