@@ -25,7 +25,8 @@ export default async function handler(req,res){
     const requestSnap=await requestRef.get();
     if(!requestSnap.exists)return res.status(404).json({error:'Заявка не найдена.'});
     const request=requestSnap.data()||{};
-    if(request.status!=='pending')return res.status(409).json({error:'Эта заявка уже обработана.'});
+    if((operation==='approve'||operation==='reject')&&request.status!=='pending')return res.status(409).json({error:'Эта заявка уже обработана.'});
+    if(operation==='revoke'&&request.status!=='approved')return res.status(409).json({error:'Отозвать можно только действующее подтверждение.'});
     const note=clean(body.note,800);
     const now=Date.now();
 
