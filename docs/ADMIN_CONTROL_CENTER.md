@@ -60,3 +60,31 @@ Suspension is intentionally reversible and requires a reason. It:
 - writes the action, actor and reason to the existing admin audit trail.
 
 Hard deletion is deliberately not part of this release. Deletion touches authentication, chats, friendships, posts, trainings and other linked records and should ship as a separate lifecycle module with explicit eligibility checks and a dry-run preview rather than as a one-click admin action.
+
+
+## V2.2 Push Center
+
+The Control Center now has a dedicated Push workspace built on the existing durable Firestore notification queue and FCM worker.
+
+### Safe campaign workflow
+1. Compose title, body and an internal SportBuddy hash route.
+2. Select an audience: all eligible profiles, exact UID, district, sport, verified users and/or users active in the last 30 days.
+3. Run a server-side audience preview. Suspended accounts are always excluded.
+4. Review exact recipient count and a small sample.
+5. Confirm using the short-lived preview token. A preview can be consumed only once.
+6. The server creates a durable campaign and queue job. Optional scheduling is supported up to 30 days ahead.
+
+User notification preferences and quiet hours remain authoritative. Push Center does not bypass them.
+
+### History and scheduling
+Campaign history stores creator, audience, planned time, processed recipient count and state: scheduled, queued, processing, retrying, completed, failed, expired or cancelled. A future scheduled campaign can be cancelled before processing begins.
+
+The UI deliberately says "processed", not "delivered": an FCM provider acceptance is not proof that an operating system displayed a notification.
+
+### Safety limits
+- external URLs are rejected; campaigns may open only internal hash routes;
+- title/body use the same server size limits as the notification queue;
+- audience preview is capped at 10,000 scanned profiles and asks the administrator to narrow filters beyond that point;
+- campaign confirmation expires after 10 minutes;
+- account suspension always excludes the user from new admin campaigns;
+- every send/cancel action is recorded in the admin audit log.
