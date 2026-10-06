@@ -12,7 +12,8 @@ function label(entry:AdminAuditEntry){
     'config.flags.update':'Изменены Feature Flags','config.product.update':'Изменены настройки продукта',
     'push.send':'Создана push-рассылка','push.cancel':'Отменена push-рассылка',
     'announcement.create':'Создано объявление','announcement.update':'Изменено объявление','announcement.delete':'Удалено объявление',
-    'moderation.report.status':'Изменён статус жалобы','moderation.post.hide':'Скрыта публикация','moderation.post.restore':'Восстановлена публикация'
+    'moderation.report.status':'Изменён статус жалобы','moderation.post.hide':'Скрыта публикация','moderation.post.restore':'Восстановлена публикация',
+    'user.deleteSafe':'Безопасно удалён аккаунт'
   };
   return names[entry.action]||entry.action;
 }
