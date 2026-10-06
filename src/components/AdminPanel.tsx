@@ -23,6 +23,7 @@ import { compressImage } from '../services/media';
 import { PlacesAdminPanel } from './PlacesAdminPanel';
 import { AdminDashboard } from './AdminDashboard';
 import { LeisureAdminPanel } from './LeisureAdminPanel';
+import { AdminAuditPanel } from './AdminAuditPanel';
 
 import { SPORT_TAGS as SPORTS } from '../lib/types';
 
@@ -39,7 +40,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 }) => {
   const admin = authorized;
 
-  const [adminView, setAdminView] = useState<'overview'|'venues'|'leisure'|'events'>('overview');
+  const [adminView, setAdminView] = useState<'overview'|'venues'|'leisure'|'events'|'audit'>('overview');
   const [creating, setCreating] = useState(false);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -205,12 +206,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         maxWidth="lg"
       >
         <div className="space-y-4" key={refresh}>
-          <div className="grid grid-cols-4 gap-1 rounded-2xl border border-slate-800 bg-slate-950 p-1">
+          <div className="grid grid-cols-5 gap-1 rounded-2xl border border-slate-800 bg-slate-950 p-1">
             {([
               ['overview','Обзор'],
               ['venues','Площадки'],
               ['leisure','Отдых'],
-              ['events','События']
+              ['events','События'],
+              ['audit','Журнал']
             ] as const).map(([id,label]) => (
               <button
                 key={id}
@@ -226,6 +228,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           {adminView === 'overview' && <AdminDashboard />}
           {adminView === 'venues' && <PlacesAdminPanel />}
           {adminView === 'leisure' && <LeisureAdminPanel />}
+          {adminView === 'audit' && <AdminAuditPanel />}
 
           {adminView === 'events' && <>
           <button
