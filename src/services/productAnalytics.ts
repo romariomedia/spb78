@@ -37,6 +37,8 @@ export function startProductAnalytics(userId:string):()=>void{
       lastVisibleAt=now;lastFlushAt=now;void send(0);
     }
   };
+  const pageHide=()=>flush();
   document.addEventListener('visibilitychange',visibility);
-  return()=>{stopped=true;clearInterval(timer);document.removeEventListener('visibilitychange',visibility);};
+  window.addEventListener('pagehide',pageHide);
+  return()=>{flush();stopped=true;clearInterval(timer);document.removeEventListener('visibilitychange',visibility);window.removeEventListener('pagehide',pageHide);};
 }
