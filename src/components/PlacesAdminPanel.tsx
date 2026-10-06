@@ -144,7 +144,7 @@ export const PlacesAdminPanel: React.FC = () => {
       await adminMutateVenue({
         operation: 'update',
         venueId: venue.id,
-        patch: { isPublished: venue.isPublished === false }
+        patch: { ...venue, isPublished: venue.isPublished === false }
       });
       await reload();
     } catch (err) {
