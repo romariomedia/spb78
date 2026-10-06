@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Activity, Building2, CalendarDays, Compass, RefreshCw, ShieldAlert, Users, Dumbbell } from 'lucide-react';
 import { loadAdminDashboard, AdminDashboardData } from '../services/adminDashboard';
+import { refreshVenues } from '../services/venues';
 
 const cards = [
   ['users','Пользователи',Users],
@@ -18,7 +19,10 @@ export function AdminDashboard() {
 
   const refresh=async()=>{
     setLoading(true);setError('');
-    try{setData(await loadAdminDashboard());}
+    try{
+      const [dashboard,venues]=await Promise.all([loadAdminDashboard(),refreshVenues(true)]);
+      setData({...dashboard,counts:{...dashboard.counts,venues:venues.length}});
+    }
     catch(e){setError(e instanceof Error?e.message:'Не удалось загрузить обзор');}
     finally{setLoading(false);}
   };
