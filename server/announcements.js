@@ -1,3 +1,4 @@
+import { validateDistrictId } from '../shared/districts.js';
 const clean=(value,max=300)=>typeof value==='string'?value.trim().slice(0,max):'';
 const placements=new Set(['global','discover','trainings','leisure','feed','profile']);
 const audiences=new Set(['all','verified','district','sport']);
@@ -5,6 +6,10 @@ const audiences=new Set(['all','verified','district','sport']);
 export function sanitizeAnnouncement(input={},existing={}){
   const placement=placements.has(input.placement)?input.placement:(existing.placement||'global');
   const audienceType=audiences.has(input.audienceType)?input.audienceType:(existing.audienceType||'all');
+  let audienceValue=clean(input.audienceValue??existing.audienceValue,100);
+  if(audienceType==='district')audienceValue=validateDistrictId(audienceValue);
+  if(audienceType==='sport'&&!audienceValue)throw Object.assign(new Error('Выберите вид спорта для аудитории.'),{status:400});
+  if(audienceType==='all'||audienceType==='verified')audienceValue='';
   const title=clean(input.title??existing.title,120);
   const text=clean(input.text??existing.text,500);
   if(title.length<2)throw Object.assign(new Error('Укажите заголовок объявления.'),{status:400});
@@ -20,7 +25,7 @@ export function sanitizeAnnouncement(input={},existing={}){
   if(startMs&&endMs&&endMs<=startMs)throw Object.assign(new Error('Дата окончания должна быть позже даты начала.'),{status:400});
   return {
     title,text,imageUrl:clean(input.imageUrl??existing.imageUrl,1500),buttonLabel,buttonLink,
-    placement,audienceType,audienceValue:clean(input.audienceValue??existing.audienceValue,100),
+    placement,audienceType,audienceValue,
     startAt:startMs?new Date(startMs).toISOString():'',endAt:endMs?new Date(endMs).toISOString():'',
     priority:Math.max(0,Math.min(100,Number.isFinite(Number(input.priority))?Math.round(Number(input.priority)):Number(existing.priority||0))),
     isActive:input.isActive===undefined?existing.isActive!==false:input.isActive===true,
