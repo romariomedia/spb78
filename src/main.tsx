@@ -5,7 +5,7 @@ import App from "./App";
 import { AppErrorBoundary } from "./components/AppErrorBoundary";
 import { PublicSportId } from "./components/PublicSportId";
 
-const publicMatch=window.location.pathname.match(/^\/id\/([A-Za-z0-9_-]{12,80})\/?$/);
+const publicMatch=window.location.hash.match(/^#\/id\/([A-Za-z0-9_-]{12,80})\/?$/);
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <AppErrorBoundary>
