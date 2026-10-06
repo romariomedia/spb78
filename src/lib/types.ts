@@ -17,6 +17,25 @@ export interface BoxTierConfig {
   possibleRewards: Omit<RewardItem, 'id' | 'dateEarned'>[];
 }
 
+export type SportPassportLevel = 'beginner' | 'amateur' | 'advanced' | 'competitive' | 'pro';
+
+export interface DeclaredSportAchievement {
+  id: string;
+  title: string;
+  date?: string;
+  sport?: string;
+  verification: 'declared';
+}
+
+export interface SportPassportProfile {
+  mainSport: string;
+  level: SportPassportLevel;
+  rankTitle?: string;
+  yearsExperience: number;
+  declaredAchievements: DeclaredSportAchievement[];
+  updatedAt?: string;
+}
+
 export interface UserProfile {
   id: string;
   name: string;
@@ -92,6 +111,8 @@ export interface UserProfile {
   ratingSum?: number;               // sum of all received stars
   ratingCount?: number;             // number of received reviews
   ratingsReceived?: TrainingRating[];
+  /** Self-declared sport biography. Verified activity stays server-derived. */
+  sportPassport?: SportPassportProfile;
 }
 
 export interface TrainingRating {

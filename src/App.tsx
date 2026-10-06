@@ -71,6 +71,8 @@ import { buildArrivalNotification, getMyCheckIn } from './services/checkin';
 import { MATCH_SAFETY_REMINDER, UNSAFE_SUGGESTION_WARNING } from './legal/terms';
 import { MedalsSection } from './components/MedalsSection';
 import { ProfileSummary } from './components/ProfileSummary';
+import { SportPassportCard } from './components/SportPassportCard';
+import { SportPassportView } from './components/SportPassportView';
 import { Virtuoso } from 'react-virtuoso';
 import { TrainingCard } from './components/TrainingCard';
 import { PostCard } from './components/PostCard';
@@ -322,7 +324,7 @@ export default function App(): JSX.Element {
     return () => { cancelled = true; clearInterval(timer); document.removeEventListener('visibilitychange', visible); };
   }, [currentUser?.id, currentUser?.medalProgress?.lastClaimDayKey]);
 
-  const [profileSection, setProfileSection] = useState<'overview' | 'edit' | 'tariff' | 'legal'>('overview');
+  const [profileSection, setProfileSection] = useState<'overview' | 'passport' | 'edit' | 'tariff' | 'legal'>('overview');
   const [versionTapCount, setVersionTapCount] = useState(0);
   // Interface personalisation — applied on first render
   const [theme, setTheme] = useState<ThemePreferences>(() => initTheme());
@@ -2720,6 +2722,17 @@ export default function App(): JSX.Element {
                   />
                 )}
 
+                {profileSection === 'passport' && (
+                  <SportPassportView
+                    user={currentUser}
+                    onBack={() => setProfileSection('overview')}
+                    onUserUpdate={(next) => {
+                      setCurrentUser(next);
+                      setAllUsers(prev => prev.map(item => item.id === next.id ? next : item));
+                    }}
+                  />
+                )}
+
                 {profileSection === 'overview' && (
                   <>
                 {/* Profile Card & Avatar */}
@@ -2767,6 +2780,14 @@ export default function App(): JSX.Element {
                     )}
                   </div>
                 </div>
+
+                <SportPassportCard
+                  user={currentUser}
+                  onOpen={() => {
+                    triggerHapticImpact('light');
+                    setProfileSection('passport');
+                  }}
+                />
 
                 {/* Countdown to the next signed-up training */}
                 <div className="space-y-2">
