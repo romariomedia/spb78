@@ -1,8 +1,10 @@
 import { getAdminSession } from './adminAuth';
 
 export type AdminLeisureDestination={
-  id:string;name:string;region:'spb'|'lo'|'karelia';format:string;pace:string;
-  description:string;plan:string;access:string;source:string;photo:string;photoCredit:string;
+  id:string;name:string;region:'spb'|'lo'|'karelia';category:'destination'|'rink';season:string;
+  format:string;pace:string;description:string;plan:string;access:string;source:string;photo:string;photoCredit:string;
+  rinkType?:'outdoor'|'indoor'|'';rental?:boolean;address?:string;phone?:string;website?:string;hours?:string;
+  priceText?:string;priceStatus?:string;priceCheckedAt?:string;seasonStatus?:'upcoming'|'open'|'closed'|'unknown'|'';
   isPublished:boolean;createdAt?:string;updatedAt?:string;
 };
 async function call<T>(body:Record<string,unknown>):Promise<T>{

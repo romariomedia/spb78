@@ -1,16 +1,19 @@
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import { LEISURE_DESTINATIONS } from '../shared/leisure-destinations.js';
+import { LEISURE_CATALOG } from '../shared/leisure-destinations.js';
 import { requireAdminSession, writeAdminAudit } from '../server/admin-control.js';
 
 if (!getApps().length) {
   initializeApp({ credential: cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '{}')) });
 }
 const REGIONS=new Set(['spb','lo','karelia']);
+const CATEGORIES=new Set(['destination','rink']);
+const RINK_TYPES=new Set(['outdoor','indoor','']);
+const SEASON_STATUSES=new Set(['upcoming','open','closed','unknown','']);
 const text=(value,max=300)=>typeof value==='string'?value.trim().slice(0,max):'';
 function media(value){
   const v=text(value,1200);
-  if(/^\/leisure\/[a-z0-9_-]+\.webp$/i.test(v))return v;
+  if(/^\/leisure\/[a-z0-9_-]+\.(?:webp|svg)$/i.test(v))return v;
   try{const u=new URL(v);return u.protocol==='https:'?u.href:'';}catch{return '';}
 }
 function url(value){
@@ -23,8 +26,20 @@ function sanitize(input,id,existing=null){
     id,
     name:text(input?.name,160),
     region,
+    category:CATEGORIES.has(input?.category)?input.category:'destination',
+    season:text(input?.season,40)||'all',
     format:text(input?.format,120),
     pace:text(input?.pace,80),
+    rinkType:RINK_TYPES.has(input?.rinkType)?input.rinkType:'',
+    rental:input?.rental===true,
+    address:text(input?.address,300),
+    phone:text(input?.phone,80),
+    website:url(input?.website),
+    hours:text(input?.hours,180),
+    priceText:text(input?.priceText,220),
+    priceStatus:text(input?.priceStatus,40)||'verify',
+    priceCheckedAt:text(input?.priceCheckedAt,20),
+    seasonStatus:SEASON_STATUSES.has(input?.seasonStatus)?input.seasonStatus:'',
     description:text(input?.description,1800),
     plan:text(input?.plan,1800),
     access:text(input?.access,1800),
@@ -37,6 +52,9 @@ function sanitize(input,id,existing=null){
   };
   if(item.name.length<2||!item.region||item.format.length<2||item.description.length<20||item.plan.length<10||item.access.length<10||!item.source||!item.photo){
     throw Object.assign(new Error('Заполните название, регион, формат, описание, план, условия, официальный источник и фото.'),{status:400});
+  }
+  if(item.category==='rink' && (item.address.length<3 || (!item.phone && !item.website))){
+    throw Object.assign(new Error('Для катка укажите адрес и хотя бы телефон или официальный сайт.'),{status:400});
   }
   return item;
 }
@@ -51,14 +69,19 @@ export default async function handler(req,res){
       return res.json({destinations:snap.docs.map(d=>({id:d.id,...d.data()}))});
     }
     if(operation==='seed'){
+      const existing=await db.collection('leisureDestinations').get();
+      const ids=new Set(existing.docs.map(doc=>doc.id));
       const batch=db.batch();
-      for(const raw of LEISURE_DESTINATIONS){
+      let created=0,skipped=0;
+      for(const raw of LEISURE_CATALOG){
+        if(ids.has(raw.id)){skipped++;continue;}
         const item=sanitize({...raw,isPublished:true},raw.id);
-        batch.set(db.collection('leisureDestinations').doc(raw.id),item,{merge:true});
+        batch.set(db.collection('leisureDestinations').doc(raw.id),item,{merge:false});
+        created++;
       }
-      await batch.commit();
-      await writeAdminAudit(db,session,{action:'leisure.seed',entityType:'leisureCatalog',entityId:'leisureDestinations',after:{count:LEISURE_DESTINATIONS.length}});
-      return res.json({ok:true,count:LEISURE_DESTINATIONS.length});
+      if(created)await batch.commit();
+      await writeAdminAudit(db,session,{action:'leisure.seed',entityType:'leisureCatalog',entityId:'leisureDestinations',after:{created,skipped,submitted:LEISURE_CATALOG.length}});
+      return res.json({ok:true,count:created,skipped});
     }
     const id=text(body.destinationId,100);
     if(!id||!/^[a-z0-9][a-z0-9_-]{1,99}$/i.test(id))return res.status(400).json({error:'Destination id required.'});
