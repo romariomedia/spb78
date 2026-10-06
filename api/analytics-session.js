@@ -23,21 +23,20 @@ export default async function handler(req,res){
 
     const now=Date.now(),day=analyticsDayKey(now);
     const dailyRef=db.collection('analyticsDaily').doc(analyticsDocId(day,uid));
-    const sessionRef=db.collection('analyticsSessions').doc(analyticsSessionId(day,uid,sessionId));
+    const sessionKey=analyticsSessionId(day,uid,sessionId).slice(0,24);
     const credited=await db.runTransaction(async tx=>{
-      const [dailySnap,sessionSnap]=await Promise.all([tx.get(dailyRef),tx.get(sessionRef)]);
+      const dailySnap=await tx.get(dailyRef);
       const daily=dailySnap.exists?dailySnap.data()||{}:{};
-      const session=sessionSnap.exists?sessionSnap.data()||{}:{};
-      if(sessionSnap.exists&&Number(session.lastSeq||-1)>=seq)return 0;
+      const states=daily.sessionStates&&typeof daily.sessionStates==='object'?daily.sessionStates:{};
+      const session=states[sessionKey]||{};
+      if(session.lastSeq!==undefined&&Number(session.lastSeq)>=seq)return 0;
+      const firstSession=!states[sessionKey];
+      if(firstSession&&Object.keys(states).length>=100)throw Object.assign(new Error('Слишком много analytics-сессий за день.'),{status:429});
 
       const seconds=safeActiveSeconds(requested,{now,lastPulseAt:Number(session.lastPulseAt||0),lastCreditedAt:Number(daily.lastCreditedAt||0)});
-      const firstSession=!sessionSnap.exists;
-      tx.set(sessionRef,{
-        userId:uid,day,lastSeq:seq,lastPulseAt:now,
-        createdAt:session.createdAt||now,updatedAt:now,expiresAt:now+32*86400000
-      },{merge:true});
+      const nextStates={...states,[sessionKey]:{lastSeq:seq,lastPulseAt:now}};
       tx.set(dailyRef,{
-        userId:uid,day,
+        userId:uid,day,sessionStates:nextStates,
         firstSeenAt:daily.firstSeenAt||now,lastSeenAt:now,lastCreditedAt:now,
         activeSeconds:FieldValue.increment(seconds),
         sessions:FieldValue.increment(firstSession?1:0)
