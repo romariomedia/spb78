@@ -63,7 +63,16 @@ export function clearAdminSession(): void {
 }
 
 export function logoutAdmin(): void {
+  const session = getAdminSession();
   clearAdminSession();
+  if (session) {
+    void fetch('/api/admin-session', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json' },
+      body: JSON.stringify({ sessionId:session.sessionId, action:'revoke' }),
+      keepalive: true
+    }).catch(() => undefined);
+  }
 }
 
 export function isAdminSessionValid(): boolean {
