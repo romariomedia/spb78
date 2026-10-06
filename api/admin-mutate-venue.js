@@ -15,7 +15,7 @@ function cleanString(value, max = 300) {
 }
 function optionalString(value, max = 300) {
   const result = cleanString(value, max);
-  return result || undefined;
+  return result || null;
 }
 function sanitizeVenue(input, id) {
   const sports = Array.isArray(input?.sports)
