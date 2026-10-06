@@ -51,7 +51,7 @@ export function AdminModerationPanel(){
     {notice&&<p className="rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-3 text-[11px] text-emerald-200">{notice}</p>}
 
     {tab==='reports'&&<>
-      <div className="flex flex-wrap gap-2">{[['open','Открытые'],['new','Новые'],['reviewing','На проверке'],['resolved','Решённые'],['dismissed','Отклонённые'],['all','Все']].map(([id,label])=><button key={id} onClick={()=>setReportFilter(id)} className={`rounded-xl px-3 py-2 text-[10px] font-bold ${reportFilter===id?'bg-slate-700 text-white':'border border-slate-800 bg-slate-950 text-slate-400'}`}>{label}</button>)}</div>
+      <div className="flex flex-wrap gap-2">{([['open','Открытые'],['new','Новые'],['reviewing','На проверке'],['resolved','Решённые'],['dismissed','Отклонённые'],['all','Все']] as const).map(([id,label])=><button key={id} onClick={()=>setReportFilter(id)} className={`rounded-xl px-3 py-2 text-[10px] font-bold ${reportFilter===id?'bg-slate-700 text-white':'border border-slate-800 bg-slate-950 text-slate-400'}`}>{label}</button>)}</div>
       <div className="grid gap-3 xl:grid-cols-2">
         {visibleReports.map(r=><article key={r.id} className="rounded-2xl border border-slate-800 bg-slate-950 p-4">
           <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-black text-white">{r.targetName}</p><p className="mt-0.5 text-[9px] text-slate-500">Жалоба от {r.reporterName} · {new Date(r.createdAt).toLocaleString('ru-RU')}</p></div><span className={`rounded-full px-2 py-1 text-[9px] font-black ${r.status==='new'?'bg-rose-500/15 text-rose-300':'bg-slate-800 text-slate-300'}`}>{statusLabel[r.status]||r.status}</span></div>
