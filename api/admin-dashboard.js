@@ -21,7 +21,7 @@ export default async function handler(req, res) {
   try {
     await requireAdminSession(db, req.body?.sessionId);
     const [
-      users, trainings, events, venues, leisureEvents, reports, notificationOutbox
+      users, trainings, events, venues, leisureEvents, reports, announcements, notificationOutbox
     ] = await Promise.all([
       count(db, 'users'),
       count(db, 'trainings'),
@@ -29,6 +29,7 @@ export default async function handler(req, res) {
       count(db, 'venues'),
       count(db, 'leisureEvents'),
       count(db, 'reports'),
+      count(db, 'announcements'),
       count(db, 'notificationOutbox')
     ]);
 
@@ -44,7 +45,7 @@ export default async function handler(req, res) {
     }) : [];
 
     return res.status(200).json({
-      counts: { users, trainings, events, venues, leisureEvents, reports, notificationOutbox },
+      counts: { users, trainings, events, venues, leisureEvents, reports, announcements, notificationOutbox },
       recentUsers,
       release: process.env.SB_RELEASE_ID || 'development',
       generatedAt: new Date().toISOString()
