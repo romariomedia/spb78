@@ -236,9 +236,8 @@ export function validateEventDraft(draft: EventDraft): string | null {
   return null;
 }
 
-export function createEvent(draft: EventDraft, adminId: string): OfficialEvent {
+export async function createEvent(draft: EventDraft, adminId: string): Promise<OfficialEvent> {
   requireAdminSession();
-  triggerHapticNotification('success');
   const id = `evt-${Date.now()}`;
   const event: OfficialEvent = {
     ...draft,
@@ -248,42 +247,44 @@ export function createEvent(draft: EventDraft, adminId: string): OfficialEvent {
     createdAt: new Date().toISOString(),
     isOfficial: true
   };
-  writeAll([event, ...readAll()]);
-  syncAdminEvent('create', id, { event: { ...event } as unknown as Record<string, unknown> });
-  return event;
+  await syncAdminEvent('create', id, { event: { ...event } as unknown as Record<string, unknown> });
+  const refreshed = await refreshEvents();
+  triggerHapticNotification('success');
+  return refreshed.find(item => item.id === id) || event;
 }
 
-export function updateEvent(id: string, patch: Partial<OfficialEvent>): OfficialEvent | null {
+export async function updateEvent(id: string, patch: Partial<OfficialEvent>): Promise<OfficialEvent | null> {
   requireAdminSession();
-  const all = readAll();
-  const idx = all.findIndex((e) => e.id === id);
-  if (idx === -1) return null;
-  const updated = { ...all[idx]!, ...patch };
-  all[idx] = updated;
-  writeAll(all);
-  syncAdminEvent('update', id, { patch: patch as Record<string, unknown> });
-  return updated;
+  await syncAdminEvent('update', id, { patch: patch as Record<string, unknown> });
+  const refreshed = await refreshEvents();
+  return refreshed.find(item => item.id === id) || null;
 }
 
-export function removeEvent(id: string): void {
+export async function removeEvent(id: string): Promise<void> {
   requireAdminSession();
+  await syncAdminEvent('delete', id, {});
+  await refreshEvents();
   triggerHapticImpact('medium');
-  writeAll(readAll().filter((e) => e.id !== id));
-  syncAdminEvent('delete', id, {});
 }
 
 /**
  * Firestore rules deny direct client writes to /events, so admin mutations go
- * through the server callable that validates the OTP session first.
+ * through the server API that validates the OTP session first.
+ * The UI is updated only after the server confirms the mutation.
  */
-function syncAdminEvent(
+async function syncAdminEvent(
   operation: 'create' | 'update' | 'delete',
   eventId: string,
   payload: { event?: Record<string, unknown>; patch?: Record<string, unknown> }
-): void {
+): Promise<void> {
   const session = getAdminSession();
-  if (!session) return;
-  void adminMutateEvent({ sessionId: session.sessionId, operation, eventId, ...payload });
+  if (!session) throw new Error('admin-otp-required');
+  await adminMutateEvent({
+    sessionId: session.sessionId,
+    operation,
+    eventId,
+    ...payload
+  });
 }
 
 export async function toggleEventRegistration(eventId: string, _userId: string): Promise<OfficialEvent | null> {

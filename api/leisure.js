@@ -1,7 +1,7 @@
 import {cert,getApps,initializeApp} from 'firebase-admin/app';
 import {getAuth} from 'firebase-admin/auth';
 import {getFirestore} from 'firebase-admin/firestore';
-import {createLeisure,changeLeisure,listLeisure,readLeisure} from '../server/leisure.js';
+import {createLeisure,changeLeisure,listLeisure,readLeisure,listLeisureDestinations} from '../server/leisure.js';
 const rates=new Map();
 export default async function handler(req,res){
  res.setHeader('Cache-Control','no-store');
@@ -15,6 +15,7 @@ export default async function handler(req,res){
   const rate=rates.get(uid)||{until:now+60000,count:0};rate.count++;rates.set(uid,rate);
   if(rate.count>90)return res.status(429).json({error:'Слишком много запросов. Подождите минуту.'});
   const b=req.body||{};
+  if(b.action==='catalog')return res.json({destinations:await listLeisureDestinations(db)});
   if(b.action==='list')return res.json(await listLeisure(db,b.cursor));
   if(b.action==='read')return res.json({event:await readLeisure(db,b.id)});
   if(b.action==='create')return res.json({event:await createLeisure(db,uid,b)});

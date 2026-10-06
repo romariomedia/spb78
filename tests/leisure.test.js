@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile,stat} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
-import {createLeisure,changeLeisure,leisureInput,listLeisure} from '../server/leisure.js';
+import {createLeisure,changeLeisure,leisureInput,listLeisure,listLeisureDestinations} from '../server/leisure.js';
 import {LEISURE_DESTINATIONS} from '../shared/leisure-destinations.js';
 const now=Date.parse('2026-10-06T12:00:00+03:00');
 const draft=(extra={})=>({requestId:'request-test-123',destinationId:'ruskeala',title:'Вместе в Рускеалу',date:'2026-10-10',time:'09:00',meetingPoint:'Санкт-Петербург, Финляндский вокзал',transport:'Поезд, билеты каждый покупает сам',costs:'Дорога и билет в парк отдельно',description:'Прогулка вокруг каньона',capacity:2,participantGender:'any',...extra});
@@ -11,7 +11,7 @@ function fixture(){
  const snap=ref=>({id:ref.id,exists:records.has(ref.path),data:()=>structuredClone(records.get(ref.path))});
  let queue=Promise.resolve();
  const db={collection(name){
-  const query={filters:[],after:null,cap:100,where(k,op,v){this.filters.push([k,op,v]);return this;},orderBy(){return this;},startAfter(doc){this.after=doc;return this;},limit(n){this.cap=n;return this;},async get(){let rows=[...records.entries()].filter(([k,v])=>k.startsWith(name+'/')&&this.filters.every(([f,op,x])=>op==='>='?v[f]>=x:v[f]===x)).sort((a,b)=>a[1].startsAt-b[1].startsAt||a[0].localeCompare(b[0]));if(this.after)rows=rows.slice(rows.findIndex(([k])=>k===name+'/'+this.after.id)+1);return {docs:rows.slice(0,this.cap).map(([k])=>snap({id:k.split('/')[1],path:k}))};}};
+  const query={filters:[],after:null,cap:100,where(k,op,v){this.filters.push([k,op,v]);return this;},orderBy(){return this;},startAfter(doc){this.after=doc;return this;},limit(n){this.cap=n;return this;},async get(){let rows=[...records.entries()].filter(([k,v])=>k.startsWith(name+'/')&&this.filters.every(([f,op,x])=>op==='>='?v[f]>=x:v[f]===x)).sort((a,b)=>a[1].startsAt-b[1].startsAt||a[0].localeCompare(b[0]));if(this.after)rows=rows.slice(rows.findIndex(([k])=>k===name+'/'+this.after.id)+1);const docs=rows.slice(0,this.cap).map(([k])=>snap({id:k.split('/')[1],path:k}));return {docs,empty:docs.length===0};}};
   return {...query,doc(id){const ref={id,path:name+'/'+id,get:async()=>snap(ref)};return ref;}};
  },runTransaction(callback){
    const run=queue.then(async()=>{const writes=[];let wrote=false;const tx={get:async ref=>{assert.equal(wrote,false,'read before write');return snap(ref);}};
@@ -64,4 +64,18 @@ test('all three regions have distinct real lightweight destination photos and of
  for(const region of ['spb','lo','karelia'])assert.equal(LEISURE_DESTINATIONS.filter(x=>x.region===region).length,3);
  for(const d of LEISURE_DESTINATIONS){assert.match(d.source,/^https:\/\//);assert.ok(d.photoCredit);const path='public'+d.photo;const info=await stat(path);assert.ok(info.size>10000&&info.size<450000);hashes.add(createHash('sha256').update(await readFile(path)).digest('hex'));}
  assert.equal(hashes.size,9);
+});
+
+test('managed leisure catalog overrides static fallback after admin seeding',async()=>{
+ const f=fixture();
+ const staticList=await listLeisureDestinations(f.db);
+ assert.equal(staticList.length,9);
+ f.records.set('leisureDestinations/custom-place',{name:'Новое место',region:'lo',format:'Прогулка',pace:'Спокойный',description:'Достаточно длинное описание нового направления для каталога.',plan:'Пройти маршрут вместе с группой.',access:'Перед поездкой проверить условия посещения.',source:'https://example.com',photo:'https://example.com/p.jpg',photoCredit:'Источник',isPublished:true});
+ f.records.set('leisureDestinations/ruskeala',{name:'Рускеала скрыта',region:'karelia',isPublished:false,archived:true});
+ const managed=await listLeisureDestinations(f.db);
+ assert.equal(managed.length,9);
+ assert.ok(managed.some(item=>item.id==='custom-place'));
+ assert.equal(managed.some(item=>item.id==='ruskeala'),false);
+ const created=await createLeisure(f.db,'a',draft({destinationId:'custom-place'}),now);
+ assert.equal(created.destinationId,'custom-place');
 });

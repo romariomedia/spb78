@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Shield, Plus, Trash2, MapPin, ImagePlus, Video, X,
+  Plus, Trash2, MapPin, ImagePlus, Video, X,
   AlertCircle, Eye, EyeOff, Lock, LayoutDashboard, Pencil
 } from 'lucide-react';
 import {
@@ -10,7 +10,7 @@ import {
 } from '../lib/types';
 import {
   getEvents, refreshEvents, createEvent, removeEvent, updateEvent,
-  validateEventDraft, getAdminStats, EventDraft, getCategoryConfig
+  validateEventDraft, EventDraft, getCategoryConfig
 } from '../services/events';
 import { DEFAULT_COORDS, Coords } from '../services/geolocation';
 import { GeocodeResult } from '../services/geocoding';
@@ -21,6 +21,9 @@ import { uploadMedia, photoUrl, videoPoster } from '../services/cloudinary';
 import { hasAdminSession } from '../services/adminAuth';
 import { compressImage } from '../services/media';
 import { PlacesAdminPanel } from './PlacesAdminPanel';
+import { AdminDashboard } from './AdminDashboard';
+import { LeisureAdminPanel } from './LeisureAdminPanel';
+import { AdminAuditPanel } from './AdminAuditPanel';
 
 import { SPORT_TAGS as SPORTS } from '../lib/types';
 
@@ -37,6 +40,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 }) => {
   const admin = authorized;
 
+  const [adminView, setAdminView] = useState<'overview'|'venues'|'leisure'|'events'|'audit'>('overview');
   const [creating, setCreating] = useState(false);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -67,7 +71,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const videoInputRef = useRef<HTMLInputElement>(null);
 
   const [events, setEvents] = useState(() => getEvents(true));
-  const stats = getAdminStats();
   useEffect(() => { if (isOpen) void refreshEvents().then((items) => setEvents(items)).catch(() => {}); }, [isOpen, refresh]);
 
   const resetForm = () => {
@@ -129,7 +132,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     }
   };
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     const draft: EventDraft = {
       title, tagline, category, sport, description,
       coverUrl: coverUrl || undefined,
@@ -150,13 +153,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
     try {
       if (editingEventId) {
-        if (!updateEvent(editingEventId, draft)) {
+        const updated = await updateEvent(editingEventId, draft);
+        if (!updated) {
           setError('Мероприятие не найдено. Обновите список и повторите.');
           return;
         }
       } else {
-        createEvent(draft, currentUser.id);
+        await createEvent(draft, currentUser.id);
       }
+      setEvents(await refreshEvents());
       resetForm();
       setCreating(false);
       setRefresh(r => r + 1);
@@ -201,30 +206,31 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         maxWidth="lg"
       >
         <div className="space-y-4" key={refresh}>
-          {/* Dashboard */}
-          <div className="bg-gradient-to-r from-amber-950/50 via-slate-950 to-amber-950/50 border border-amber-500/50 rounded-2xl p-3.5">
-            <div className="flex items-center gap-2 mb-2.5">
-              <Shield className="w-4 h-4 text-amber-400" />
-              <span className="text-xs font-black text-white">Панель управления</span>
-            </div>
-            <div className="grid grid-cols-4 gap-1.5">
-              {[
-                { v: stats.total, l: 'всего', i: '📋' },
-                { v: stats.published, l: 'опубл.', i: '✅' },
-                { v: stats.drafts, l: 'черновик', i: '📝' },
-                { v: stats.registrations, l: 'записей', i: '👥' }
-              ].map((s) => (
-                <div key={s.l} className="bg-slate-950 border border-slate-800 rounded-xl p-2 text-center">
-                  <span className="text-sm block leading-none">{s.i}</span>
-                  <span className="block text-xs font-black text-white mt-1">{s.v}</span>
-                  <span className="text-[9px] text-slate-500">{s.l}</span>
-                </div>
-              ))}
-            </div>
+          <div className="grid grid-cols-5 gap-1 rounded-2xl border border-slate-800 bg-slate-950 p-1">
+            {([
+              ['overview','Обзор'],
+              ['venues','Площадки'],
+              ['leisure','Отдых'],
+              ['events','События'],
+              ['audit','Журнал']
+            ] as const).map(([id,label]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setAdminView(id)}
+                className={`rounded-xl px-2 py-2 text-[10px] font-black transition ${adminView===id?'bg-emerald-500 text-slate-950':'text-slate-400 hover:text-white'}`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
 
-          <PlacesAdminPanel />
+          {adminView === 'overview' && <AdminDashboard />}
+          {adminView === 'venues' && <PlacesAdminPanel />}
+          {adminView === 'leisure' && <LeisureAdminPanel />}
+          {adminView === 'audit' && <AdminAuditPanel />}
 
+          {adminView === 'events' && <>
           <button
             onClick={() => {
               triggerHapticImpact('medium');
@@ -466,7 +472,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   )}
 
                   <button
-                    onClick={handleCreate}
+                    onClick={() => void handleCreate()}
                     className="w-full py-3 bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-black rounded-2xl text-xs transition shadow-[0_0_20px_rgba(245,158,11,0.45)] active:scale-95"
                   >
                     {editingEventId ? '💾 Сохранить изменения' : '🚀 Опубликовать мероприятие'}
@@ -500,15 +506,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     <Pencil className="w-3.5 h-3.5" />
                   </button>
                   <button
-                    onClick={() => {
+                    onClick={() => void (async () => {
                       try {
-                        updateEvent(ev.id, { status: ev.status === 'published' ? 'draft' : 'published' });
+                        await updateEvent(ev.id, { status: ev.status === 'published' ? 'draft' : 'published' });
+                        setEvents(await refreshEvents());
                         setRefresh(r => r + 1);
                         onEventsChanged();
-                      } catch {
-                        setError('Сессия администратора истекла. Запросите новый код входа.');
+                      } catch (err) {
+                        setError(err instanceof Error ? err.message : 'Не удалось изменить публикацию.');
                       }
-                    }}
+                    })()}
                     className={`p-2 rounded-lg border shrink-0 transition active:scale-90 ${
                       ev.status === 'published'
                         ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/40'
@@ -519,17 +526,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     {ev.status === 'published' ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
                   </button>
                   <button
-                    onClick={() => {
+                    onClick={() => void (async () => {
                       if (confirm(`Удалить «${ev.title}»?`)) {
                         try {
-                          removeEvent(ev.id);
+                          await removeEvent(ev.id);
+                          setEvents(await refreshEvents());
                           setRefresh(r => r + 1);
                           onEventsChanged();
-                        } catch {
-                          setError('Сессия администратора истекла. Запросите новый код входа.');
+                        } catch (err) {
+                          setError(err instanceof Error ? err.message : 'Не удалось удалить мероприятие.');
                         }
                       }
-                    }}
+                    })()}
                     className="p-2 bg-slate-900 text-slate-500 hover:text-rose-400 border border-slate-800 rounded-lg shrink-0 transition active:scale-90"
                     aria-label="Удалить"
                   >
@@ -539,6 +547,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               );
             })}
           </div>
+          </>}
         </div>
       </Modal>
 

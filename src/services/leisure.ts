@@ -9,3 +9,10 @@ export const listLeisureEvents = (cursor?:string) => callServer<{events:LeisureE
 export const readLeisureEvent = (id:string) => callServer<{event:LeisureEvent}>('/api/leisure',{action:'read',id});
 export const createLeisureEvent = (draft:LeisureDraft,requestId:string) => callServer<{event:LeisureEvent}>('/api/leisure',{action:'create',...draft,requestId});
 export const changeLeisureEvent = (id:string,action:'join'|'leave'|'cancel') => callServer<{event:LeisureEvent}>('/api/leisure',{action,id});
+
+export interface LeisureDestination {
+ id:string;name:string;region:'spb'|'lo'|'karelia';format:string;pace:string;
+ description:string;plan:string;access:string;source:string;photo:string;photoCredit:string;
+ isPublished?:boolean;checkedAt?:string;
+}
+export const listLeisureDestinations = () => callServer<{destinations:LeisureDestination[]}>('/api/leisure',{action:'catalog'});

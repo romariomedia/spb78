@@ -1,47 +1,150 @@
-import { enqueueNotification } from '../server/notification-policy.js';
 import { randomUUID } from 'node:crypto';
-// api/admin-mutate-event.js
-// Vercel Serverless Function: admin event create/update/delete with Admin SDK,
-// gated by the OTP session issued by admin-verify-otp. Replaces the Cloud
-// Function `adminMutateEvent`.
-
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import { enqueueNotification } from '../server/notification-policy.js';
+import { requireAdminSession, writeAdminAudit } from '../server/admin-control.js';
 
 if (!getApps().length) {
   initializeApp({ credential: cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '{}')) });
 }
 
+const CATEGORIES = new Set(['competition','contest','festival','masterclass','charity']);
+const STATUSES = new Set(['draft','published','finished']);
+const SPORTS = new Set(['Бег','Футбол','Теннис','Баскетбол','Волейбол','Падел','Настольный теннис','Хоккей','Велопрогулка','Походы','Активный отдых','Воркаут','Общее']);
+
+function text(value, max) {
+  return typeof value === 'string' ? value.trim().slice(0, max) : '';
+}
+function optionalUrl(value) {
+  const result = text(value, 1200);
+  if (!result) return undefined;
+  try {
+    const url = new URL(result);
+    return url.protocol === 'https:' ? url.href : undefined;
+  } catch {
+    return undefined;
+  }
+}
+function number(value, min, max) {
+  const n = Number(value);
+  return Number.isFinite(n) && n >= min && n <= max ? n : null;
+}
+
+function sanitizeEvent(input, id, existing = null) {
+  const participantIds = Array.isArray(existing?.participantIds)
+    ? existing.participantIds.map(String).filter(Boolean).slice(0, 500)
+    : [];
+  const participantsMax = number(input?.participantsMax, 10, 100);
+  const lat = number(input?.lat, -90, 90);
+  const lng = number(input?.lng, -180, 180);
+  const category = CATEGORIES.has(input?.category) ? input.category : '';
+  const status = STATUSES.has(input?.status) ? input.status : '';
+  const sport = SPORTS.has(input?.sport) ? input.sport : '';
+
+  const event = {
+    id,
+    title: text(input?.title, 180),
+    tagline: text(input?.tagline, 220),
+    category,
+    sport,
+    description: text(input?.description, 5000),
+    ...(optionalUrl(input?.coverUrl) ? { coverUrl: optionalUrl(input.coverUrl) } : {}),
+    ...(optionalUrl(input?.videoUrl) ? { videoUrl: optionalUrl(input.videoUrl) } : {}),
+    locationName: text(input?.locationName, 220),
+    address: text(input?.address, 400),
+    lat,
+    lng,
+    dateLabel: text(input?.dateLabel, 160),
+    time: /^([01]\d|2[0-3]):[0-5]\d$/.test(String(input?.time || '')) ? String(input.time) : '',
+    participantsMax,
+    participantIds,
+    ...(text(input?.prizePool, 240) ? { prizePool: text(input.prizePool, 240) } : {}),
+    ...(text(input?.entryFee, 240) ? { entryFee: text(input.entryFee, 240) } : {}),
+    status,
+    createdBy: existing?.createdBy || text(input?.createdBy, 180) || 'admin',
+    createdAt: existing?.createdAt || text(input?.createdAt, 80) || new Date().toISOString(),
+    isOfficial: true
+  };
+
+  if (event.title.length < 5 || event.tagline.length < 5 || event.description.length < 20) {
+    throw Object.assign(new Error('Title, tagline and description are required.'), { status: 400 });
+  }
+  if (!category || !sport || !status || participantsMax === null || lat === null || lng === null || !event.time) {
+    throw Object.assign(new Error('Invalid event fields.'), { status: 400 });
+  }
+  if (event.locationName.length < 2 || event.address.length < 3 || event.dateLabel.length < 2) {
+    throw Object.assign(new Error('Event location and date are required.'), { status: 400 });
+  }
+  return event;
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-
-  const { sessionId, operation, eventId, event, patch } = req.body || {};
-  if (!sessionId) return res.status(401).json({ error: 'Session required.' });
-
+  const { sessionId, operation, eventId, event, patch, requestId } = req.body || {};
   const db = getFirestore();
-  const session = await db.doc(`adminSessions/${sessionId}`).get();
-  if (!session.exists) return res.status(401).json({ error: 'Session not found.' });
-  const expiresAt = session.data()?.expiresAt?.toMillis?.() ?? 0;
-  if (expiresAt <= Date.now()) return res.status(401).json({ error: 'Session expired.' });
 
-  if (!eventId) return res.status(400).json({ error: 'Event id required.' });
-  const ref = db.doc(`events/${eventId}`);
+  try {
+    const session = await requireAdminSession(db, sessionId);
+    if (!eventId || String(eventId).includes('/')) return res.status(400).json({ error: 'Event id required.' });
+    if (!['create','update','delete'].includes(operation)) return res.status(400).json({ error: 'Unknown operation.' });
+    if (operation === 'create' && (!event || typeof event !== 'object')) return res.status(400).json({ error: 'Event payload required.' });
+    if (operation === 'update' && (!patch || typeof patch !== 'object')) return res.status(400).json({ error: 'Patch required.' });
 
-  if (!['create','update','delete'].includes(operation)) return res.status(400).json({error:'Unknown operation.'});
-  if(operation==='create'&&(!event||typeof event!=='object'))return res.status(400).json({error:'Event payload required.'});
-  if(operation==='update'&&(!patch||typeof patch!=='object'))return res.status(400).json({error:'Patch required.'});
-  await db.runTransaction(async tx=>{
-    const before=await tx.get(ref),old=before.data()||{};
-    const next=operation==='create'?{...event,id:eventId}:operation==='update'?{...old,...patch}:null;
-    if(operation==='create')tx.create(ref,next);
-    else if(operation==='update')tx.update(ref,patch);
-    else tx.delete(ref);
-    const newlyPublished=next?.status==='published'&&old.status!=='published';
-    const participants=Array.isArray(old.participantIds)?old.participantIds:[];
-    if(newlyPublished || (old.status==='published'&&participants.length)) {
-      enqueueNotification(tx,db,{id:`event:${eventId}:${randomUUID()}`,actorId:'',broadcast:newlyPublished,recipients:participants,category:'events',kind:newlyPublished?'event_new':'event_update',entityId:eventId,title:newlyPublished?'Новое событие SportBuddy':next?.status==='published'?'Событие обновлено':'Событие снято с публикации',message:String(next?.title||old.title||'Откройте раздел событий.'),link:next?.status==='published'?'#event='+encodeURIComponent(eventId):'#events'});
-    }
-  });
+    const ref = db.doc(`events/${eventId}`);
+    let auditBefore = null;
+    let auditAfter = null;
+    let notify = null;
 
-  return res.status(200).json({ ok: true });
+    await db.runTransaction(async tx => {
+      const before = await tx.get(ref);
+      const old = before.exists ? before.data() : null;
+      auditBefore = old;
+
+      if (operation === 'create') {
+        if (before.exists) throw Object.assign(new Error('Event already exists.'), { status: 409 });
+        auditAfter = sanitizeEvent(event, eventId, null);
+        tx.create(ref, auditAfter);
+      } else if (operation === 'update') {
+        if (!before.exists) throw Object.assign(new Error('Event not found.'), { status: 404 });
+        auditAfter = sanitizeEvent({ ...old, ...patch }, eventId, old);
+        tx.set(ref, auditAfter, { merge: false });
+      } else {
+        if (!before.exists) throw Object.assign(new Error('Event not found.'), { status: 404 });
+        tx.delete(ref);
+      }
+
+      const next = auditAfter;
+      const newlyPublished = next?.status === 'published' && old?.status !== 'published';
+      const participants = Array.isArray(old?.participantIds) ? old.participantIds : [];
+      if (newlyPublished || (old?.status === 'published' && participants.length)) {
+        notify = {
+          id:`event:${eventId}:${randomUUID()}`,
+          actorId:'',
+          broadcast:newlyPublished,
+          recipients:participants,
+          category:'events',
+          kind:newlyPublished?'event_new':'event_update',
+          entityId:eventId,
+          title:newlyPublished?'Новое событие SportBuddy':next?.status==='published'?'Событие обновлено':'Событие снято с публикации',
+          message:String(next?.title||old?.title||'Откройте раздел событий.'),
+          link:next?.status==='published'?'#event='+encodeURIComponent(eventId):'#events'
+        };
+        enqueueNotification(tx, db, notify);
+      }
+    });
+
+    await writeAdminAudit(db, session, {
+      action:`event.${operation}`,
+      entityType:'event',
+      entityId:String(eventId),
+      before:auditBefore,
+      after:auditAfter,
+      requestId:String(requestId || '')
+    });
+
+    return res.status(200).json({ ok:true, event:auditAfter });
+  } catch (error) {
+    const status = Number(error?.status || 500);
+    return res.status(status).json({ error: status === 500 ? 'Event mutation failed.' : error.message });
+  }
 }

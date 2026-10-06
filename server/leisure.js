@@ -1,12 +1,12 @@
 import { createHash } from 'node:crypto';
 import { hasPremiumAccess } from '../shared/access-policy.js';
-import { getLeisureDestination } from '../shared/leisure-destinations.js';
+import { LEISURE_DESTINATIONS, getLeisureDestination } from '../shared/leisure-destinations.js';
 import { enqueueNotification } from './notification-policy.js';
 const fail=(message,status=400)=>Object.assign(new Error(message),{status});
 const text=(value,max)=>typeof value==='string'?value.trim().slice(0,max):'';
 const validId=id=>typeof id==='string'&&/^[a-zA-Z0-9_-]{8,100}$/.test(id);
-export function leisureInput(body,now=Date.now()) {
- const place=getLeisureDestination(body.destinationId);
+export function leisureInput(body,now=Date.now(),resolvedPlace=null) {
+ const place=resolvedPlace||getLeisureDestination(body.destinationId);
  if(!place)throw fail('Выберите направление из каталога');
  const date=text(body.date,10),time=text(body.time,5);
  const startsAt=Date.parse(`${date}T${time}:00+03:00`);
@@ -27,9 +27,11 @@ export async function createLeisure(db,uid,body,now=Date.now()) {
  // Stable request identity makes retry after a lost response safe, even after the start time.
  return db.runTransaction(async tx=>{
   const old=await tx.get(ref);if(old.exists)return old.data();
-  const userSnap=await tx.get(userRef),q=await tx.get(quota);if(!userSnap.exists)throw fail('Сначала заполните профиль',403);
+  const destinationRef=db.collection('leisureDestinations').doc(text(body.destinationId,100));
+  const userSnap=await tx.get(userRef),q=await tx.get(quota),managedPlace=await tx.get(destinationRef);if(!userSnap.exists)throw fail('Сначала заполните профиль',403);
   const user=userSnap.data();if(!hasPremiumAccess(user,now))throw fail('Создание встреч доступно с Premium',403);
-  const data=leisureInput(body,now),day=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Moscow',year:'numeric',month:'2-digit',day:'2-digit'}).format(now);
+  const place=managedPlace.exists?(managedPlace.data().isPublished===false?null:{id:managedPlace.id,...managedPlace.data()}):getLeisureDestination(body.destinationId);
+  const data=leisureInput(body,now,place),day=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Moscow',year:'numeric',month:'2-digit',day:'2-digit'}).format(now);
   const count=q.data()?.day===day?Number(q.data().count||0):0;if(count>=5)throw fail('Можно создать до 5 встреч в день',429);
   const event={id,...data,createdBy:uid,organizerName:text(user.name,120)||'Участник',participantIds:[uid],status:'open',createdAt:now,updatedAt:now};
   tx.create(ref,event);tx.set(quota,{day,count:count+1});
@@ -73,3 +75,14 @@ export async function listLeisure(db,cursor,now=Date.now()) {
  const page=await query.limit(40).get();return {events:page.docs.map(d=>d.data()),next:page.docs.length===40?page.docs.at(-1).id:null};
 }
 export async function readLeisure(db,id){if(!validId(id))throw fail('Некорректная встреча');const snap=await db.collection('leisureEvents').doc(id).get();if(!snap.exists)throw fail('Встреча не найдена',404);return snap.data();}
+
+
+export async function listLeisureDestinations(db) {
+ const snap=await db.collection('leisureDestinations').orderBy('name').get().catch(()=>null);
+ const managed=snap?snap.docs.map(doc=>({id:doc.id,...doc.data()})):[];
+ const byId=new Map(managed.map(place=>[place.id,place]));
+ const merged=LEISURE_DESTINATIONS.map(place=>byId.get(place.id)||({...place,isPublished:true}));
+ const staticIds=new Set(LEISURE_DESTINATIONS.map(place=>place.id));
+ for(const place of managed)if(!staticIds.has(place.id))merged.push(place);
+ return merged.filter(place=>place.isPublished!==false&&!place.archived);
+}

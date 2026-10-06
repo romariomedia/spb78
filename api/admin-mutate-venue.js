@@ -1,8 +1,7 @@
-import { validVenueCoordinates } from '../shared/venue-location.js';
-// Admin-only SportBuddy Places CRUD. Writes are server-authoritative and
-// require the same OTP session as official event management.
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import { validVenueCoordinates } from '../shared/venue-location.js';
+import { requireAdminSession, writeAdminAudit } from '../server/admin-control.js';
 
 if (!getApps().length) {
   initializeApp({ credential: cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '{}')) });
@@ -14,12 +13,10 @@ const STATUSES = new Set(['curated','needs_confirmation','restricted']);
 function cleanString(value, max = 300) {
   return typeof value === 'string' ? value.trim().slice(0, max) : '';
 }
-
 function optionalString(value, max = 300) {
   const result = cleanString(value, max);
   return result || undefined;
 }
-
 function sanitizeVenue(input, id) {
   const sports = Array.isArray(input?.sports)
     ? [...new Set(input.sports.map(v => cleanString(v, 60)).filter(v => SPORTS.has(v)))].slice(0, 12)
@@ -56,12 +53,10 @@ function sanitizeVenue(input, id) {
   };
 }
 
-async function requireAdminSession(db, sessionId) {
-  if (!sessionId) throw Object.assign(new Error('Session required.'), { status: 401 });
-  const session = await db.doc(`adminSessions/${sessionId}`).get();
-  if (!session.exists) throw Object.assign(new Error('Session not found.'), { status: 401 });
-  const expiresAt = session.data()?.expiresAt?.toMillis?.() ?? 0;
-  if (expiresAt <= Date.now()) throw Object.assign(new Error('Session expired.'), { status: 401 });
+function validateVenue(venue) {
+  if (venue.name.length < 2 || venue.address.length < 3 || venue.sports.length < 1) {
+    throw Object.assign(new Error('Name, address and at least one sport are required.'), { status: 400 });
+  }
 }
 
 export default async function handler(req, res) {
@@ -70,59 +65,70 @@ export default async function handler(req, res) {
   const db = getFirestore();
 
   try {
-    await requireAdminSession(db, body.sessionId);
+    const session = await requireAdminSession(db, body.sessionId);
     const operation = String(body.operation || '');
 
     if (operation === 'seed') {
       const venues = Array.isArray(body.venues) ? body.venues.slice(0, 100) : [];
       if (!venues.length) return res.status(400).json({ error: 'Venue list required.' });
       const batch = db.batch();
+      let accepted = 0;
       for (const raw of venues) {
         const id = cleanString(raw?.id, 120);
         if (!id || id.includes('/')) continue;
         const venue = sanitizeVenue(raw, id);
-        if (venue.name.length < 2 || venue.address.length < 3 || venue.sports.length < 1) continue;
+        try { validateVenue(venue); } catch { continue; }
         batch.set(db.collection('venues').doc(id), venue, { merge: true });
+        accepted++;
       }
       await batch.commit();
-      return res.status(200).json({ ok: true, count: venues.length });
+      await writeAdminAudit(db, session, {
+        action:'venue.seed',
+        entityType:'venueCatalog',
+        entityId:'venues',
+        after:{ accepted, submitted:venues.length },
+        requestId:String(body.requestId || '')
+      });
+      return res.status(200).json({ ok: true, count: accepted });
     }
 
     const venueId = cleanString(body.venueId, 120);
     if (!venueId || venueId.includes('/')) return res.status(400).json({ error: 'Venue id required.' });
     const ref = db.collection('venues').doc(venueId);
+    const beforeSnap = await ref.get();
+    const before = beforeSnap.exists ? beforeSnap.data() : null;
+    let after = null;
 
     if (operation === 'delete') {
+      if (!beforeSnap.exists) return res.status(404).json({ error: 'Venue not found.' });
       await ref.delete();
-      return res.status(200).json({ ok: true });
-    }
-
-    if (operation !== 'create' && operation !== 'update') {
+    } else if (operation === 'create') {
+      if (beforeSnap.exists) return res.status(409).json({ error: 'Venue already exists.' });
+      const venue = sanitizeVenue(body.venue, venueId);
+      validateVenue(venue);
+      await ref.create(venue);
+      after = venue;
+    } else if (operation === 'update') {
+      if (!beforeSnap.exists) return res.status(404).json({ error: 'Venue not found.' });
+      const venue = sanitizeVenue({ ...before, ...(body.patch || {}) }, venueId);
+      validateVenue(venue);
+      await ref.set(venue, { merge: false });
+      after = venue;
+    } else {
       return res.status(400).json({ error: 'Unknown operation.' });
     }
 
-    const source = operation === 'create' ? body.venue : body.patch;
-    if (!source || typeof source !== 'object') return res.status(400).json({ error: 'Venue payload required.' });
-
-    if (operation === 'create') {
-      const venue = sanitizeVenue(source, venueId);
-      if (venue.name.length < 2 || venue.address.length < 3 || venue.sports.length < 1) {
-        return res.status(400).json({ error: 'Name, address and at least one sport are required.' });
-      }
-      await ref.create(venue);
-    } else {
-      const before = await ref.get();
-      if (!before.exists) return res.status(404).json({ error: 'Venue not found.' });
-      const venue = sanitizeVenue({ ...before.data(), ...source }, venueId);
-      if (venue.name.length < 2 || venue.address.length < 3 || venue.sports.length < 1) {
-        return res.status(400).json({ error: 'Name, address and at least one sport are required.' });
-      }
-      await ref.set(venue, { merge: false });
-    }
-
-    return res.status(200).json({ ok: true });
+    await writeAdminAudit(db, session, {
+      action:`venue.${operation}`,
+      entityType:'venue',
+      entityId:venueId,
+      before,
+      after,
+      requestId:String(body.requestId || '')
+    });
+    return res.status(200).json({ ok:true, venue:after });
   } catch (error) {
     const status = Number(error?.status || 500);
-    return res.status(status).json({ error: error instanceof Error ? error.message : 'Venue mutation failed.' });
+    return res.status(status).json({ error: status === 500 ? 'Venue mutation failed.' : error.message });
   }
 }
