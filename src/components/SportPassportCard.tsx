@@ -1,6 +1,8 @@
 import { ChevronRight,MapPin,ShieldCheck,Trophy } from 'lucide-react';
 import { districtLabel } from '../../shared/districts.js';
+import { useEffect,useState } from 'react';
 import { UserProfile } from '../lib/types';
+import { loadSportPassport } from '../services/sportPassport';
 import { AvatarImage } from './AvatarImage';
 
 interface Props {
@@ -12,6 +14,8 @@ const levelLabel=(value?:string)=>({
 } as Record<string,string>)[value||'beginner']||'Начинающий';
 
 export function SportPassportCard({user,onOpen}:Props){
+  const [wins,setWins]=useState<number|null>(null);
+  useEffect(()=>{let live=true;void loadSportPassport().then(value=>{if(live)setWins(value.stats.sportBuddyWins);}).catch(()=>undefined);return()=>{live=false;};},[user.id]);
   const passport=user.sportPassport;
   const mainSport=passport?.mainSport||user.sports?.[0]||'Спорт не выбран';
   const rank=passport?.rankTitle?.trim()||levelLabel(passport?.level);
@@ -34,7 +38,7 @@ export function SportPassportCard({user,onOpen}:Props){
     </div>
     <div className="relative mt-4 grid grid-cols-3 gap-2">
       <div className="rounded-xl border border-slate-800 bg-slate-900/80 p-2"><Trophy className="h-3.5 w-3.5 text-lime-300"/><p className="mt-1 text-sm font-black text-white">{user.totalWorkouts||0}</p><p className="text-[8px] text-slate-500">тренировок</p></div>
-      <div className="rounded-xl border border-slate-800 bg-slate-900/80 p-2"><Trophy className="h-3.5 w-3.5 text-amber-300"/><p className="mt-1 text-sm font-black text-white">—</p><p className="text-[8px] text-slate-500">победы SportBuddy78</p></div>
+      <div className="rounded-xl border border-slate-800 bg-slate-900/80 p-2"><Trophy className="h-3.5 w-3.5 text-amber-300"/><p className="mt-1 text-sm font-black text-white">{wins===null?'—':wins}</p><p className="text-[8px] text-slate-500">побед SportBuddy78</p></div>
       <div className="rounded-xl border border-slate-800 bg-slate-900/80 p-2"><span className="text-[12px] text-violet-300">★</span><p className="mt-1 text-sm font-black text-white">{Number(user.rating||0).toFixed(1)}</p><p className="text-[8px] text-slate-500">рейтинг</p></div>
     </div>
     <p className="relative mt-3 text-[9px] font-bold text-slate-500">Открыть Спортивный ID и историю достижений</p>
