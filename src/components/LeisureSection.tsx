@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, ArrowUpRight, CalendarDays, Compass, MapPin, RefreshCw, Search, Users, X } from 'lucide-react';
-import { LEISURE_DESTINATIONS, LEISURE_REGIONS, getLeisureDestination, LeisureDestination } from '../../shared/leisure-destinations.js';
-import { createLeisureEvent, listLeisureEvents, readLeisureEvent, changeLeisureEvent, LeisureDraft, LeisureEvent } from '../services/leisure';
+import { LEISURE_DESTINATIONS, LEISURE_REGIONS } from '../../shared/leisure-destinations.js';
+import { createLeisureEvent, listLeisureEvents, readLeisureEvent, changeLeisureEvent, listLeisureDestinations, LeisureDraft, LeisureEvent, LeisureDestination } from '../services/leisure';
 import { UserProfile } from '../lib/types';
 
 interface Props { user:UserProfile; users:UserProfile[]; isPremium:boolean; initialEventId:string; onOpenTariff:()=>void; onOpenUser:(user:UserProfile)=>void }
@@ -24,6 +24,7 @@ export default function LeisureSection({user,users,isPremium,initialEventId,onOp
  const [place,setPlace]=useState<LeisureDestination|null>(null),[selected,setSelected]=useState<LeisureEvent|null>(null);
  const [draft,setDraft]=useState<LeisureDraft|null>(null);
  const requestId=useRef('');const busyRef=useRef(false);
+ const [destinations,setDestinations]=useState<LeisureDestination[]>(()=>LEISURE_DESTINATIONS.map(item=>({...item,isPublished:true})) as LeisureDestination[]);
  const [events,setEvents]=useState<LeisureEvent[]>([]),[cursor,setCursor]=useState<string|null>(null);
  const [loading,setLoading]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState('');
  const [cancelConfirm,setCancelConfirm]=useState(false);
@@ -36,13 +37,16 @@ export default function LeisureSection({user,users,isPremium,initialEventId,onOp
   finally{if(mounted.current&&version===loadVersion.current)setLoading(false);}
  },[]);
  useEffect(()=>{void refresh();},[refresh]);
+ useEffect(()=>{let stopped=false;listLeisureDestinations().then(result=>{if(!stopped&&result.destinations.length)setDestinations(result.destinations);}).catch(()=>undefined);return()=>{stopped=true;};},[]);
+ const destinationMap=useMemo(()=>new Map(destinations.map(item=>[item.id,item])),[destinations]);
+ const findDestination=useCallback((id:string)=>destinationMap.get(id),[destinationMap]);
  useEffect(()=>{
   if(!initialEventId)return;let stopped=false;setView('events');setPlace(null);setDraft(null);
   readLeisureEvent(initialEventId).then(({event})=>{if(!stopped){setSelected(event);setEvents(old=>mergeEvents(old,[event]));}}).catch(e=>{if(!stopped)setError(e instanceof Error?e.message:'Встреча недоступна');});
   return()=>{stopped=true;};
  },[initialEventId]);
- const filteredPlaces=useMemo(()=>LEISURE_DESTINATIONS.filter(item=>(region==='all'||item.region===region)&&`${item.name} ${item.description} ${item.format}`.toLocaleLowerCase('ru').includes(search.trim().toLocaleLowerCase('ru'))),[region,search]);
- const filteredEvents=events.filter(event=>(region==='all'||event.region===region)&&(!mine||event.participantIds.includes(user.id))&&(mine||event.status==='open')&&`${event.title} ${getLeisureDestination(event.destinationId)?.name||''}`.toLocaleLowerCase('ru').includes(search.trim().toLocaleLowerCase('ru')));
+ const filteredPlaces=useMemo(()=>destinations.filter(item=>(region==='all'||item.region===region)&&`${item.name} ${item.description} ${item.format}`.toLocaleLowerCase('ru').includes(search.trim().toLocaleLowerCase('ru'))),[destinations,region,search]);
+ const filteredEvents=events.filter(event=>(region==='all'||event.region===region)&&(!mine||event.participantIds.includes(user.id))&&(mine||event.status==='open')&&`${event.title} ${findDestination(event.destinationId)?.name||''}`.toLocaleLowerCase('ru').includes(search.trim().toLocaleLowerCase('ru')));
  const begin=(destination:LeisureDestination)=>{
   if(!isPremium){onOpenTariff();return;}
   const tomorrow=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Moscow',year:'numeric',month:'2-digit',day:'2-digit'}).format(Date.now()+86400000);
@@ -80,7 +84,7 @@ export default function LeisureSection({user,users,isPremium,initialEventId,onOp
    </fieldset>
   </form>
  </section>;
- if(selected){const destination=getLeisureDestination(selected.destinationId),joined=selected.participantIds.includes(user.id),owner=selected.createdBy===user.id,closed=selected.status==='cancelled'||selected.startsAt<=Date.now(),full=selected.participantIds.length>=selected.capacity;
+ if(selected){const destination=findDestination(selected.destinationId),joined=selected.participantIds.includes(user.id),owner=selected.createdBy===user.id,closed=selected.status==='cancelled'||selected.startsAt<=Date.now(),full=selected.participantIds.length>=selected.capacity;
   return <section className="space-y-4 pb-6"><button onClick={back} className={secondary} disabled={busy}><ArrowLeft className="inline h-4 w-4 mr-2"/>К встречам</button>{errorBox}
    <article className="overflow-hidden rounded-3xl border border-slate-700 bg-slate-900">{destination&&<Cover place={destination} hero/>}<div className="space-y-4 p-5">
     <p className="text-xs font-bold uppercase tracking-wider text-lime-300">{selected.status==='cancelled'?'Встреча отменена':closed?'Запись закрыта':'Набираем компанию'}</p><h2 className="text-2xl font-bold break-words">{selected.title}</h2>
@@ -108,7 +112,7 @@ export default function LeisureSection({user,users,isPremium,initialEventId,onOp
   <div className="space-y-3"><div className="flex flex-wrap gap-2">{[['all','Все регионы'],...Object.entries(LEISURE_REGIONS)].map(([id,label])=><button key={id} aria-pressed={region===id} onClick={()=>setRegion(id!)} className={`min-h-11 rounded-xl px-3 text-xs border ${region===id?'border-lime-300/50 bg-lime-300/10 text-lime-200':'border-slate-700 text-slate-400'}`}>{label}</button>)}</div><label className="relative block"><span className="sr-only">Поиск направления или встречи</span><Search className="absolute left-3 top-3 h-5 w-5 text-slate-500"/><input type="search" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Место, природа или формат отдыха" className={field+' pl-10'}/></label></div>
   {view==='places'?<><p className="text-xs text-slate-500">Подборка SportBuddy · {filteredPlaces.length} направлений</p><div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">{filteredPlaces.map(item=><article key={item.id} className="group overflow-hidden rounded-3xl border border-slate-700/70 bg-slate-900"><button className="block w-full text-left" onClick={()=>setPlace(item)} aria-label={`Подробнее: ${item.name}`}><Cover place={item}/></button><div className="p-4 space-y-3"><p className="text-xs text-lime-200">{item.format} · {item.pace}</p><p className="text-sm leading-relaxed text-slate-400 line-clamp-3">{item.description}</p><div className="flex gap-2"><button className={secondary+' flex-1'} onClick={()=>setPlace(item)}>О месте</button><button className={primary+' flex-1'} onClick={()=>begin(item)}>Создать встречу</button></div></div></article>)}</div>{!filteredPlaces.length&&<p className="py-8 text-center text-slate-400">Нет направлений с такими параметрами. Измените поиск или регион.</p>}</>:<>
    <div className="flex items-center justify-between gap-2"><button className={secondary} aria-pressed={mine} onClick={()=>setMine(!mine)}><Users className="inline mr-2 h-4 w-4"/>{mine?'Мои встречи':'Все встречи'}</button><button disabled={loading} className={secondary} onClick={()=>void refresh()}><RefreshCw className={`inline h-4 w-4 mr-2 ${loading?'animate-spin':''}`}/>Обновить</button></div>{errorBox}
-   {loading&&!events.length?<p role="status" className="py-6 text-slate-400">Загружаем встречи…</p>:filteredEvents.length?<div className="grid gap-3 sm:grid-cols-2">{filteredEvents.map(event=><button key={event.id} onClick={()=>{setSelected(event);setCancelConfirm(false);setError('');}} className="rounded-2xl border border-slate-700 bg-slate-900 p-4 text-left space-y-2"><p className="text-xs text-lime-300">{getLeisureDestination(event.destinationId)?.name}</p><h3 className="font-bold text-lg break-words">{event.title}</h3><p className="text-xs text-slate-300">{eventTime(event)}</p><p className="text-xs text-slate-400 break-words"><MapPin size={13} className="inline mr-1"/>{event.meetingPoint}</p><p className="text-xs">{event.status==='cancelled'?'Отменена':event.startsAt<=Date.now()?'Запись закрыта':`${event.participantIds.length} / ${event.capacity} участников`}{event.participantIds.includes(user.id)?' · Вы участвуете':''}</p></button>)}</div>:!error&&<div className="rounded-3xl border border-dashed border-slate-700 px-5 py-10 text-center"><Compass className="mx-auto mb-3 h-9 w-9 text-lime-300"/><h3 className="font-bold">Компания начинается с тебя</h3><p className="mt-2 text-sm text-slate-400">Здесь пока нет подходящих встреч. Выберите место и пригласите людей провести день вместе.</p><button className={primary+' mt-5'} onClick={()=>setView('places')}>Выбрать направление</button></div>}
+   {loading&&!events.length?<p role="status" className="py-6 text-slate-400">Загружаем встречи…</p>:filteredEvents.length?<div className="grid gap-3 sm:grid-cols-2">{filteredEvents.map(event=><button key={event.id} onClick={()=>{setSelected(event);setCancelConfirm(false);setError('');}} className="rounded-2xl border border-slate-700 bg-slate-900 p-4 text-left space-y-2"><p className="text-xs text-lime-300">{findDestination(event.destinationId)?.name}</p><h3 className="font-bold text-lg break-words">{event.title}</h3><p className="text-xs text-slate-300">{eventTime(event)}</p><p className="text-xs text-slate-400 break-words"><MapPin size={13} className="inline mr-1"/>{event.meetingPoint}</p><p className="text-xs">{event.status==='cancelled'?'Отменена':event.startsAt<=Date.now()?'Запись закрыта':`${event.participantIds.length} / ${event.capacity} участников`}{event.participantIds.includes(user.id)?' · Вы участвуете':''}</p></button>)}</div>:!error&&<div className="rounded-3xl border border-dashed border-slate-700 px-5 py-10 text-center"><Compass className="mx-auto mb-3 h-9 w-9 text-lime-300"/><h3 className="font-bold">Компания начинается с тебя</h3><p className="mt-2 text-sm text-slate-400">Здесь пока нет подходящих встреч. Выберите место и пригласите людей провести день вместе.</p><button className={primary+' mt-5'} onClick={()=>setView('places')}>Выбрать направление</button></div>}
    {cursor&&<button className={secondary+' w-full'} disabled={loading} onClick={()=>void refresh(cursor)}>Загрузить ещё встречи</button>}
   </>}
   {(region!=='all'||search)&&<button className="text-xs text-slate-400 min-h-11" onClick={()=>{setRegion('all');setSearch('');}}><X size={13} className="inline mr-1"/>Сбросить поиск и регион</button>}
