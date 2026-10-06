@@ -39,6 +39,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 }) => {
   const admin = authorized;
 
+  const [adminView, setAdminView] = useState<'overview'|'venues'|'leisure'|'events'>('overview');
   const [creating, setCreating] = useState(false);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -204,12 +205,29 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         maxWidth="lg"
       >
         <div className="space-y-4" key={refresh}>
-          <AdminDashboard />
+          <div className="grid grid-cols-4 gap-1 rounded-2xl border border-slate-800 bg-slate-950 p-1">
+            {([
+              ['overview','Обзор'],
+              ['venues','Площадки'],
+              ['leisure','Отдых'],
+              ['events','События']
+            ] as const).map(([id,label]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setAdminView(id)}
+                className={`rounded-xl px-2 py-2 text-[10px] font-black transition ${adminView===id?'bg-emerald-500 text-slate-950':'text-slate-400 hover:text-white'}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
 
-          <PlacesAdminPanel />
+          {adminView === 'overview' && <AdminDashboard />}
+          {adminView === 'venues' && <PlacesAdminPanel />}
+          {adminView === 'leisure' && <LeisureAdminPanel />}
 
-          <LeisureAdminPanel />
-
+          {adminView === 'events' && <>
           <button
             onClick={() => {
               triggerHapticImpact('medium');
@@ -526,6 +544,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               );
             })}
           </div>
+          </>}
         </div>
       </Modal>
 
