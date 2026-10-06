@@ -1,12 +1,14 @@
-import { getFirestore,FieldPath } from 'firebase-admin/firestore';
+import { getFirestore,FieldPath,FieldValue } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
 import { cleanSettings,isQuiet,matchesTraining,mergeInbox } from './notification-policy.js';
+import { matchesAdminPushAudience } from './admin-push.js';
 
 export async function deliverNotification(db,messaging,job,uid) {
   if(uid===job.actorId)return;
   const [userSnap,prefSnap]=await Promise.all([db.collection('users').doc(uid).get(),db.collection('notificationSettings').doc(uid).get()]);
   if(!userSnap.exists)return;
   const user={...userSnap.data(),id:uid},prefs=cleanSettings(prefSnap.data());
+  if(user.isSuspended===true)return;
   if((user.blockedUserIds||[]).includes(job.actorId)||(job.kind!=='push_test'&&!prefs[job.category]))return;
   // A queued request may have been cancelled, accepted or replaced before delivery.
   if(job.kind==='friend_request') {
@@ -74,22 +76,43 @@ export function startNotificationWorker() {
         });
         if(!job)continue;
         try {
-          if(job.expiresAt<=Date.now()){await snapshot.ref.delete();continue;}
+          if(job.expiresAt<=Date.now()){
+            await snapshot.ref.delete();
+            if(job.campaignId)await db.collection('adminPushCampaigns').doc(job.campaignId).set({status:'expired',completedAt:new Date().toISOString()},{merge:true});
+            continue;
+          }
           let recipients,more=false,nextCursor=job.cursor;
           if(job.broadcast) {
             let q=db.collection('users').orderBy(FieldPath.documentId()).limit(50);
             if(job.cursor)q=q.startAfter(job.cursor);
-            const page=await q.get();recipients=page.docs.map(d=>d.id);more=page.size===50;nextCursor=recipients.at(-1)||job.cursor;
+            const page=await q.get();
+            const docs=job.adminAudience
+              ? page.docs.filter(d=>matchesAdminPushAudience({...d.data(),id:d.id},job.adminAudience,job.createdAt))
+              : page.docs;
+            recipients=docs.map(d=>d.id);
+            more=page.size===50;
+            nextCursor=page.docs.at(-1)?.id||job.cursor;
           }else recipients=(job.recipients||[]).slice(job.offset,job.offset+20);
+
+          if(job.campaignId)await db.collection('adminPushCampaigns').doc(job.campaignId).set({status:'processing',lastProcessedAt:new Date().toISOString()},{merge:true});
           for(const uid of recipients)await deliverNotification(db,messaging,job,uid);
           const offset=job.offset+recipients.length;
-          if(more||(!job.broadcast&&offset<(job.recipients||[]).length))await snapshot.ref.update({cursor:nextCursor,offset,nextAttemptAt:0});
-          else await snapshot.ref.delete();
+          if(job.campaignId&&recipients.length){
+            await db.collection('adminPushCampaigns').doc(job.campaignId).update({processedCount:FieldValue.increment(recipients.length)});
+          }
+          if(more||(!job.broadcast&&offset<(job.recipients||[]).length)){
+            await snapshot.ref.update({cursor:nextCursor,offset,nextAttemptAt:0});
+          }else{
+            await snapshot.ref.delete();
+            if(job.campaignId)await db.collection('adminPushCampaigns').doc(job.campaignId).set({status:'completed',completedAt:new Date().toISOString()},{merge:true});
+          }
         }catch(e){
           const attempts=job.attempts+1;
           // Keep failed records for diagnosis; no tokens or message bodies in logs.
-          await snapshot.ref.update({attempts,status:attempts>=8?'failed':'pending',nextAttemptAt:Date.now()+Math.min(3600000,15000*2**attempts),lastError:String(e.code||'delivery-failed').slice(0,100)});
-          console.error('[notifications] delivery deferred',String(e.code||'delivery-failed'));
+          const lastError=String(e.code||'delivery-failed').slice(0,100);
+          await snapshot.ref.update({attempts,status:attempts>=8?'failed':'pending',nextAttemptAt:Date.now()+Math.min(3600000,15000*2**attempts),lastError});
+          if(job.campaignId)await db.collection('adminPushCampaigns').doc(job.campaignId).set({status:attempts>=8?'failed':'retrying',lastError},{merge:true});
+          console.error('[notifications] delivery deferred',lastError);
         }
       }
     }catch {console.error('[notifications] worker unavailable');}

@@ -9,7 +9,8 @@ function label(entry:AdminAuditEntry){
     'leisure.create':'Добавлено направление','leisure.update':'Изменено направление','leisure.delete':'Удалено направление','leisure.seed':'Импортирован активный отдых',
     'session.revoke':'Завершена сессия администратора',
     'user.setVerification':'Изменена верификация пользователя','user.setPremiumUntil':'Изменён Premium пользователя','user.setSuspension':'Изменён статус ограничения пользователя',
-    'config.flags.update':'Изменены Feature Flags','config.product.update':'Изменены настройки продукта'
+    'config.flags.update':'Изменены Feature Flags','config.product.update':'Изменены настройки продукта',
+    'push.send':'Создана push-рассылка','push.cancel':'Отменена push-рассылка'
   };
   return names[entry.action]||entry.action;
 }
