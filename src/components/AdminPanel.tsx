@@ -25,6 +25,7 @@ import { AdminDashboard } from './AdminDashboard';
 import { LeisureAdminPanel } from './LeisureAdminPanel';
 import { AdminAuditPanel } from './AdminAuditPanel';
 import { AdminManagementPanel } from './AdminManagementPanel';
+import { AdminPushPanel } from './AdminPushPanel';
 
 import { SPORT_TAGS as SPORTS } from '../lib/types';
 
@@ -41,7 +42,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 }) => {
   const admin = authorized;
 
-  const [adminView, setAdminView] = useState<'overview'|'manage'|'venues'|'leisure'|'events'|'audit'>('overview');
+  const [adminView, setAdminView] = useState<'overview'|'manage'|'push'|'venues'|'leisure'|'events'|'audit'>('overview');
   const [creating, setCreating] = useState(false);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -211,6 +212,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             {([
               ['overview','Обзор'],
               ['manage','Управление'],
+              ['push','Push'],
               ['venues','Площадки'],
               ['leisure','Отдых'],
               ['events','События'],
@@ -229,6 +231,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
           {adminView === 'overview' && <AdminDashboard />}
           {adminView === 'manage' && <AdminManagementPanel />}
+          {adminView === 'push' && <AdminPushPanel />}
           {adminView === 'venues' && <PlacesAdminPanel />}
           {adminView === 'leisure' && <LeisureAdminPanel />}
           {adminView === 'audit' && <AdminAuditPanel />}
