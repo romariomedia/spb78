@@ -1,6 +1,4 @@
 import { validVenueCoordinates } from '../../shared/venue-location.js';
-import { collection, getDocs } from 'firebase/firestore';
-import { db } from '../lib/firebase';
 import { SPB_VENUES, SportVenue } from '../lib/venues';
 import { getAdminSession } from './adminAuth';
 
@@ -45,25 +43,53 @@ function readCache(): SportVenue[] {
   }
 }
 
+function mergeVenueCatalog(managed: Array<Partial<SportVenue> & {id:string}>): SportVenue[] {
+  const map = new Map<string, SportVenue>(SPB_VENUES.map(venue => [venue.id, normalizeVenue(venue)]));
+  for (const raw of managed) {
+    const id = String(raw.id || '').trim();
+    if (!id) continue;
+    if ((raw as { archived?: boolean }).archived === true || raw.isPublished === false) {
+      map.delete(id);
+      continue;
+    }
+    const base = map.get(id);
+    map.set(id, normalizeVenue({ ...(base || { id }), ...raw, id }));
+  }
+  return [...map.values()].sort((a,b)=>a.name.localeCompare(b.name,'ru'));
+}
+
+async function loadManagedVenues(includeUnpublished:boolean): Promise<Array<Partial<SportVenue> & {id:string; archived?:boolean}>> {
+  if (includeUnpublished) {
+    const session = getAdminSession();
+    if (session) {
+      const response = await fetch('/api/admin-mutate-venue', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({sessionId:session.sessionId,operation:'list'})
+      });
+      const data = await response.json().catch(()=>({})) as {venues?:Array<Partial<SportVenue> & {id:string; archived?:boolean}>;error?:string};
+      if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+      return Array.isArray(data.venues) ? data.venues : [];
+    }
+  }
+  const response = await fetch('/api/venues');
+  const data = await response.json().catch(()=>({})) as {venues?:Array<Partial<SportVenue> & {id:string; archived?:boolean}>;error?:string};
+  if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+  return Array.isArray(data.venues) ? data.venues : [];
+}
+
 export async function refreshVenues(includeUnpublished = false): Promise<SportVenue[]> {
   try {
-    const snap = await getDocs(collection(db, 'venues'));
-    const venues = snap.docs
-      .map((doc) => normalizeVenue({ id: doc.id, ...(doc.data() as Omit<SportVenue, 'id'>) }))
-      .filter((venue) => includeUnpublished || venue.isPublished !== false)
-      .sort((a, b) => a.name.localeCompare(b.name, 'ru'));
-
-    // Firestore becomes authoritative as soon as the collection is populated.
-    if (snap.size > 0) {
-      saveCache(venues);
-      return venues;
-    }
+    const managed = await loadManagedVenues(includeUnpublished);
+    const merged = mergeVenueCatalog(managed)
+      .filter(venue => includeUnpublished || venue.isPublished !== false);
+    saveCache(merged);
+    return merged;
   } catch {
-    const cached = readCache().filter((venue) => includeUnpublished || venue.isPublished !== false);
+    const cached = readCache().filter(venue => includeUnpublished || venue.isPublished !== false);
     if (cached.length) return cached;
+    return SPB_VENUES.filter(venue => includeUnpublished || venue.isPublished !== false);
   }
-
-  return SPB_VENUES.filter((venue) => includeUnpublished || venue.isPublished !== false);
 }
 
 export async function adminMutateVenue(payload: {
