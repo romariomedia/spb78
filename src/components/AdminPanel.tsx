@@ -10,7 +10,7 @@ import {
 } from '../lib/types';
 import {
   getEvents, refreshEvents, createEvent, removeEvent, updateEvent,
-  validateEventDraft, getAdminStats, EventDraft, getCategoryConfig
+  validateEventDraft, EventDraft, getCategoryConfig
 } from '../services/events';
 import { DEFAULT_COORDS, Coords } from '../services/geolocation';
 import { GeocodeResult } from '../services/geocoding';
@@ -69,7 +69,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const videoInputRef = useRef<HTMLInputElement>(null);
 
   const [events, setEvents] = useState(() => getEvents(true));
-  const stats = getAdminStats();
   useEffect(() => { if (isOpen) void refreshEvents().then((items) => setEvents(items)).catch(() => {}); }, [isOpen, refresh]);
 
   const resetForm = () => {
