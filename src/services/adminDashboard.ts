@@ -8,6 +8,7 @@ export interface AdminDashboardData {
     venues: number;
     leisureEvents: number;
     reports: number;
+    announcements: number;
     notificationOutbox: number;
   };
   recentUsers: Array<{ id:string; name:string; isVerified:boolean; registeredAt:string }>;
