@@ -1,0 +1,410 @@
+{
+  "fabrika-futbola": {
+    "lat": 59.8808449,
+    "lng": 30.3945817,
+    "address": "Софийская ул., 14, Санкт-Петербург",
+    "sourceUrl": "https://www.openstreetmap.org/relation/6244832",
+    "precision": "address",
+    "checkedAt": "2026-10-05"
+  },
+  "arena-krasny-treugolnik": {
+    "lat": 59.9083337,
+    "lng": 30.2806678,
+    "address": "наб. Обводного канала, 136, Санкт-Петербург",
+    "sourceUrl": "https://www.openstreetmap.org/way/56223664",
+    "precision": "address",
+    "checkedAt": "2026-10-05"
+  },
+  "forward": {
+    "lat": 59.8951627,
+    "lng": 30.4339604,
+    "address": "просп. Обуховской Обороны, 105, Санкт-Петербург",
+    "sourceUrl": "https://www.openstreetmap.org/way/48337723",
+    "precision": "address",
+    "checkedAt": "2026-10-05"
+  },
+  "f-base": {
+    "lat": 59.931783,
+    "lng": 30.450651,
+    "address": "ул. Латышских Стрелков, 19, Санкт-Петербург",
+    "sourceUrl": "https://f-base.ru/",
+    "precision": "venue",
+    "checkedAt": "2026-10-05"
+  },
+  "molniya": {
+    "lat": 59.887941,
+    "lng": 30.26029,
+    "address": "пр. Стачек, 45к2, Санкт-Петербург",
+    "sourceUrl": "https://urbanplaces.su/ru_sankt-peterburg/sankt-peterburg/card-2057793-molniya",
+    "precision": "venue",
+    "checkedAt": "2026-10-05"
+  },
+  "liga5": {
+    "lat": 59.9023999,
+    "lng": 30.2946887,
+    "address": "ул. Шкапина, 52, Санкт-Петербург",
+    "sourceUrl": "https://www.openstreetmap.org/way/141623680",
+    "precision": "address",
+    "checkedAt": "2026-10-05"
+  },
+  "federaciya": {
+    "lat": 59.88424356425093,
+    "lng": 30.43841649999992,
+    "address": "просп. Обуховской Обороны, 149в, Санкт-Петербург",
+    "sourceUrl": "https://futboloff.ru/venue/futbolnyj-kompleks-federacziya/",
+    "precision": "venue",
+    "checkedAt": "2026-10-05"
+  },
+  "voskhodyashaya-zvezda": {
+    "lat": 59.948641,
+    "lng": 30.249825,
+    "address": "просп. КИМа, 1-а, Санкт-Петербург",
+    "sourceUrl": "https://urbanplaces.su/ru_sankt-peterburg/sankt-peterburg/card-70000001032056832-voskhodiashchaia-zvezda",
+    "precision": "venue",
+    "checkedAt": "2026-10-05"
+  },
+  "fc-orlovsky": {
+    "lat": 60.0633,
+    "lng": 30.2792,
+    "address": "Суздальское ш., 62, Санкт-Петербург",
+    "sourceUrl": "https://spb.findsport.ru/playground/4921",
+    "precision": "venue",
+    "checkedAt": "2026-10-05"
+  },
+  "sosnovka-park": {
+    "lat": 60.025624,
+    "lng": 30.33538,
+    "address": "ул. Жака Дюкло, 22П, Санкт-Петербург",
+    "sourceUrl": "https://parksosnovka.ru/contacts",
+    "precision": "venue",
+    "checkedAt": "2026-10-05"
+  },
+  "ozerki-arena": {
+    "lat": 60.023813,
+    "lng": 30.332147,
+    "address": "пр-т М. Тореза, 71а, Санкт-Петербург",
+    "sourceUrl": "https://joinarena.ru/",
+    "precision": "venue",
+    "checkedAt": "2026-10-05"
+  },
+  "marshal-arena": {
+    "lat": 60.0271202,
+    "lng": 30.2706089,
+    "address": "Автобусная ул., 4 к2, Санкт-Петербург",
+    "sourceUrl": "https://www.openstreetmap.org/way/23743967",
+    "precision": "address",
+    "checkedAt": "2026-10-05"
+  },
+  "urban-gaming": {
+    "lat": 59.9545107,
+    "lng": 30.3720152,
+    "address": "Арсенальная наб., 1, Санкт-Петербург",
+    "sourceUrl": "https://www.openstreetmap.org/node/13353350661",
+    "precision": "address",
+    "checkedAt": "2026-10-05"
+  },
+  "nova-arena": {
+    "lat": 60.024482,
+    "lng": 30.406391,
+    "address": "Гражданский пр-т., 100, Санкт-Петербург",
+    "sourceUrl": "https://yandex.com/maps/2/saint-petersburg/house/Z0kYcgdmSkwGQFhqfXxzdXhrZg%3D%3D/",
+    "precision": "venue",
+    "checkedAt": "2026-10-05"
+  },
+  "siburb-arena": {
+    "lat": 59.9715164,
+    "lng": 30.2267509,
+    "address": "Футбольная ал., 8, Санкт-Петербург",
+    "sourceUrl": "https://www.openstreetmap.org/way/239118342",
+    "precision": "address",
+    "checkedAt": "2026-10-05"
+  },
+  "alekseev": {
+    "lat": 60.013829,
+    "lng": 30.360977,
+    "address": "пр. Раевского, 16, Санкт-Петербург",
+    "sourceUrl": "https://alexclub.ru/",
+    "precision": "venue",
+    "checkedAt": "2026-10-05"
+  },
+  "foc-rzd": {
+    "lat": 59.918748,
+    "lng": 30.344246,
+    "address": "ул. Константина Заслонова, 23, к.4, Санкт-Петербург",
+    "sourceUrl": "https://yandex.com/maps/2/saint-petersburg/house/Z0kYdQNkS0EBQFtjfXVweXtnYw%3D%3D/",
+    "precision": "venue",
+    "checkedAt": "2026-10-05"
+  },
+  "metropolis-arena": {
+    "lat": 59.9164609,
+    "lng": 30.3921071,
+    "address": "Глиняная ул., 5 к.1, Санкт-Петербург",
+    "sourceUrl": "https://www.openstreetmap.org/way/219579479",
+    "precision": "address",
+    "checkedAt": "2026-10-05"
+  },
+  "spartak": {
+    "lat": 59.945824,
+    "lng": 30.361619,
+    "address": "ул. Чайковского, 63б, Санкт-Петербург",
+    "sourceUrl": "https://yandex.com/maps/2/saint-petersburg/house/ulitsa_chaykovskogo_63b/Z0kYdQFhT0QOQFtjfXV1dHRhYA%3D%3D/",
+    "precision": "venue",
+    "checkedAt": "2026-10-05"
+  },
+  "vasileostrovsky": {
+    "lat": 59.93914,
+    "lng": 30.24872,
+    "address": "Малый пр. В.О., 66, Санкт-Петербург",
+    "sourceUrl": "https://spbmap.ru/streets/maly-prospekt-vo/66.html",
+    "precision": "venue",
+    "checkedAt": "2026-10-05"
+  },
+  "basket-hall": {
+    "lat": 59.8780615,
+    "lng": 30.329839,
+    "address": "ул. Решетникова, 15, Санкт-Петербург",
+    "sourceUrl": "https://www.openstreetmap.org/way/35313247",
+    "precision": "address",
+    "checkedAt": "2026-10-05"
+  },
+  "urbo": {
+    "lat": 59.867236,
+    "lng": 30.355044,
+    "address": "Бассейная ул., 38К, Санкт-Петербург",
+    "sourceUrl": "https://yandex.com/maps/2/saint-petersburg/house/basseynaya_ulitsa_38k/Z0kYdQJlSUEDQFtjfXR3dn5gYg%3D%3D/",
+    "precision": "venue",
+    "checkedAt": "2026-10-05"
+  },
+  "game-tower": {
+    "lat": 59.9675,
+    "lng": 30.2934,
+    "address": "ул. Газовая, 10Ж, Санкт-Петербург",
+    "sourceUrl": "https://spb.findsport.ru/playground/5687",
+    "precision": "venue",
+    "checkedAt": "2026-10-05"
+  },
+  "arena-300": {
+    "lat": 59.982103,
+    "lng": 30.211237,
+    "address": "Приморский район, Санкт-Петербург",
+    "sourceUrl": "https://arena300.ru/",
+    "precision": "venue",
+    "checkedAt": "2026-10-05"
+  },
+  "vmyach": {
+    "lat": 59.94691,
+    "lng": 30.457883,
+    "address": "ул. Передовиков, 18к2, Санкт-Петербург",
+    "sourceUrl": "https://vball.ru/",
+    "precision": "venue",
+    "checkedAt": "2026-10-05"
+  },
+  "dinamo-beach": {
+    "lat": 59.965818,
+    "lng": 30.266622,
+    "address": "пр. Динамо, 44б, Санкт-Петербург",
+    "sourceUrl": "https://dinamobeach.ru/uslugi/arenda-kortov/",
+    "precision": "venue",
+    "checkedAt": "2026-10-05"
+  },
+  "pesok": {
+    "lat": 59.916114,
+    "lng": 30.419216,
+    "address": "Октябрьская наб., 6 корпус 3, Санкт-Петербург",
+    "sourceUrl": "https://sportpesok.com/",
+    "precision": "venue",
+    "checkedAt": "2026-10-05"
+  },
+  "plyazh-fuchika": {
+    "lat": 59.876264,
+    "lng": 30.356906,
+    "address": "ул. Фучика, 2а, Санкт-Петербург",
+    "sourceUrl": "https://plyazhspb.ru/",
+    "precision": "venue",
+    "checkedAt": "2026-10-05"
+  },
+  "nikiforov-tennis": {
+    "lat": 59.9749845,
+    "lng": 30.2531297,
+    "address": "наб. Мартынова, 40, Санкт-Петербург",
+    "sourceUrl": "https://www.openstreetmap.org/way/44389552",
+    "precision": "address",
+    "checkedAt": "2026-10-05"
+  },
+  "hasansky": {
+    "lat": 59.9346087,
+    "lng": 30.5002504,
+    "address": "Хасанская ул., 19, Санкт-Петербург",
+    "sourceUrl": "https://www.openstreetmap.org/way/150610015",
+    "precision": "address",
+    "checkedAt": "2026-10-05"
+  },
+  "volna-tennis": {
+    "lat": 59.855628,
+    "lng": 30.327213,
+    "address": "Авиационная ул., 19, Санкт-Петербург",
+    "sourceUrl": "https://urbanplaces.su/ru_sankt-peterburg/sankt-peterburg/card-5348552838565270-volna",
+    "precision": "address",
+    "checkedAt": "2026-10-06"
+  },
+  "vysota": {
+    "lat": 59.7601352,
+    "lng": 30.3608614,
+    "address": "пос. Шушары, территория Пулковское, 34А, Санкт-Петербург",
+    "sourceUrl": "https://visotasport.ru/tennisarenda",
+    "precision": "venue",
+    "checkedAt": "2026-10-05"
+  },
+  "luzhaika": {
+    "lat": 59.887941,
+    "lng": 30.26029,
+    "address": "пр. Стачек, 45 корпус 2, Санкт-Петербург",
+    "sourceUrl": "https://urbanplaces.su/ru_sankt-peterburg/sankt-peterburg/card-2057793-molniya",
+    "precision": "venue",
+    "checkedAt": "2026-10-05"
+  },
+  "win-win-padel": {
+    "lat": 59.98535,
+    "lng": 30.219583,
+    "address": "ул. Савушкина, 116, Санкт-Петербург",
+    "sourceUrl": "https://padelww.ru/",
+    "precision": "venue",
+    "checkedAt": "2026-10-05"
+  },
+  "gazpadel": {
+    "lat": 59.968034,
+    "lng": 30.293069,
+    "address": "Газовая ул., 10, Санкт-Петербург",
+    "sourceUrl": "https://gazpadel.ru/",
+    "precision": "venue",
+    "checkedAt": "2026-10-05"
+  },
+  "matchball": {
+    "lat": 59.958021,
+    "lng": 30.290752,
+    "address": "Пионерская ул., 21, Санкт-Петербург",
+    "sourceUrl": "https://matchball.club/",
+    "precision": "venue",
+    "checkedAt": "2026-10-05"
+  },
+  "energy-arena": {
+    "lat": 60.072044,
+    "lng": 30.286673,
+    "address": "Санкт-Петербург",
+    "sourceUrl": "https://energyarena.ru/",
+    "precision": "venue",
+    "checkedAt": "2026-10-05"
+  },
+  "rio-beach": {
+    "lat": 59.979223,
+    "lng": 30.245421,
+    "address": "Санкт-Петербург, 197110",
+    "sourceUrl": "https://yandex.com/maps/org/150179386400/",
+    "precision": "address",
+    "checkedAt": "2026-10-06"
+  },
+  "ozerki-tennis": {
+    "lat": 60.040946,
+    "lng": 30.308457,
+    "address": "Эриванская ул., 5, к.2, Санкт-Петербург",
+    "sourceUrl": "https://yandex.com/maps/2/saint-petersburg/house/erivanskaya_ulitsa_5_2/Z0kYdQdoTUAAQFhqfXx1cXVnYg%3D%3D/",
+    "precision": "address",
+    "checkedAt": "2026-10-06"
+  },
+  "white-lightning": {
+    "lat": 59.989738,
+    "lng": 30.283843,
+    "address": "Сабировская ул., 37в, Санкт-Петербург",
+    "sourceUrl": "https://yandex.com/maps/2/saint-petersburg/house/sabirovskaya_ulitsa_37v/Z0kYdA9jQUEEQFtjfXV5eHtgbA%3D%3D/",
+    "precision": "address",
+    "checkedAt": "2026-10-06"
+  },
+  "tennis-group": {
+    "lat": 59.967012,
+    "lng": 30.265949,
+    "address": "Спортивная ул., 8, Санкт-Петербург",
+    "sourceUrl": "https://sankt-peterburg.spravka-region.ru/tags/tennisnye-korty/Tennis-Group-skola-bolsogo-tennisa-12",
+    "precision": "address",
+    "checkedAt": "2026-10-06"
+  },
+  "top-spin": {
+    "lat": 59.96675,
+    "lng": 30.286933,
+    "address": "Левашовский пр., 13А, Санкт-Петербург",
+    "sourceUrl": "https://yandex.com/maps/2/saint-petersburg/house/levashovskiy_prospekt_13/Z0kYdA9mQEYEQFtjfXV3d3tmZA%3D%3D/inside/",
+    "precision": "address",
+    "checkedAt": "2026-10-06"
+  },
+  "ice-arena-peredovikov": {
+    "lat": 59.944721,
+    "lng": 30.459728,
+    "address": "ул. Передовиков, 14к2, Санкт-Петербург",
+    "sourceUrl": "https://sankt-peterburg.spravka-region.ru/tags/ledovye-dvorzy-katki/Ledovaa-arena-sportivnyj-kompleks-96",
+    "precision": "address",
+    "checkedAt": "2026-10-06"
+  },
+  "ozerki-ice": {
+    "lat": 60.037298,
+    "lng": 30.305609,
+    "address": "Большая Озёрная ул., 56, Санкт-Петербург",
+    "sourceUrl": "https://yandex.com/maps/2/saint-petersburg/house/bolshaya_ozyornaya_ulitsa_56/Z0kYdQdlT0UOQFhqfXxydn5qYw%3D%3D/",
+    "precision": "address",
+    "checkedAt": "2026-10-06"
+  },
+  "ska-palace": {
+    "lat": 59.957624,
+    "lng": 30.279316,
+    "address": "Ждановская ул., 2, Санкт-Петербург",
+    "sourceUrl": "https://guidebook.ru/sankt-peterburg/zhdanovskaya-ulitsa/hokkeyniy.html",
+    "precision": "address",
+    "checkedAt": "2026-10-06"
+  },
+  "athletics-manege": {
+    "lat": 59.971209,
+    "lng": 30.230196,
+    "address": "Теннисная ал., 3а, Санкт-Петербург",
+    "sourceUrl": "https://yandex.com/maps/2/saint-petersburg/house/tennisnaya_alleya_3/Z0kYdARgSEwBQFtjfXV2cH5jbA%3D%3D/",
+    "precision": "address",
+    "checkedAt": "2026-10-06"
+  },
+  "ice-palace": {
+    "lat": 59.921534,
+    "lng": 30.46789,
+    "address": "пр. Пятилеток, 1, лит. А, Санкт-Петербург",
+    "sourceUrl": "https://guidebook.ru/sankt-peterburg/pyatiletok/ledoviy-dvorets.html",
+    "precision": "address",
+    "checkedAt": "2026-10-06"
+  },
+  "kult-padel": {
+    "lat": 59.878155,
+    "lng": 30.358241,
+    "address": "ул. Фучика, 2, Санкт-Петербург",
+    "sourceUrl": "https://yandex.by/maps/org/kult_padel/241452706771/",
+    "precision": "address",
+    "checkedAt": "2026-10-06"
+  },
+  "sk-optik": {
+    "lat": 59.996273,
+    "lng": 30.253659,
+    "address": "ул. Оптиков, 60, Санкт-Петербург",
+    "sourceUrl": "https://urbanplaces.su/ru_sankt-peterburg/sankt-peterburg/card-70000001045731317-optik",
+    "precision": "address",
+    "checkedAt": "2026-10-06"
+  },
+  "nevsky-ice": {
+    "lat": 59.887142,
+    "lng": 30.432416,
+    "address": "ул. Бабушкина, 30, Санкт-Петербург",
+    "sourceUrl": "https://yandex.com/maps/2/saint-petersburg/house/Z0kYcgRiTUQBQFtjfXR5dn1nZg%3D%3D/",
+    "precision": "address",
+    "checkedAt": "2026-10-06"
+  },
+  "hockey-city": {
+    "lat": 59.923843,
+    "lng": 30.469758,
+    "address": "Российский пр., 6, Санкт-Петербург",
+    "sourceUrl": "https://yandex.com/maps/2/saint-petersburg/house/rossiyskiy_prospekt_6/Z0kYcgFpTkAPQFtjfXVzcnRnZw%3D%3D/inside/",
+    "precision": "address",
+    "checkedAt": "2026-10-06"
+  }
+}

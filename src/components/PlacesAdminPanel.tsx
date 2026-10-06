@@ -1,3 +1,5 @@
+import { validVenueCoordinates } from '../../shared/venue-location.js';
+import { venueLocation } from '../lib/venueLocation';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Building2, CheckCircle2, ChevronDown, ChevronUp, Eye, EyeOff,
@@ -88,6 +90,7 @@ export const PlacesAdminPanel: React.FC = () => {
     setEditingId(venue.id);
     setDraft({
       ...venue,
+      coordinates: venueLocation(venue) ?? undefined,
       photos: venue.photos ? [...venue.photos] : [],
       amenities: venue.amenities ? [...venue.amenities] : []
     });
@@ -98,6 +101,7 @@ export const PlacesAdminPanel: React.FC = () => {
   const save = async () => {
     if (draft.name.trim().length < 2) return setError('Укажите название площадки');
     if (draft.address.trim().length < 3) return setError('Укажите адрес');
+    if (draft.coordinates && !validVenueCoordinates(draft.coordinates)) return setError('Укажите корректные широту и долготу');
     if (!draft.sports.length) return setError('Выберите хотя бы один вид спорта');
 
     setBusy(true);
@@ -242,7 +246,15 @@ export const PlacesAdminPanel: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-2">
                 <input value={draft.name} onChange={e => setDraft(v => ({...v, name:e.target.value}))} placeholder="Название *" className="col-span-2 rounded-xl border border-slate-800 bg-slate-900 px-3 py-2.5 text-xs text-white" />
-                <input value={draft.address} onChange={e => setDraft(v => ({...v, address:e.target.value}))} placeholder="Адрес *" className="col-span-2 rounded-xl border border-slate-800 bg-slate-900 px-3 py-2.5 text-xs text-white" />
+                <input value={draft.address} onChange={e => setDraft(v => ({...v, address:e.target.value, coordinates: null}))} placeholder="Адрес *" className="col-span-2 rounded-xl border border-slate-800 bg-slate-900 px-3 py-2.5 text-xs text-white" />
+                <label className="text-xs text-slate-400">Широта
+                  <input type="number" step="any" min="-90" max="90" value={Number.isFinite(draft.coordinates?.lat) ? draft.coordinates!.lat : ''} onChange={e => setDraft(v => ({...v, coordinates: {...(v.coordinates ?? {lat:NaN,lng:NaN}), lat:e.target.value === '' ? NaN : Number(e.target.value)}}))} className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2.5 text-white" />
+                </label>
+                <label className="text-xs text-slate-400">Долгота
+                  <input type="number" step="any" min="-180" max="180" value={Number.isFinite(draft.coordinates?.lng) ? draft.coordinates!.lng : ''} onChange={e => setDraft(v => ({...v, coordinates: {...(v.coordinates ?? {lat:NaN,lng:NaN}), lng:e.target.value === '' ? NaN : Number(e.target.value)}}))} className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2.5 text-white" />
+                </label>
+                <button type="button" onClick={() => setDraft(v => ({...v, coordinates: null}))} className="col-span-2 text-left text-xs text-slate-400">Очистить введённые координаты</button>
+                <p className="col-span-2 text-[11px] text-slate-500">Координаты точки на карте. При смене адреса проверьте обе координаты.</p>
                 <input value={draft.phone || ''} onChange={e => setDraft(v => ({...v, phone:e.target.value}))} placeholder="Телефон" className="rounded-xl border border-slate-800 bg-slate-900 px-3 py-2.5 text-xs text-white" />
                 <input value={draft.contactName || ''} onChange={e => setDraft(v => ({...v, contactName:e.target.value}))} placeholder="Контактное лицо" className="rounded-xl border border-slate-800 bg-slate-900 px-3 py-2.5 text-xs text-white" />
                 <input value={draft.priceText || ''} onChange={e => setDraft(v => ({...v, priceText:e.target.value}))} placeholder="Цена, напр. от 2500 ₽/ч" className="rounded-xl border border-slate-800 bg-slate-900 px-3 py-2.5 text-xs text-white" />

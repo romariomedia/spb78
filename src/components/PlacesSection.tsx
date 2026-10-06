@@ -1,7 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import {
   ArrowLeft, Building2, CheckCircle2, ChevronLeft, ChevronRight, Clock3, ExternalLink,
-  MapPin, Phone, Search, ShieldCheck, Star, Trophy, X
+  List, Map as MapIcon, MapPin, Phone, Search, ShieldCheck, Star, Trophy, X
 } from 'lucide-react';
 import {
   SPB_VENUES, VENUE_SPORT_FILTERS, SportVenue, venueMapUrl, venueScore
@@ -10,6 +10,8 @@ import { refreshVenues } from '../services/venues';
 import { venueCover } from '../lib/venueCovers';
 import { venuePrice } from '../lib/venuePricing';
 import { triggerHapticImpact } from '../services/native';
+
+const VenuesMap = lazy(() => import('./VenuesMap'));
 
 interface PlacesSectionProps {
   isOpen: boolean;
@@ -169,6 +171,7 @@ const VenueGallery: React.FC<{ venue: SportVenue }> = ({ venue }) => {
 };
 
 export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, onCreateTraining }) => {
+  const [view, setView] = useState<'list' | 'map'>('list');
   const [query, setQuery] = useState('');
   const [sport, setSport] = useState<string>('Все');
   const [sort, setSort] = useState<SortMode>('recommended');
@@ -447,13 +450,22 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, o
           </div>
           </div>
 
+          <div className="flex gap-2 rounded-2xl border border-slate-800 bg-slate-900 p-1" aria-label="Вид каталога">
+            {(['list', 'map'] as const).map(mode => <button key={mode} type="button" aria-pressed={view === mode} onClick={() => setView(mode)}
+              className={`flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl text-sm font-bold ${view === mode ? 'bg-emerald-400 text-slate-950' : 'text-slate-400'}`}>
+              {mode === 'list' ? <List size={16} /> : <MapIcon size={16} />}{mode === 'list' ? 'Список' : 'На карте'}
+            </button>)}
+          </div>
+          {view === 'map' && <Suspense fallback={<p role="status" className="p-8 text-center text-sm text-slate-400">Загружаем карту…</p>}>
+            <VenuesMap venues={venues} onSelect={setSelected} />
+          </Suspense>}
           <div className="space-y-3">
             {catalogLoading && (
               <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 text-center text-xs font-bold text-slate-500">
                 Обновляем данные площадок…
               </div>
             )}
-            {venues.map(venue => (
+            {view === 'list' && venues.map(venue => (
               <button
                 key={venue.id}
                 type="button"

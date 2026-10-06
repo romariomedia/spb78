@@ -5,6 +5,7 @@ export interface SportVenue {
   name: string;
   sports: string[];
   address: string;
+  coordinates?: { lat: number; lng: number } | null;
   phone?: string;
   hours?: string;
   priceText?: string;

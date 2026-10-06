@@ -1,3 +1,4 @@
+import { validVenueCoordinates } from '../../shared/venue-location.js';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { SPB_VENUES, SportVenue } from '../lib/venues';
@@ -11,6 +12,7 @@ function normalizeVenue(raw: Partial<SportVenue> & { id: string }): SportVenue {
     name: String(raw.name || ''),
     sports: Array.isArray(raw.sports) ? raw.sports.map(String).filter(Boolean) : [],
     address: String(raw.address || ''),
+    coordinates: validVenueCoordinates(raw.coordinates) ? raw.coordinates : undefined,
     phone: raw.phone ? String(raw.phone) : undefined,
     hours: raw.hours ? String(raw.hours) : undefined,
     priceText: raw.priceText ? String(raw.priceText) : undefined,

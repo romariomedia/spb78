@@ -1,3 +1,4 @@
+import { validVenueCoordinates } from '../shared/venue-location.js';
 // Admin-only SportBuddy Places CRUD. Writes are server-authoritative and
 // require the same OTP session as official event management.
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
@@ -37,6 +38,7 @@ function sanitizeVenue(input, id) {
     name: cleanString(input?.name, 160),
     sports,
     address: cleanString(input?.address, 300),
+    coordinates: validVenueCoordinates(input?.coordinates) ? { lat: input.coordinates.lat, lng: input.coordinates.lng } : null,
     phone: optionalString(input?.phone, 80),
     hours: optionalString(input?.hours, 180),
     priceText: optionalString(input?.priceText, 180),
