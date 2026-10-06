@@ -22,6 +22,7 @@ import { hasAdminSession } from '../services/adminAuth';
 import { compressImage } from '../services/media';
 import { PlacesAdminPanel } from './PlacesAdminPanel';
 import { AdminDashboard } from './AdminDashboard';
+import { LeisureAdminPanel } from './LeisureAdminPanel';
 
 import { SPORT_TAGS as SPORTS } from '../lib/types';
 
@@ -207,6 +208,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           <AdminDashboard />
 
           <PlacesAdminPanel />
+
+          <LeisureAdminPanel />
 
           <button
             onClick={() => {
