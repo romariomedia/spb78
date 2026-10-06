@@ -2,6 +2,7 @@ import {cert,getApps,initializeApp} from 'firebase-admin/app';
 import {getAuth} from 'firebase-admin/auth';
 import {getFirestore} from 'firebase-admin/firestore';
 import {createLeisure,changeLeisure,listLeisure,readLeisure,listLeisureDestinations} from '../server/leisure.js';
+import {requireActiveUser} from '../server/user-status.js';
 const rates=new Map();
 export default async function handler(req,res){
  res.setHeader('Cache-Control','no-store');
@@ -11,6 +12,7 @@ export default async function handler(req,res){
   const token=String(req.headers.authorization||'').replace(/^Bearer\s+/i,'');
   if(!token)return res.status(401).json({error:'Войдите в аккаунт'});
   const {uid}=await getAuth().verifyIdToken(token,true),db=getFirestore();
+  await requireActiveUser(db,uid);
   const now=Date.now();for(const [key,value] of rates)if(value.until<=now)rates.delete(key);
   const rate=rates.get(uid)||{until:now+60000,count:0};rate.count++;rates.set(uid,rate);
   if(rate.count>90)return res.status(429).json({error:'Слишком много запросов. Подождите минуту.'});
