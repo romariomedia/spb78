@@ -3,7 +3,7 @@ import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 import { requireActiveUser } from '../server/user-status.js';
 import {
-  claimFingerprint,claimFromPassport,sanitizeVerificationEvidence,verificationRequestId
+  claimFingerprint,claimFromPassport,sanitizeVerificationEvidence,verificationClaimId,verificationRequestId
 } from '../server/sport-id-verification.js';
 
 if(!getApps().length)initializeApp({credential:cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY||'{}'))});
@@ -32,6 +32,8 @@ export default async function handler(req,res){
       const claim=claimFromPassport(passport,req.body||{});
       const evidence=sanitizeVerificationEvidence(req.body||{});
       const fingerprint=claimFingerprint(claim);
+      const activeClaim=await db.collection('sportVerifiedClaims').doc(verificationClaimId(uid,claim)).get();
+      if(activeClaim.exists&&activeClaim.data()?.fingerprint===fingerprint)return res.status(409).json({error:'Этот факт уже подтверждён.'});
       const id=verificationRequestId(uid,claim);
       const ref=db.collection('sportVerificationRequests').doc(id);
       const before=await ref.get();
