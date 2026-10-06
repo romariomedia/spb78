@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import {
   AdminUserDetails,AdminUserRow,AppConfig,UserDeletionPreview,executeAdminUserDeletion,loadAdminUser,loadAdminUsers,loadAppConfig,
-  previewAdminUserDeletion,saveFeatureFlags,saveProductSettings,setAdminUserPremiumUntil,setAdminUserSuspension,setAdminUserVerification
+  previewAdminUserDeletion,saveFeatureFlags,saveProductSettings,setAdminUserAnalyticsExcluded,setAdminUserPremiumUntil,setAdminUserSuspension,setAdminUserVerification
 } from '../services/adminManagement';
 
 type View='users'|'flags'|'settings';
@@ -183,6 +183,19 @@ export function AdminManagementPanel(){
           <p className="text-[10px] font-black text-white">Спортивный профиль</p>
           <p className="mt-1 text-[10px] text-slate-400">{selectedUser.sports.length?selectedUser.sports.join(' · '):'Виды спорта не указаны'}</p>
           {selectedUser.bio&&<p className="mt-2 text-[10px] leading-relaxed text-slate-300">{selectedUser.bio}</p>}
+        </div>
+
+        <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-900 p-3">
+          <div>
+            <p className="text-[10px] font-black text-white">Продуктовая аналитика</p>
+            <p className="mt-1 text-[9px] leading-relaxed text-slate-500">Для тестовых аккаунтов можно исключить регистрацию и активность из DAU, retention и времени.</p>
+          </div>
+          <button
+            onClick={()=>void mutate(`analytics:${selectedUser.id}`,async()=>{const next=!selectedUser.analyticsExcluded;await setAdminUserAnalyticsExcluded(selectedUser.id,next);setSelectedUser(prev=>prev?{...prev,analyticsExcluded:next}:prev);})}
+            className={`shrink-0 rounded-xl px-3 py-2 text-[9px] font-black ${selectedUser.analyticsExcluded?'bg-amber-500 text-slate-950':'border border-slate-700 bg-slate-950 text-slate-300'}`}
+          >
+            {selectedUser.analyticsExcluded?'Исключён':'Учитывается'}
+          </button>
         </div>
 
         <div className={`mt-3 rounded-xl border p-3 ${selectedUser.isSuspended?'border-rose-500/40 bg-rose-950/20':'border-slate-800 bg-slate-900'}`}>

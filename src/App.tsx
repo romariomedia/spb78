@@ -4,6 +4,7 @@ import { PhotoEditor } from './components/PhotoEditor';
 import { Stories } from './components/Stories';
 import { AvatarImage } from './components/AvatarImage';
 import { NotificationSettings } from './components/NotificationSettings';
+import { startProductAnalytics } from './services/productAnalytics';
 import { AppAnnouncements } from './components/AppAnnouncements';
 import { subscribeNotifications,restorePush,readNotifications } from './services/notifications';
 import { trainingGenderError, trainingGenderLabel } from './lib/trainingEligibility';
@@ -283,6 +284,11 @@ export default function App(): JSX.Element {
     if(!currentUser?.id)return;
     void restorePush(currentUser.id).catch(()=>undefined);
     return subscribeNotifications(currentUser.id,setServerNotifications,setNotificationsOffline);
+  },[currentUser?.id]);
+
+  useEffect(()=>{
+    if(!currentUser?.id)return;
+    return startProductAnalytics(currentUser.id);
   },[currentUser?.id]);
 
   const [rewardModal, setRewardModal] = useState<{ title: string; subtitle: string; content: React.ReactNode } | null>(null);
