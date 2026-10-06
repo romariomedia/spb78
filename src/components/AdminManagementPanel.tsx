@@ -1,11 +1,11 @@
 import { useEffect,useMemo,useState } from 'react';
 import {
   Ban, Check, RefreshCw, RotateCcw, Save, Search, Settings2,
-  ShieldCheck, SlidersHorizontal, UserRoundSearch, Users, X
+  ShieldAlert, ShieldCheck, SlidersHorizontal, Trash2, UserRoundSearch, Users, X
 } from 'lucide-react';
 import {
-  AdminUserDetails,AdminUserRow,AppConfig,loadAdminUser,loadAdminUsers,loadAppConfig,
-  saveFeatureFlags,saveProductSettings,setAdminUserPremiumUntil,setAdminUserSuspension,setAdminUserVerification
+  AdminUserDetails,AdminUserRow,AppConfig,UserDeletionPreview,executeAdminUserDeletion,loadAdminUser,loadAdminUsers,loadAppConfig,
+  previewAdminUserDeletion,saveFeatureFlags,saveProductSettings,setAdminUserPremiumUntil,setAdminUserSuspension,setAdminUserVerification
 } from '../services/adminManagement';
 
 type View='users'|'flags'|'settings';
@@ -36,6 +36,8 @@ export function AdminManagementPanel(){
   const [config,setConfig]=useState<AppConfig|null>(null);
   const [selectedUser,setSelectedUser]=useState<AdminUserDetails|null>(null);
   const [suspensionReason,setSuspensionReason]=useState('');
+  const [deletionPreview,setDeletionPreview]=useState<UserDeletionPreview|null>(null);
+  const [deletionConfirmation,setDeletionConfirmation]=useState('');
   const [loading,setLoading]=useState(false);
   const [saving,setSaving]=useState('');
   const [error,setError]=useState('');
@@ -70,7 +72,29 @@ export function AdminManagementPanel(){
       const user=await loadAdminUser(userId);
       setSelectedUser(user);
       setSuspensionReason(user.suspensionReason||'');
+      setDeletionPreview(null);setDeletionConfirmation('');
     }catch(e){setError(e instanceof Error?e.message:'Не удалось открыть пользователя');}
+    finally{setSaving('');}
+  };
+
+  const previewDeletion=async()=>{
+    if(!selectedUser)return;
+    setSaving(`delete-preview:${selectedUser.id}`);setError('');setNotice('');setDeletionPreview(null);setDeletionConfirmation('');
+    try{setDeletionPreview(await previewAdminUserDeletion(selectedUser.id));}
+    catch(e){setError(e instanceof Error?e.message:'Не удалось выполнить dry-run удаления');}
+    finally{setSaving('');}
+  };
+
+  const executeDeletion=async()=>{
+    if(!selectedUser||!deletionPreview)return;
+    if(deletionConfirmation.trim()!==deletionPreview.confirmationCode){setError('Введите код подтверждения точно как показано в dry-run.');return;}
+    setSaving(`delete-execute:${selectedUser.id}`);setError('');setNotice('');
+    try{
+      await executeAdminUserDeletion(selectedUser.id,deletionPreview.id,deletionConfirmation.trim());
+      setNotice(`Аккаунт ${selectedUser.name} безопасно удалён.`);
+      setSelectedUser(null);setDeletionPreview(null);setDeletionConfirmation('');setSuspensionReason('');
+      await refresh();
+    }catch(e){setError(e instanceof Error?e.message:'Не удалось удалить аккаунт');}
     finally{setSaving('');}
   };
 
@@ -143,7 +167,7 @@ export function AdminManagementPanel(){
               </div>
             </div>
           </div>
-          <button onClick={()=>{setSelectedUser(null);setSuspensionReason('');}} className="rounded-lg p-1.5 text-slate-500 hover:text-white"><X className="h-4 w-4"/></button>
+          <button onClick={()=>{setSelectedUser(null);setSuspensionReason('');setDeletionPreview(null);setDeletionConfirmation('');}} className="rounded-lg p-1.5 text-slate-500 hover:text-white"><X className="h-4 w-4"/></button>
         </div>
 
         <div className="mt-3 grid grid-cols-2 gap-2 text-[10px]">
@@ -178,6 +202,46 @@ export function AdminManagementPanel(){
           >
             {selectedUser.isSuspended?<><RotateCcw className="h-3.5 w-3.5"/>Восстановить аккаунт</>:<><Ban className="h-3.5 w-3.5"/>Ограничить аккаунт</>}
           </button>
+        </div>
+
+        <div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-950/10 p-3">
+          <div className="flex items-start gap-2">
+            <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-300"/>
+            <div>
+              <p className="text-[11px] font-black text-white">Безопасное удаление аккаунта</p>
+              <p className="mt-1 text-[9px] leading-relaxed text-slate-500">Удаление доступно только после server dry-run. Верифицированные аккаунты, платежи, чаты, жалобы, рейтинги и созданный контент блокируют удаление.</p>
+            </div>
+          </div>
+          <button onClick={()=>void previewDeletion()} disabled={saving===`delete-preview:${selectedUser.id}`} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 py-2.5 text-[10px] font-black text-amber-200 disabled:opacity-50">
+            <ShieldAlert className="h-3.5 w-3.5"/>{saving===`delete-preview:${selectedUser.id}`?'Проверяю связи…':'Dry-run: проверить возможность удаления'}
+          </button>
+
+          {deletionPreview&&<div className="mt-3 space-y-2 rounded-xl border border-slate-800 bg-slate-950 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div><p className="text-[10px] font-black text-white">Результат dry-run</p><p className="text-[9px] text-slate-500">{deletionPreview.classification==='test_candidate'?'Кандидат на тестовый/пустой аккаунт':'Требуется ручная проверка'}</p></div>
+              <span className={`rounded-full px-2 py-1 text-[9px] font-black ${deletionPreview.safeToDelete?'bg-emerald-500/15 text-emerald-300':'bg-rose-500/15 text-rose-300'}`}>{deletionPreview.safeToDelete?'можно удалить':'удаление заблокировано'}</span>
+            </div>
+
+            {deletionPreview.signals.length>0&&<div className="rounded-lg bg-slate-900 p-2"><p className="text-[9px] font-black text-slate-400">Сигналы</p><p className="mt-1 text-[9px] leading-relaxed text-slate-300">{deletionPreview.signals.join(' · ')}</p></div>}
+            {deletionPreview.blockers.length>0&&<div className="space-y-1 rounded-lg border border-rose-500/20 bg-rose-950/20 p-2">{deletionPreview.blockers.map((item,i)=><p key={i} className="text-[9px] leading-relaxed text-rose-200">• {item}</p>)}</div>}
+
+            <div className="grid grid-cols-2 gap-1.5">
+              {Object.entries(deletionPreview.counts).filter(([,value])=>value>0).map(([key,value])=><div key={key} className="rounded-lg bg-slate-900 p-2"><p className="truncate text-[8px] text-slate-500">{key}</p><p className="mt-0.5 text-[11px] font-black text-white">{value}</p></div>)}
+              {Object.values(deletionPreview.counts).every(value=>value===0)&&<div className="col-span-2 rounded-lg bg-emerald-950/20 p-2 text-[9px] text-emerald-200">Связанных документов не найдено.</div>}
+            </div>
+
+            {deletionPreview.safeToDelete&&<>
+              <div className="rounded-lg border border-rose-500/30 bg-rose-950/20 p-2.5">
+                <p className="text-[9px] font-black text-rose-200">Необратимое действие</p>
+                <p className="mt-1 text-[9px] leading-relaxed text-slate-400">Dry-run действует 10 минут. Перед удалением сервер повторно проверит все данные и отменит операцию, если что-либо изменилось.</p>
+                <p className="mt-2 text-[9px] text-slate-400">Введите код: <b className="font-mono text-white">{deletionPreview.confirmationCode}</b></p>
+                <input value={deletionConfirmation} onChange={e=>setDeletionConfirmation(e.target.value)} placeholder={deletionPreview.confirmationCode} className="mt-2 w-full rounded-lg border border-rose-500/30 bg-slate-950 px-3 py-2 text-[10px] font-mono text-white outline-none focus:border-rose-400"/>
+              </div>
+              <button onClick={()=>void executeDeletion()} disabled={saving===`delete-execute:${selectedUser.id}`||deletionConfirmation!==deletionPreview.confirmationCode} className="flex w-full items-center justify-center gap-2 rounded-xl bg-rose-600 py-2.5 text-[10px] font-black text-white disabled:opacity-30">
+                <Trash2 className="h-3.5 w-3.5"/>Удалить аккаунт окончательно
+              </button>
+            </>}
+          </div>}
         </div>
       </div>}
 
