@@ -7,6 +7,27 @@ const countQuery=async query=>{
   catch{return Number((await query.get()).size||0);}
 };
 
+export function evaluateDeletionSafety({email='',user={},counts={},authDisabled=false}={}){
+  const blockers=[];
+  if(String(email).toLowerCase()===ADMIN_EMAIL)blockers.push('Основной аккаунт администратора защищён от удаления.');
+  if(user.isVerified===true)blockers.push('Верифицированный профиль нельзя удалить через безопасную очистку.');
+  if(user.isSuspended!==true||authDisabled!==true)blockers.push('Перед удалением аккаунт должен быть ограничен и отключён в Firebase Auth.');
+  if(Number(counts.payments||0)>0||Number(counts.paymentRequests||0)>0)blockers.push('Есть платёжные данные — требуется отдельная процедура хранения/анонимизации.');
+  if(Number(counts.ratingsGiven||0)>0||Number(counts.ratingsReceived||0)>0)blockers.push('Есть рейтинги, влияющие на другие профили.');
+  if(Number(counts.reportsSent||0)>0||Number(counts.reportsReceived||0)>0)blockers.push('Есть записи модерации/жалобы, которые нельзя удалять обычной очисткой.');
+  if(Number(counts.chats||0)>0||Number(counts.friendships||0)>0||Number(counts.friendRequestsFrom||0)>0||Number(counts.friendRequestsTo||0)>0)blockers.push('Есть социальные связи или чаты.');
+  if(Number(counts.feed||0)>0||Number(counts.trainingsOwned||0)>0||Number(counts.leisureOwned||0)>0||Number(counts.stories||0)>0)blockers.push('Есть созданный пользователем контент.');
+  if(Number(user.totalWorkouts||0)>0)blockers.push('У профиля есть спортивная история.');
+  const activityCount=Object.values(counts).reduce((sum,v)=>sum+Number(v||0),0);
+  const signals=[];
+  if(user.isVerified!==true)signals.push('не верифицирован');
+  if(user.hasRealPhoto!==true)signals.push('нет подтверждённого реального фото');
+  if(Number(user.totalWorkouts||0)===0)signals.push('нет тренировок в спортивной истории');
+  if(activityCount===0)signals.push('нет связанных документов');
+  if(authDisabled===true&&user.isSuspended===true)signals.push('аккаунт предварительно ограничен');
+  return {blockers,signals,classification:blockers.length===0&&signals.length>=4?'test_candidate':'review_required',safeToDelete:blockers.length===0};
+}
+
 export async function buildUserDeletionPlan(db,auth,userId,{now=Date.now()}={}){
   const userRef=db.collection('users').doc(userId);
   const [userSnap,privateSnap,adminSnap,authUser]=await Promise.all([
@@ -45,34 +66,17 @@ export async function buildUserDeletionPlan(db,auth,userId,{now=Date.now()}={}){
   const entries=await Promise.all(Object.entries(queries).map(async([key,q])=>[key,await countQuery(q)]));
   const counts=Object.fromEntries(entries);
 
-  const blockers=[];
-  if(email===ADMIN_EMAIL)blockers.push('Основной аккаунт администратора защищён от удаления.');
-  if(user.isVerified===true)blockers.push('Верифицированный профиль нельзя удалить через безопасную очистку.');
-  if(counts.payments>0||counts.paymentRequests>0)blockers.push('Есть платёжные данные — требуется отдельная процедура хранения/анонимизации.');
-  if(counts.ratingsGiven>0||counts.ratingsReceived>0)blockers.push('Есть рейтинги, влияющие на другие профили.');
-  if(counts.reportsSent>0||counts.reportsReceived>0)blockers.push('Есть записи модерации/жалобы, которые нельзя удалять обычной очисткой.');
-  if(counts.chats>0||counts.friendships>0||counts.friendRequestsFrom>0||counts.friendRequestsTo>0)blockers.push('Есть социальные связи или чаты.');
-  if(counts.feed>0||counts.trainingsOwned>0||counts.leisureOwned>0||counts.stories>0)blockers.push('Есть созданный пользователем контент.');
-  if(Number(user.totalWorkouts||0)>0)blockers.push('У профиля есть спортивная история.');
-
-  const activityCount=Object.values(counts).reduce((sum,v)=>sum+Number(v||0),0);
-  const signals=[];
-  if(user.isVerified!==true)signals.push('не верифицирован');
-  if(user.hasRealPhoto!==true)signals.push('нет подтверждённого реального фото');
-  if(Number(user.totalWorkouts||0)===0)signals.push('нет тренировок в спортивной истории');
-  if(activityCount===0)signals.push('нет связанных документов');
-  if(authUser?.disabled===true||user.isSuspended===true)signals.push('аккаунт уже ограничен');
-
-  const classification=blockers.length===0&&signals.length>=3?'test_candidate':'review_required';
+  const safety=evaluateDeletionSafety({email,user,counts,authDisabled:authUser?.disabled===true});
+  const {blockers,signals,classification,safeToDelete}=safety;
   const snapshot={
     userId,email,name:String(user.name||'Спортсмен').slice(0,120),
     isVerified:user.isVerified===true,isSuspended:user.isSuspended===true,
     registeredAt:user.registeredAt?.toDate?.()?.toISOString?.()||String(user.registeredAt||''),
     authCreatedAt:authUser?.metadata?.creationTime||'',authLastSignInAt:authUser?.metadata?.lastSignInTime||'',
-    counts,blockers,signals,classification
+    counts,blockers,signals,classification,safeToDelete
   };
   const fingerprint=createHash('sha256').update(JSON.stringify(snapshot)).digest('hex');
-  return {...snapshot,safeToDelete:blockers.length===0,fingerprint,generatedAt:new Date(now).toISOString()};
+  return {...snapshot,fingerprint,generatedAt:new Date(now).toISOString()};
 }
 
 async function docs(query){return (await query.get()).docs;}
