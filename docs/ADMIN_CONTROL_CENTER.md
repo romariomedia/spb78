@@ -132,3 +132,46 @@ Administrators can hide a post with a mandatory reason and later restore it. Hid
 The profile queue shows verification state, suspension state and report count. Existing server-authoritative verification and reversible account suspension actions are reused rather than duplicated.
 
 Every report-status, post-hide and post-restore action is written to the admin audit trail. User report submission and all moderation mutations remain behind server endpoints; Firestore default-deny rules are unchanged.
+
+
+## V2.5 Safe user lifecycle
+
+Account deletion is intentionally implemented as a guarded lifecycle operation rather than a direct delete button.
+
+### Dry-run first
+The administrator opens a user and runs a server-side dry-run. The server checks Firebase Auth plus all currently known user-linked collections, including payments, payment requests, feed, chats, friendships, friend requests, trainings, leisure events, check-ins, stories, ratings, reports, workout credits, goals, promo codes and push devices.
+
+The preview classifies the account as either:
+- `test_candidate`: an empty, unverified, already suspended account with no blocking relationships/content;
+- `review_required`: anything that needs manual review.
+
+This classification never deletes anything automatically.
+
+### Hard blockers
+Safe deletion is refused when the account:
+- is the primary administrator account;
+- is verified;
+- is not already suspended in both profile state and Firebase Auth;
+- has payment or payment-request records;
+- has chats, friendships or friend requests;
+- has reports or ratings;
+- created feed posts, trainings, leisure events or stories;
+- participated in trainings/leisure or has check-ins;
+- has goals, workout credits or promo codes;
+- has a sports history;
+- has avatar/portfolio media that would require a separate media-storage cleanup.
+
+This conservative policy is deliberate: data that has legal, financial, social, moderation or cross-user effects is not erased by a generic cleanup action.
+
+### Confirmation and race protection
+A successful dry-run creates a short-lived 10-minute preview with:
+- a cryptographic fingerprint of the inspected account state;
+- a random confirmation code;
+- the current admin session identity.
+
+Before executing deletion, the server recalculates the full plan. If any inspected data changed, deletion is refused and a new dry-run is required. The confirmation code must match exactly.
+
+### Deletion scope
+Only an eligible empty/test account can be hard-deleted. The operation removes the profile/private/admin documents, technical notification documents, Auth identity and any remaining safe technical/user-owned documents covered by the planner. References in participant/profile arrays are also cleaned defensively.
+
+The final action is written to `adminAuditLogs`. Hard deletion of real or historically active users is intentionally outside this workflow and requires a dedicated retention/anonymization process.
