@@ -4,6 +4,7 @@ import { PhotoEditor } from './components/PhotoEditor';
 import { Stories } from './components/Stories';
 import { AvatarImage } from './components/AvatarImage';
 import { NotificationSettings } from './components/NotificationSettings';
+import { AppAnnouncements } from './components/AppAnnouncements';
 import { subscribeNotifications,restorePush,readNotifications } from './services/notifications';
 import { trainingGenderError, trainingGenderLabel } from './lib/trainingEligibility';
 import { BetaNotice } from './components/BetaNotice';
@@ -1747,6 +1748,7 @@ export default function App(): JSX.Element {
       {(loadError || loadWarning) && <div role="status" className="mx-4 my-2 rounded-xl bg-amber-500/15 p-3 text-sm text-amber-200">
         {loadError || loadWarning}
       </div>}
+      <AppAnnouncements placement={activeTab} />
 
       {/* Offline Pending Action Toast */}
       {pendingSyncCount > 0 && (

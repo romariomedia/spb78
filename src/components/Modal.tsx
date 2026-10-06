@@ -10,7 +10,7 @@ interface ModalProps {
   subtitle?: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
-  maxWidth?: 'sm' | 'md' | 'lg' | 'xl';
+  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | 'admin';
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -44,7 +44,8 @@ export const Modal: React.FC<ModalProps> = ({
     sm: 'max-w-sm',
     md: 'max-w-md',
     lg: 'max-w-lg',
-    xl: 'max-w-2xl'
+    xl: 'max-w-2xl',
+    admin: 'max-w-[1480px]'
   }[maxWidth];
 
   const handleClose = () => {
@@ -55,7 +56,7 @@ export const Modal: React.FC<ModalProps> = ({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 lg:p-6 overflow-y-auto">
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
@@ -71,7 +72,7 @@ export const Modal: React.FC<ModalProps> = ({
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.95, opacity: 0, y: 15 }}
             transition={{ type: "spring", damping: 24, stiffness: 320 }}
-            className={`relative w-full ${maxWClasses} bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden z-10 flex flex-col max-h-[90vh]`}
+            className={`relative w-full ${maxWClasses} bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden z-10 flex flex-col max-h-[94vh]`}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -90,7 +91,7 @@ export const Modal: React.FC<ModalProps> = ({
             </div>
 
             {/* Body */}
-            <div className="p-5 overflow-y-auto no-scrollbar flex-1 space-y-4 text-slate-200">
+            <div className="p-3 sm:p-5 lg:p-6 overflow-y-auto no-scrollbar flex-1 space-y-4 text-slate-200">
               {children}
             </div>
 

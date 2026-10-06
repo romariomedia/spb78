@@ -88,3 +88,25 @@ The UI deliberately says "processed", not "delivered": an FCM provider acceptanc
 - campaign confirmation expires after 10 minutes;
 - account suspension always excludes the user from new admin campaigns;
 - every send/cancel action is recorded in the admin audit log.
+
+
+## V2.3 Desktop Control Center and announcements
+
+The administrator workspace is now adaptive rather than mobile-width-first. The regular application modal sizes are unchanged; only the Control Center uses the new wide admin modal (up to 1480px) with larger desktop working space. Navigation stays horizontally scrollable on phones and becomes an eight-column control bar on large screens. Dashboard metrics, user cards and push history expand into desktop grids, while mobile layouts remain single-column where appropriate.
+
+### Banners and system announcements
+A dedicated **Объявления** workspace manages in-app communication without a deploy:
+- title and message;
+- optional image uploaded through the existing media pipeline;
+- optional internal action button;
+- placement: global, Dating, Trainings, Active Leisure, Feed or Profile;
+- audience: everyone, verified profiles, one district or one sport;
+- start/end schedule;
+- priority;
+- active/inactive status;
+- dismissible/non-dismissible behavior;
+- responsive live preview.
+
+Only internal SportBuddy hash destinations are accepted. District audience values are validated against the shared district dictionary. Every create, update and delete is OTP-session protected and appended to the admin audit log.
+
+The user endpoint requires a valid Firebase identity and filters active announcements server-side against the user's actual verification, district and sports fields. Direct Firestore access to the announcements collection remains denied by the existing default-deny rules.
