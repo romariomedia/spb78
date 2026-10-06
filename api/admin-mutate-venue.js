@@ -49,6 +49,7 @@ function sanitizeVenue(input, id) {
     contactName: optionalString(input?.contactName, 160),
     isVerified: input?.isVerified === true,
     isPublished: input?.isPublished !== false,
+    archived: false,
     updatedAt: new Date().toISOString()
   };
 }
@@ -68,28 +69,39 @@ export default async function handler(req, res) {
     const session = await requireAdminSession(db, body.sessionId);
     const operation = String(body.operation || '');
 
+    if (operation === 'list') {
+      const snap = await db.collection('venues').get();
+      return res.status(200).json({
+        venues: snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+      });
+    }
+
     if (operation === 'seed') {
       const venues = Array.isArray(body.venues) ? body.venues.slice(0, 100) : [];
       if (!venues.length) return res.status(400).json({ error: 'Venue list required.' });
+      const existingSnap = await db.collection('venues').get();
+      const existingIds = new Set(existingSnap.docs.map(doc => doc.id));
       const batch = db.batch();
-      let accepted = 0;
+      let created = 0;
+      let skipped = 0;
       for (const raw of venues) {
         const id = cleanString(raw?.id, 120);
         if (!id || id.includes('/')) continue;
+        if (existingIds.has(id)) { skipped++; continue; }
         const venue = sanitizeVenue(raw, id);
         try { validateVenue(venue); } catch { continue; }
-        batch.set(db.collection('venues').doc(id), venue, { merge: true });
-        accepted++;
+        batch.set(db.collection('venues').doc(id), venue, { merge: false });
+        created++;
       }
-      await batch.commit();
+      if (created) await batch.commit();
       await writeAdminAudit(db, session, {
         action:'venue.seed',
         entityType:'venueCatalog',
         entityId:'venues',
-        after:{ accepted, submitted:venues.length },
+        after:{ created, skipped, submitted:venues.length },
         requestId:String(body.requestId || '')
       });
-      return res.status(200).json({ ok: true, count: accepted });
+      return res.status(200).json({ ok: true, count: created, skipped });
     }
 
     const venueId = cleanString(body.venueId, 120);
@@ -100,8 +112,12 @@ export default async function handler(req, res) {
     let after = null;
 
     if (operation === 'delete') {
-      if (!beforeSnap.exists) return res.status(404).json({ error: 'Venue not found.' });
-      await ref.delete();
+      if (!beforeSnap.exists) {
+        after = { id: venueId, isPublished:false, archived:true, updatedAt:new Date().toISOString() };
+      } else {
+        after = { ...before, id: venueId, isPublished:false, archived:true, updatedAt:new Date().toISOString() };
+      }
+      await ref.set(after, { merge:false });
     } else if (operation === 'create') {
       if (beforeSnap.exists) return res.status(409).json({ error: 'Venue already exists.' });
       const venue = sanitizeVenue(body.venue, venueId);

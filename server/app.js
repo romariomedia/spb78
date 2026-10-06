@@ -7,7 +7,7 @@ import { join } from 'node:path';
 export const API_ROUTES = Object.freeze([
   'create-payment', 'payment-webhook', 'verify-profile', 'delete-expired-profile',
   'send-password-reset', 'vk-login', 'feed-create', 'admin-request-otp',
-  'admin-verify-otp', 'admin-session', 'admin-dashboard', 'admin-audit', 'admin-mutate-event', 'admin-mutate-venue', 'admin-mutate-leisure', 'sportbuddy-mutation', 'notifications', 'stories', 'leisure'
+  'admin-verify-otp', 'admin-session', 'admin-dashboard', 'admin-audit', 'admin-mutate-event', 'admin-mutate-venue', 'admin-mutate-leisure', 'sportbuddy-mutation', 'notifications', 'stories', 'leisure', 'venues'
 ]);
 
 export async function createApiApp({ apiDir }) {
