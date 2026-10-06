@@ -181,7 +181,7 @@ export function AdminManagementPanel(){
         </div>
       </div>}
 
-      <div className="space-y-2">
+      <div className="grid gap-2 xl:grid-cols-2">
         {visibleUsers.length===0&&!loading&&<div className="rounded-2xl border border-slate-800 bg-slate-950 p-4 text-center text-[11px] text-slate-500">Пользователи не найдены.</div>}
         {visibleUsers.map(user=><article key={user.id} className={`rounded-2xl border bg-slate-950 p-3 ${user.isSuspended?'border-rose-500/30':'border-slate-800'}`}>
           <div className="flex items-start justify-between gap-3">
