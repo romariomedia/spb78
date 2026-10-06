@@ -24,6 +24,7 @@ export interface DeclaredSportAchievement {
   title: string;
   date?: string;
   sport?: string;
+  placement?: string;
   verification: 'declared';
 }
 
@@ -33,6 +34,8 @@ export interface SportPassportProfile {
   rankTitle?: string;
   yearsExperience: number;
   declaredAchievements: DeclaredSportAchievement[];
+  publicEnabled?: boolean;
+  publicSlug?: string;
   updatedAt?: string;
 }
 
