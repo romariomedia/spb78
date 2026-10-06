@@ -2,6 +2,7 @@ import {cert,getApps,initializeApp} from 'firebase-admin/app';
 import {getAuth} from 'firebase-admin/auth';
 import {getFirestore} from 'firebase-admin/firestore';
 import {createStory,listStories,readStory,deleteStory} from '../server/stories.js';
+import {requireActiveUser} from '../server/user-status.js';
 const rates=new Map();
 function rateLimit(uid){
  const now=Date.now();for(const [key,value] of rates)if(value.until<=now)rates.delete(key);
@@ -15,6 +16,7 @@ export default async function handler(req,res){
   if(!getApps().length)initializeApp({credential:cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY||'{}'))});
   const token=String(req.headers.authorization||'').replace(/^Bearer\s+/i,'');
   const {uid}=await getAuth().verifyIdToken(token,true),db=getFirestore();
+  await requireActiveUser(db,uid);
   rateLimit(uid);
   if(req.body?.action==='list')return res.json(await listStories(db,req.body.cursor));
   if(req.body?.action==='read')return res.json(await readStory(db,req.body.id));
