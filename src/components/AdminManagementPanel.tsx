@@ -191,7 +191,7 @@ export function AdminManagementPanel(){
             <p className="mt-1 text-[9px] leading-relaxed text-slate-500">Для тестовых аккаунтов можно исключить регистрацию и активность из DAU, retention и времени.</p>
           </div>
           <button
-            onClick={()=>void mutate(`analytics:${selectedUser.id}`,()=>setAdminUserAnalyticsExcluded(selectedUser.id,!selectedUser.analyticsExcluded))}
+            onClick={()=>void mutate(`analytics:${selectedUser.id}`,async()=>{const next=!selectedUser.analyticsExcluded;await setAdminUserAnalyticsExcluded(selectedUser.id,next);setSelectedUser(prev=>prev?{...prev,analyticsExcluded:next}:prev);})}
             className={`shrink-0 rounded-xl px-3 py-2 text-[9px] font-black ${selectedUser.analyticsExcluded?'bg-amber-500 text-slate-950':'border border-slate-700 bg-slate-950 text-slate-300'}`}
           >
             {selectedUser.analyticsExcluded?'Исключён':'Учитывается'}
