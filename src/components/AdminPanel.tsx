@@ -24,6 +24,7 @@ import { PlacesAdminPanel } from './PlacesAdminPanel';
 import { AdminDashboard } from './AdminDashboard';
 import { LeisureAdminPanel } from './LeisureAdminPanel';
 import { AdminAuditPanel } from './AdminAuditPanel';
+import { AdminManagementPanel } from './AdminManagementPanel';
 
 import { SPORT_TAGS as SPORTS } from '../lib/types';
 
@@ -40,7 +41,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 }) => {
   const admin = authorized;
 
-  const [adminView, setAdminView] = useState<'overview'|'venues'|'leisure'|'events'|'audit'>('overview');
+  const [adminView, setAdminView] = useState<'overview'|'manage'|'venues'|'leisure'|'events'|'audit'>('overview');
   const [creating, setCreating] = useState(false);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -206,9 +207,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         maxWidth="lg"
       >
         <div className="space-y-4" key={refresh}>
-          <div className="grid grid-cols-5 gap-1 rounded-2xl border border-slate-800 bg-slate-950 p-1">
+          <div className="flex gap-1 overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950 p-1">
             {([
               ['overview','Обзор'],
+              ['manage','Управление'],
               ['venues','Площадки'],
               ['leisure','Отдых'],
               ['events','События'],
@@ -218,7 +220,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 key={id}
                 type="button"
                 onClick={() => setAdminView(id)}
-                className={`rounded-xl px-2 py-2 text-[10px] font-black transition ${adminView===id?'bg-emerald-500 text-slate-950':'text-slate-400 hover:text-white'}`}
+                className={`shrink-0 rounded-xl px-3 py-2 text-[10px] font-black transition ${adminView===id?'bg-emerald-500 text-slate-950':'text-slate-400 hover:text-white'}`}
               >
                 {label}
               </button>
@@ -226,6 +228,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
 
           {adminView === 'overview' && <AdminDashboard />}
+          {adminView === 'manage' && <AdminManagementPanel />}
           {adminView === 'venues' && <PlacesAdminPanel />}
           {adminView === 'leisure' && <LeisureAdminPanel />}
           {adminView === 'audit' && <AdminAuditPanel />}

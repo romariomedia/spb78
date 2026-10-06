@@ -232,6 +232,10 @@ async function chatMutation(db, uid, body) {
 
 async function matchMutation(db, uid, targetUserId) {
   if (!targetUserId || targetUserId === uid) throw Object.assign(new Error('Некорректный пользователь'), { status: 400 });
+  const configSnap = await db.collection('appConfig').doc('main').get().catch(() => null);
+  const product = configSnap?.exists ? (configSnap.data()?.product || {}) : {};
+  const freeMatchLimit = Number.isInteger(Number(product.freeMatches)) && Number(product.freeMatches) >= 0 && Number(product.freeMatches) <= 100 ? Number(product.freeMatches) : 5;
+  const matchWindowDays = Number.isInteger(Number(product.matchWindowDays)) && Number(product.matchWindowDays) >= 1 && Number(product.matchWindowDays) <= 365 ? Number(product.matchWindowDays) : 7;
   const meRef = db.collection('users').doc(uid), targetRef = db.collection('users').doc(targetUserId);
   return db.runTransaction(async tx => {
     const meSnap = await tx.get(meRef); const targetSnap = await tx.get(targetRef);
@@ -239,7 +243,7 @@ async function matchMutation(db, uid, targetUserId) {
     const me = meSnap.data(), target = targetSnap.data();
     const liked = cleanArray(me.likedUserIds), targetLiked = cleanArray(target.likedUserIds);
     const myMatches = cleanArray(me.matchIds), targetMatches = cleanArray(target.matchIds);
-    const now = Date.now(), cutoff = now - 7 * 24 * 60 * 60 * 1000;
+    const now = Date.now(), cutoff = now - matchWindowDays * 24 * 60 * 60 * 1000;
     const history = (Array.isArray(me.matchHistory) ? me.matchHistory : []).filter(x => x && typeof x.userId === 'string' && Number(x.at) > cutoff);
     const targetHistory = (Array.isArray(target.matchHistory) ? target.matchHistory : []).filter(x => x && typeof x.userId === 'string' && Number(x.at) > cutoff);
     if (liked.includes(targetUserId)) {
@@ -248,11 +252,11 @@ async function matchMutation(db, uid, targetUserId) {
       return { isLiked: false, isMatch: myMatches.includes(targetUserId), matchIds: myMatches, likedUserIds: nextLiked };
     }
     const mutual = targetLiked.includes(uid);
-    if (mutual && !myMatches.includes(targetUserId) && !premiumActive(me) && history.length >= 5) {
-      throw Object.assign(new Error('Бесплатный тариф: максимум 5 взаимных мэтчей за 7 дней'), { status: 409, code: 'MATCH_LIMIT' });
+    if (mutual && !myMatches.includes(targetUserId) && !premiumActive(me) && history.length >= freeMatchLimit) {
+      throw Object.assign(new Error(`Бесплатный тариф: максимум ${freeMatchLimit} взаимных мэтчей за ${matchWindowDays} дней`), { status: 409, code: 'MATCH_LIMIT' });
     }
-    if (mutual && !targetMatches.includes(uid) && !premiumActive(target) && targetHistory.length >= 5) {
-      throw Object.assign(new Error('У второго участника исчерпан лимит мэтчей за 7 дней'), { status: 409, code: 'MATCH_LIMIT' });
+    if (mutual && !targetMatches.includes(uid) && !premiumActive(target) && targetHistory.length >= freeMatchLimit) {
+      throw Object.assign(new Error(`У второго участника исчерпан лимит мэтчей за ${matchWindowDays} дней`), { status: 409, code: 'MATCH_LIMIT' });
     }
     const nextLiked = [...liked, targetUserId];
     if (!mutual) {
