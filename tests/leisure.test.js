@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import {readFile,stat} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {createLeisure,changeLeisure,leisureInput,listLeisure,listLeisureDestinations} from '../server/leisure.js';
-import {LEISURE_DESTINATIONS} from '../shared/leisure-destinations.js';
+import {LEISURE_DESTINATIONS,LEISURE_CATALOG} from '../shared/leisure-destinations.js';
+import {WINTER_RINKS} from '../shared/winter-rinks.js';
 const now=Date.parse('2026-10-06T12:00:00+03:00');
 const draft=(extra={})=>({requestId:'request-test-123',destinationId:'ruskeala',title:'Вместе в Рускеалу',date:'2026-10-10',time:'09:00',meetingPoint:'Санкт-Петербург, Финляндский вокзал',transport:'Поезд, билеты каждый покупает сам',costs:'Дорога и билет в парк отдельно',description:'Прогулка вокруг каньона',capacity:2,participantGender:'any',...extra});
 function fixture(){
@@ -69,13 +70,26 @@ test('all three regions have distinct real lightweight destination photos and of
 test('managed leisure catalog overrides static fallback after admin seeding',async()=>{
  const f=fixture();
  const staticList=await listLeisureDestinations(f.db);
- assert.equal(staticList.length,9);
+ assert.equal(staticList.length,16);
  f.records.set('leisureDestinations/custom-place',{name:'Новое место',region:'lo',format:'Прогулка',pace:'Спокойный',description:'Достаточно длинное описание нового направления для каталога.',plan:'Пройти маршрут вместе с группой.',access:'Перед поездкой проверить условия посещения.',source:'https://example.com',photo:'https://example.com/p.jpg',photoCredit:'Источник',isPublished:true});
  f.records.set('leisureDestinations/ruskeala',{name:'Рускеала скрыта',region:'karelia',isPublished:false,archived:true});
  const managed=await listLeisureDestinations(f.db);
- assert.equal(managed.length,9);
+ assert.equal(managed.length,16);
  assert.ok(managed.some(item=>item.id==='custom-place'));
  assert.equal(managed.some(item=>item.id==='ruskeala'),false);
  const created=await createLeisure(f.db,'a',draft({destinationId:'custom-place'}),now);
  assert.equal(created.destinationId,'custom-place');
+});
+
+test('winter rink catalog has contact-first data without pretending old prices are current',()=>{
+ assert.equal(WINTER_RINKS.length,7);
+ for(const rink of WINTER_RINKS){
+  assert.equal(rink.category,'rink');
+  assert.match(rink.source,/^https:\/\//);
+  assert.ok(rink.address.length>5);
+  assert.ok(rink.phone || rink.website);
+  assert.ok(rink.priceText.includes('уточн'));
+  assert.equal(rink.priceStatus,'verify');
+ }
+ assert.equal(LEISURE_CATALOG.length,16);
 });
