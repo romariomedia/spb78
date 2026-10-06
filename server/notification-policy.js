@@ -28,8 +28,8 @@ export function matchesTraining(user,t,radiusKm=25) {
 // Called INSIDE the business transaction: either both writes commit or neither does.
 export function enqueueNotification(tx,db,{id,...job}) {
   tx.set(db.collection('notificationOutbox').doc(notificationId(id)),{
-    ...job,title:String(job.title||'SportBuddy').slice(0,100),message:String(job.message||'').slice(0,240),link:String(job.link||'#notifications').slice(0,512),eventId:notificationId(id),createdAt:Date.now(),expiresAt:Date.now()+86400000,
-    status:'pending',nextAttemptAt:0,attempts:0,cursor:'',offset:0
+    ...job,title:String(job.title||'SportBuddy').slice(0,100),message:String(job.message||'').slice(0,240),link:String(job.link||'#notifications').slice(0,512),eventId:notificationId(id),createdAt:Date.now(),expiresAt:Number(job.expiresAt)||Date.now()+86400000,
+    status:'pending',nextAttemptAt:Number(job.nextAttemptAt)||0,attempts:0,cursor:'',offset:0
   });
 }
 export function mergeInbox(entries,item,now=Date.now()) {
