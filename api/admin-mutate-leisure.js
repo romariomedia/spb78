@@ -69,14 +69,19 @@ export default async function handler(req,res){
       return res.json({destinations:snap.docs.map(d=>({id:d.id,...d.data()}))});
     }
     if(operation==='seed'){
+      const existing=await db.collection('leisureDestinations').get();
+      const ids=new Set(existing.docs.map(doc=>doc.id));
       const batch=db.batch();
+      let created=0,skipped=0;
       for(const raw of LEISURE_CATALOG){
+        if(ids.has(raw.id)){skipped++;continue;}
         const item=sanitize({...raw,isPublished:true},raw.id);
-        batch.set(db.collection('leisureDestinations').doc(raw.id),item,{merge:true});
+        batch.set(db.collection('leisureDestinations').doc(raw.id),item,{merge:false});
+        created++;
       }
-      await batch.commit();
-      await writeAdminAudit(db,session,{action:'leisure.seed',entityType:'leisureCatalog',entityId:'leisureDestinations',after:{count:LEISURE_CATALOG.length}});
-      return res.json({ok:true,count:LEISURE_CATALOG.length});
+      if(created)await batch.commit();
+      await writeAdminAudit(db,session,{action:'leisure.seed',entityType:'leisureCatalog',entityId:'leisureDestinations',after:{created,skipped,submitted:LEISURE_CATALOG.length}});
+      return res.json({ok:true,count:created,skipped});
     }
     const id=text(body.destinationId,100);
     if(!id||!/^[a-z0-9][a-z0-9_-]{1,99}$/i.test(id))return res.status(400).json({error:'Destination id required.'});
