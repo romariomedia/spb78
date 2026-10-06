@@ -33,7 +33,7 @@ export interface SportPassportSnapshot {
 }
 export interface SportPassportDraft {
   mainSport:string;level:SportPassportLevel;rankTitle:string;yearsExperience:number;
-  declaredAchievements:Array<{id:string;title:string;date?:string;sport?:string;verification:'declared'}>;
+  declaredAchievements:Array<{id:string;title:string;date?:string;sport?:string;placement?:string;verification:'declared'}>;
 }
 
 async function call<T>(body:Record<string,unknown>):Promise<T>{
