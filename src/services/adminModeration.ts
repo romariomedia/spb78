@@ -1,0 +1,8 @@
+import { getAdminSession } from './adminAuth';
+export interface ModerationReport{ id:string;type:string;reporterId:string;reporterName:string;targetUserId:string;targetName:string;chatId:string;reason:string;details:string;excerpt:Array<{senderId:string;text:string;timestamp:number}>;status:string;createdAt:string;moderationNote?:string; }
+export interface ModerationPost{ id:string;authorId:string;authorName:string;authorAvatar?:string;sportTag:string;content:string;mediaUrl?:string;mediaType?:'image'|'video';createdAt:string;isHidden?:boolean;hiddenReason?:string; }
+export interface ModerationProfile{ id:string;name:string;avatar:string;districtId:string;sports:string[];isVerified:boolean;isSuspended:boolean;hasRealPhoto:boolean;registeredAt:string;reportCount:number; }
+async function post<T>(body:Record<string,unknown>):Promise<T>{const session=getAdminSession();if(!session)throw new Error('admin-otp-required');const response=await fetch('/api/admin-moderation',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...body,sessionId:session.sessionId})});const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.error||`HTTP ${response.status}`);return data as T;}
+export async function loadModeration(){return post<{reports:ModerationReport[];posts:ModerationPost[];profiles:ModerationProfile[]}>({operation:'list'});}
+export async function setReportStatus(id:string,status:string,note=''){await post({operation:'setReportStatus',id,status,note,requestId:crypto.randomUUID?.()||String(Date.now())});}
+export async function setPostHidden(id:string,hidden:boolean,reason=''){await post({operation:'setPostHidden',id,hidden,reason,requestId:crypto.randomUUID?.()||String(Date.now())});}
