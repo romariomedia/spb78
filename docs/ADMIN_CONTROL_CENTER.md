@@ -175,3 +175,39 @@ Before executing deletion, the server recalculates the full plan. If any inspect
 Only an eligible empty/test account can be hard-deleted. The operation removes the profile/private/admin documents, technical notification documents, Auth identity and any remaining safe technical/user-owned documents covered by the planner. References in participant/profile arrays are also cleaned defensively.
 
 The final action is written to `adminAuditLogs`. Hard deletion of real or historically active users is intentionally outside this workflow and requires a dedicated retention/anonymization process.
+
+
+## V2.6 Weekly Product Analytics
+
+The Control Center now has a dedicated **Аналитика** workspace designed for weekly product decisions.
+
+### Metrics
+- **Registrations 7d** — current seven Moscow calendar days, compared with the previous seven.
+- **DAU** — unique non-excluded authenticated users with an analytics pulse today.
+- **WAU** — unique non-excluded authenticated users active during the last seven days.
+- **D7 retention** — users registered exactly seven Moscow calendar days ago who are active today, divided by that registration cohort.
+- **Average active time** — total visible foreground time divided by active user-days over the last seven days.
+- **Average session** — total visible foreground time divided by recorded app sessions.
+
+The dashboard also shows a seven-day DAU/registration trend. Today's values are naturally partial until the day closes.
+
+### Activity collection
+The app sends a server-authenticated activity pulse while the authenticated application is visible. Hidden/background time is not counted. The server does not trust a client-provided duration blindly: credited seconds are capped by wall-clock time since the previous accepted pulse and by a maximum pulse size.
+
+Only daily aggregates are stored:
+- user id;
+- Moscow calendar day;
+- active seconds;
+- session count;
+- first/last activity timestamps;
+- bounded per-day session sequence state for retry deduplication.
+
+No viewed screens, message contents, GPS points or typed content are collected by this analytics module.
+
+### Historical honesty
+Registration history is computed from the authoritative user registration timestamps. Active-time history begins only when this telemetry ships. The dashboard explicitly reports its tracking start/coverage and never fabricates historical engagement time.
+
+### Test accounts
+The primary admin identity and legacy demo profiles are excluded automatically from the dashboard. Other known test accounts can be marked **excluded from product analytics** from the user detail card. This changes analytics only; it does not alter account permissions or product functionality.
+
+The exclusion action is OTP-admin protected and written to the audit trail.
