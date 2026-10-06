@@ -10,7 +10,8 @@ function label(entry:AdminAuditEntry){
     'session.revoke':'Завершена сессия администратора',
     'user.setVerification':'Изменена верификация пользователя','user.setPremiumUntil':'Изменён Premium пользователя','user.setSuspension':'Изменён статус ограничения пользователя',
     'config.flags.update':'Изменены Feature Flags','config.product.update':'Изменены настройки продукта',
-    'push.send':'Создана push-рассылка','push.cancel':'Отменена push-рассылка'
+    'push.send':'Создана push-рассылка','push.cancel':'Отменена push-рассылка',
+    'announcement.create':'Создано объявление','announcement.update':'Изменено объявление','announcement.delete':'Удалено объявление'
   };
   return names[entry.action]||entry.action;
 }
