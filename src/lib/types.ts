@@ -425,6 +425,8 @@ export interface FeedPost {
   likes: string[]; // User IDs who liked
   commentsCount: number;
   createdAt: string;
+  isHidden?: boolean;
+  hiddenReason?: string;
   comments?: PostComment[];
 }
 
