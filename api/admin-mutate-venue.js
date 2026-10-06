@@ -15,7 +15,7 @@ function cleanString(value, max = 300) {
 }
 function optionalString(value, max = 300) {
   const result = cleanString(value, max);
-  return result || undefined;
+  return result || null;
 }
 function sanitizeVenue(input, id) {
   const sports = Array.isArray(input?.sports)
@@ -129,6 +129,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok:true, venue:after });
   } catch (error) {
     const status = Number(error?.status || 500);
+    if (status === 500) console.error('[admin-mutate-venue]', error);
     return res.status(status).json({ error: status === 500 ? 'Venue mutation failed.' : error.message });
   }
 }
