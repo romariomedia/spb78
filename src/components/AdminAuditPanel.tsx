@@ -7,7 +7,9 @@ function label(entry:AdminAuditEntry){
     'event.create':'Создано событие','event.update':'Изменено событие','event.delete':'Удалено событие',
     'venue.create':'Создана площадка','venue.update':'Изменена площадка','venue.delete':'Удалена площадка','venue.seed':'Импортированы площадки',
     'leisure.create':'Добавлено направление','leisure.update':'Изменено направление','leisure.delete':'Удалено направление','leisure.seed':'Импортирован активный отдых',
-    'session.revoke':'Завершена сессия администратора'
+    'session.revoke':'Завершена сессия администратора',
+    'user.setVerification':'Изменена верификация пользователя','user.setPremiumUntil':'Изменён Premium пользователя',
+    'config.flags.update':'Изменены Feature Flags','config.product.update':'Изменены настройки продукта'
   };
   return names[entry.action]||entry.action;
 }
