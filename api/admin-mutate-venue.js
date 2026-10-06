@@ -109,8 +109,8 @@ export default async function handler(req, res) {
       await ref.create(venue);
       after = venue;
     } else if (operation === 'update') {
-      if (!beforeSnap.exists) return res.status(404).json({ error: 'Venue not found.' });
-      const venue = sanitizeVenue({ ...before, ...(body.patch || {}) }, venueId);
+      const source = beforeSnap.exists ? { ...before, ...(body.patch || {}) } : (body.patch || {});
+      const venue = sanitizeVenue(source, venueId);
       validateVenue(venue);
       await ref.set(venue, { merge: false });
       after = venue;
