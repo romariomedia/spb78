@@ -7,7 +7,7 @@ export interface SportPassportAchievement {
   date?:string;
   sport?:string;
   placement?:string;
-  verification:'declared'|'sportbuddy';
+  verification:'declared'|'verified'|'sportbuddy';
 }
 export interface SportPassportHistoryItem {
   id:string;trainingId:string;title:string;sport:string;dateKey:string;locationName:string;timestamp:number;verified:boolean;
@@ -21,7 +21,8 @@ export interface SportPassportSnapshot {
   };
   profile:{
     mainSport:string;level:SportPassportLevel;levelLabel:string;rankTitle:string;yearsExperience:number;
-    declaredAchievements:Array<{id:string;title:string;date?:string;sport?:string;placement?:string;verification:'declared'}>;
+    declaredAchievements:Array<{id:string;title:string;date?:string;sport?:string;placement?:string;verification:'declared'|'verified'}>;
+    rankVerification:'declared'|'verified';
   };
   stats:{
     totalWorkouts:number;verifiedCheckins:number;organizedTrainings:number;rating:number;ratingCount:number;sportBuddyWins:number;sportBuddyPodiums:number;
@@ -33,7 +34,7 @@ export interface SportPassportSnapshot {
 }
 export interface SportPassportDraft {
   mainSport:string;level:SportPassportLevel;rankTitle:string;yearsExperience:number;
-  declaredAchievements:Array<{id:string;title:string;date?:string;sport?:string;placement?:string;verification:'declared'}>;
+  declaredAchievements:Array<{id:string;title:string;date?:string;sport?:string;placement?:string;verification:'declared'|'verified'}>;
 }
 
 async function call<T>(body:Record<string,unknown>):Promise<T>{

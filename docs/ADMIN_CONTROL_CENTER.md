@@ -211,3 +211,21 @@ Registration history is computed from the authoritative user registration timest
 The primary admin identity and legacy demo profiles are excluded automatically from the dashboard. Other known test accounts can be marked **excluded from product analytics** from the user detail card. This changes analytics only; it does not alter account permissions or product functionality.
 
 The exclusion action is OTP-admin protected and written to the audit trail.
+
+
+## V2.7 SportBuddy78 ID Verification Center
+
+Control Center has a dedicated **Верификация** workspace for validating user-declared facts in the SportBuddy78 ID.
+
+Supported claims:
+- sport rank / status;
+- one declared achievement.
+
+Admin approval is guarded by a server-side fingerprint check against the athlete's current ID state. If the claim changed after submission, approval is refused. Approved claims can be revoked with a required reason.
+
+Evidence remains private to the athlete/admin verification flow and is not returned by the public QR ID endpoint.
+
+Audit actions:
+- `sportId.verification.approve`;
+- `sportId.verification.reject`;
+- `sportId.verification.revoke`.

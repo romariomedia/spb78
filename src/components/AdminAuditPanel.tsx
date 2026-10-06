@@ -13,7 +13,8 @@ function label(entry:AdminAuditEntry){
     'push.send':'Создана push-рассылка','push.cancel':'Отменена push-рассылка',
     'announcement.create':'Создано объявление','announcement.update':'Изменено объявление','announcement.delete':'Удалено объявление',
     'moderation.report.status':'Изменён статус жалобы','moderation.post.hide':'Скрыта публикация','moderation.post.restore':'Восстановлена публикация',
-    'user.deleteSafe':'Безопасно удалён аккаунт','user.setAnalyticsExcluded':'Изменено участие аккаунта в аналитике'
+    'user.deleteSafe':'Безопасно удалён аккаунт','user.setAnalyticsExcluded':'Изменено участие аккаунта в аналитике',
+    'sportId.verification.approve':'Подтверждён факт Спортивного ID','sportId.verification.reject':'Отклонена заявка Спортивного ID','sportId.verification.revoke':'Отозвано подтверждение Спортивного ID'
   };
   return names[entry.action]||entry.action;
 }

@@ -4,16 +4,18 @@ import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 import { competitionStats,levelLabel,sanitizeSportPassportDraft } from '../server/sport-passport.js';
 import { requireActiveUser } from '../server/user-status.js';
+import { applyVerifiedClaims,claimFingerprint,claimFromPassport } from '../server/sport-id-verification.js';
 
 if(!getApps().length)initializeApp({credential:cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY||'{}'))});
 
 const clean=(value,max=300)=>typeof value==='string'?value.trim().slice(0,max):'';
 
 async function buildSportIdSnapshot(db,uid,user){
-  const [checkinsSnap,ownedSnap,resultsSnap]=await Promise.all([
+  const [checkinsSnap,ownedSnap,resultsSnap,claimsSnap]=await Promise.all([
     db.collection('checkins').where('userId','==',uid).get().catch(()=>null),
     db.collection('trainings').where('createdBy','==',uid).get().catch(()=>null),
-    db.collection('sportPassportResults').where('userId','==',uid).get().catch(()=>null)
+    db.collection('sportPassportResults').where('userId','==',uid).get().catch(()=>null),
+    db.collection('sportVerifiedClaims').where('userId','==',uid).get().catch(()=>null)
   ]);
   const checkins=(checkinsSnap?.docs||[]).map(d=>d.data()||{}).sort((a,b)=>Number(b.timestamp||0)-Number(a.timestamp||0));
   const trainingIds=[...new Set(checkins.map(x=>String(x.trainingId||'')).filter(Boolean))].slice(0,30);
@@ -38,20 +40,21 @@ async function buildSportIdSnapshot(db,uid,user){
     }));
   const comp=competitionStats(officialResults);
   const draft=sanitizeSportPassportDraft(user.sportPassport||{},Array.isArray(user.sports)?user.sports:[]);
+  const verified=applyVerifiedClaims(draft,(claimsSnap?.docs||[]).map(doc=>doc.data()||{}));
   return {
     identity:{
       id:uid,name:clean(user.name,120)||'Спортсмен',avatar:clean(user.avatar,2000),
       districtId:clean(user.districtId,80),locationName:clean(user.locationName,180),
       isVerified:user.isVerified===true,registeredAt:user.registeredAt?.toDate?.()?.toISOString?.()||String(user.registeredAt||'')
     },
-    profile:{...draft,levelLabel:levelLabel(draft.level)},
+    profile:{...draft,declaredAchievements:verified.achievements,rankVerification:verified.rankVerification,levelLabel:levelLabel(draft.level)},
     public:{enabled:draft.publicEnabled===true,slug:draft.publicSlug||''},
     stats:{
       totalWorkouts:Number(user.totalWorkouts||0),verifiedCheckins:checkins.filter(x=>x.verified===true).length,
       organizedTrainings:ownedSnap?.size||0,rating:Number(user.rating||0),ratingCount:Number(user.ratingCount||0),
       sportBuddyWins:comp.wins,sportBuddyPodiums:comp.podiums
     },
-    achievements:draft.declaredAchievements,
+    achievements:verified.achievements,
     officialResults,history
   };
 }
@@ -72,6 +75,28 @@ export default async function handler(req,res){
       const current=sanitizeSportPassportDraft(user.sportPassport||{},Array.isArray(user.sports)?user.sports:[]);
       const next=sanitizeSportPassportDraft({...req.body?.sportId,publicEnabled:current.publicEnabled,publicSlug:current.publicSlug},Array.isArray(user.sports)?user.sports:[]);
       await db.collection('users').doc(uid).update({sportPassport:{...next,updatedAt:new Date().toISOString()}});
+      const claims=await db.collection('sportVerifiedClaims').where('userId','==',uid).get().catch(()=>null);
+      const stale=[];
+      for(const doc of claims?.docs||[]){
+        const claim=doc.data()||{};
+        try{
+          const current=claimFromPassport(next,claim);
+          if(claimFingerprint(current)!==claim.fingerprint)stale.push({doc,claim});
+        }catch{stale.push({doc,claim});}
+      }
+      if(stale.length){
+        const batch=db.batch(),now=new Date().toISOString();
+        for(const item of stale){
+          batch.delete(item.doc.ref);
+          if(item.claim.sourceRequestId){
+            batch.set(db.collection('sportVerificationRequests').doc(String(item.claim.sourceRequestId)),{
+              status:'revoked',reviewNote:'Подтверждение автоматически отозвано: данные Спортивного ID были изменены пользователем.',
+              reviewedAt:now,reviewedBy:'system',updatedAt:now,updatedAtMs:Date.now()
+            },{merge:true});
+          }
+        }
+        await batch.commit();
+      }
       const fresh=(await db.collection('users').doc(uid).get()).data()||{};
       return res.json({sportId:await buildSportIdSnapshot(db,uid,fresh)});
     }
