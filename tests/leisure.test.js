@@ -71,10 +71,11 @@ test('managed leisure catalog overrides static fallback after admin seeding',asy
  const staticList=await listLeisureDestinations(f.db);
  assert.equal(staticList.length,9);
  f.records.set('leisureDestinations/custom-place',{name:'Новое место',region:'lo',format:'Прогулка',pace:'Спокойный',description:'Достаточно длинное описание нового направления для каталога.',plan:'Пройти маршрут вместе с группой.',access:'Перед поездкой проверить условия посещения.',source:'https://example.com',photo:'https://example.com/p.jpg',photoCredit:'Источник',isPublished:true});
- f.records.set('leisureDestinations/hidden-place',{name:'Скрытое',region:'spb',isPublished:false});
+ f.records.set('leisureDestinations/ruskeala',{name:'Рускеала скрыта',region:'karelia',isPublished:false,archived:true});
  const managed=await listLeisureDestinations(f.db);
- assert.equal(managed.length,1);
- assert.equal(managed[0].id,'custom-place');
+ assert.equal(managed.length,9);
+ assert.ok(managed.some(item=>item.id==='custom-place'));
+ assert.equal(managed.some(item=>item.id==='ruskeala'),false);
  const created=await createLeisure(f.db,'a',draft({destinationId:'custom-place'}),now);
  assert.equal(created.destinationId,'custom-place');
 });
