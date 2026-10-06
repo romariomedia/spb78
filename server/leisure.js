@@ -79,8 +79,10 @@ export async function readLeisure(db,id){if(!validId(id))throw fail('Некор�
 
 export async function listLeisureDestinations(db) {
  const snap=await db.collection('leisureDestinations').orderBy('name').get().catch(()=>null);
- if(snap && !snap.empty) return snap.docs
-   .map(doc=>({id:doc.id,...doc.data()}))
-   .filter(place=>place.isPublished!==false);
- return LEISURE_DESTINATIONS.map(place=>({...place,isPublished:true}));
+ const managed=snap?snap.docs.map(doc=>({id:doc.id,...doc.data()})):[];
+ const byId=new Map(managed.map(place=>[place.id,place]));
+ const merged=LEISURE_DESTINATIONS.map(place=>byId.get(place.id)||({...place,isPublished:true}));
+ const staticIds=new Set(LEISURE_DESTINATIONS.map(place=>place.id));
+ for(const place of managed)if(!staticIds.has(place.id))merged.push(place);
+ return merged.filter(place=>place.isPublished!==false&&!place.archived);
 }
