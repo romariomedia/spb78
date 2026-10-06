@@ -624,7 +624,7 @@ export async function loadAppData(): Promise<AppData> {
     // Свежие публикации — строго сверху: порядок задаёт дата, а не строковый id.
     // У старых документов id вида «post-1», у новых — «post_<время>_<random>»,
     // поэтому лексикографический порядок не совпадал с хронологией.
-    ).sort((a, b) => timestampValue(b.createdAt) - timestampValue(a.createdAt))), () => cached?.feedPosts ?? [], timeout),
+    ).filter(post => post.isHidden !== true).sort((a, b) => timestampValue(b.createdAt) - timestampValue(a.createdAt))), () => (cached?.feedPosts ?? []).filter(post => post.isHidden !== true), timeout),
     readSection(getDocFromServer(doc(db, 'usersPrivate', uid)).then(snap =>
       snap.exists() ? snap.data() as Partial<UserProfile> : {}
     ), () => {
@@ -667,6 +667,7 @@ export async function loadFeedPosts(): Promise<FeedPost[]> {
   const section = await readSection(
     getDocsFromServer(collection(db, 'feed')).then((snap) => snap.docs
       .map((item) => ({ ...item.data(), id: item.id }) as FeedPost)
+      .filter(post => post.isHidden !== true)
       .sort((a, b) => timestampValue(b.createdAt) - timestampValue(a.createdAt))),
     () => cached?.feedPosts ?? [],
     FIRESTORE_TIMEOUT_MS * 2

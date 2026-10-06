@@ -1,170 +1,62 @@
-import React, { useState } from 'react';
+import React,{useState} from 'react';
 import { motion } from 'framer-motion';
-import { AlertTriangle, CheckCircle2, Mail, MessageSquareWarning, ShieldAlert } from 'lucide-react';
-import { ChatThread, UserProfile } from '../lib/types';
-import { APP_LEGAL_INFO } from '../lib/legal';
-import { formatTimeLabel } from '../services/chats';
+import { AlertTriangle,CheckCircle2,MessageSquareWarning,ShieldAlert } from 'lucide-react';
+import { ChatThread,UserProfile } from '../lib/types';
+import { submitComplaint } from '../services/complaints';
 import { triggerHapticNotification } from '../services/native';
 import { Modal } from './Modal';
 
-const SUPPORT_EMAIL = APP_LEGAL_INFO.email;
-const REPORTS_KEY = 'sportbuddy_sent_reports_v1';
+interface ReportableContact{user:UserProfile;thread:ChatThread}
+interface ComplaintModalProps{isOpen:boolean;onClose:()=>void;reporter:UserProfile|null;contacts:ReportableContact[]}
+const REASONS=[
+  ['unsafe','Небезопасное предложение'],
+  ['harassment','Оскорбления / давление'],
+  ['spam','Спам / реклама'],
+  ['fake','Подозрение на фейковый профиль'],
+  ['other','Другое']
+] as const;
 
-interface ReportableContact {
-  user: UserProfile;
-  thread: ChatThread;
-}
+export const ComplaintModal:React.FC<ComplaintModalProps>=({isOpen,onClose,reporter,contacts})=>{
+  const [sentTo,setSentTo]=useState<string|null>(null);
+  const [selected,setSelected]=useState<ReportableContact|null>(null);
+  const [reason,setReason]=useState<(typeof REASONS)[number][0]>('unsafe');
+  const [details,setDetails]=useState('');
+  const [busy,setBusy]=useState(false);
+  const [error,setError]=useState('');
 
-interface ComplaintModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  reporter: UserProfile | null;
-  contacts: ReportableContact[];
-}
-
-function saveLocalReport(thread: ChatThread, target: UserProfile): void {
-  try {
-    const raw = localStorage.getItem(REPORTS_KEY);
-    const reports = raw ? (JSON.parse(raw) as unknown[]) : [];
-    reports.push({
-      id: `report_${Date.now()}`,
-      chatId: thread.id,
-      targetId: target.id,
-      createdAt: new Date().toISOString(),
-      status: 'email-opened'
-    });
-    localStorage.setItem(REPORTS_KEY, JSON.stringify(reports.slice(-30)));
-  } catch {
-    /* report can still be sent by e-mail */
-  }
-}
-
-function buildMailto(reporter: UserProfile, target: UserProfile, thread: ChatThread): string {
-  const recent = thread.messages.slice(-3).map((message) => {
-    const author = message.senderId === reporter.id ? reporter.name : target.name;
-    return `[${formatTimeLabel(message.timestamp)}] ${author}: ${message.text}`;
-  });
-
-  const subject = `Жалоба SportBuddy78: ${target.name} (${target.id})`;
-  const body = [
-    'ЖАЛОБА НА СОБЕСЕДНИКА SPORTBUDDY78',
-    '',
-    `Заявитель: ${reporter.name}`,
-    `ID заявителя: ${reporter.id}`,
-    `Собеседник: ${target.name}`,
-    `ID собеседника: ${target.id}`,
-    `Чат: ${thread.id}`,
-    `Дата: ${new Date().toLocaleString('ru-RU')}`,
-    '',
-    'Причина: потенциально небезопасное или неспортивное предложение в чате.',
-    '',
-    'Последние сообщения в диалоге:',
-    ...(recent.length > 0 ? recent : ['Сообщения недоступны.']),
-    '',
-    'Прошу провести проверку в соответствии с правилами безопасности SportBuddy78.'
-  ].join('\n');
-
-  return `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-}
-
-export const ComplaintModal: React.FC<ComplaintModalProps> = ({
-  isOpen, onClose, reporter, contacts
-}) => {
-  const [sentTo, setSentTo] = useState<string | null>(null);
-
-  const handleSelect = (contact: ReportableContact) => {
-    if (!reporter) return;
-    triggerHapticNotification('warning');
-    saveLocalReport(contact.thread, contact.user);
-    setSentTo(contact.user.id);
-
-    // Mobile browser/Capacitor opens the configured mail client with the
-    // complaint addressed to support automatically after the user selection.
-    window.setTimeout(() => {
-      window.location.href = buildMailto(reporter, contact.user, contact.thread);
-    }, 180);
+  const close=()=>{setSentTo(null);setSelected(null);setReason('unsafe');setDetails('');setError('');onClose();};
+  const send=async()=>{
+    if(!reporter||!selected)return;
+    setBusy(true);setError('');
+    try{
+      await submitComplaint({targetUserId:selected.user.id,chatId:selected.thread.id,reason,details});
+      triggerHapticNotification('success');setSentTo(selected.user.id);setSelected(null);setDetails('');
+    }catch(e){setError(e instanceof Error?e.message:'Не удалось отправить жалобу');triggerHapticNotification('error');}
+    finally{setBusy(false);}
   };
 
-  return (
-    <Modal
-      isOpen={isOpen}
-      onClose={() => { setSentTo(null); onClose(); }}
-      title="Пожаловаться на собеседника"
-      subtitle="Выберите человека из ваших реальных диалогов"
-      footer={
-        <button
-          onClick={() => { setSentTo(null); onClose(); }}
-          className="w-full rounded-2xl bg-slate-800 py-3 text-xs font-black text-slate-300 active:scale-[0.98]"
-        >
-          Закрыть
-        </button>
-      }
-    >
-      <div className="space-y-3">
-        <div className="flex items-start gap-2.5 rounded-2xl border border-amber-400/40 bg-amber-400/[0.08] p-3">
-          <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-400" />
-          <p className="text-[11px] leading-relaxed text-slate-200">
-            После выбора откроется письмо в службу поддержки. Жалоба будет автоматически
-            адресована на <b className="text-amber-300">{SUPPORT_EMAIL}</b> с данными диалога.
-          </p>
-        </div>
-
-        {contacts.length === 0 ? (
-          <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6 text-center">
-            <MessageSquareWarning className="mx-auto h-8 w-8 text-slate-600" />
-            <p className="mt-2 text-xs font-bold text-slate-300">Нет диалогов для выбора</p>
-            <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
-              Пожаловаться можно после того, как в чате было хотя бы одно сообщение.
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {contacts.map((contact) => {
-              const last = contact.thread.messages[contact.thread.messages.length - 1];
-              const isSent = sentTo === contact.user.id;
-              return (
-                <motion.button
-                  key={contact.thread.id}
-                  whileTap={{ scale: 0.985 }}
-                  onClick={() => handleSelect(contact)}
-                  disabled={isSent}
-                  className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition ${
-                    isSent
-                      ? 'border-emerald-500/50 bg-emerald-500/10'
-                      : 'border-slate-800 bg-slate-950 hover:border-rose-500/50'
-                  }`}
-                >
-                  <img
-                    src={contact.user.avatar}
-                    alt={contact.user.name}
-                    loading="lazy"
-                    className="h-11 w-11 shrink-0 rounded-full border border-slate-700 object-cover"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-xs font-black text-white">{contact.user.name}</p>
-                    <p className="mt-0.5 truncate text-[10px] text-slate-500">
-                      {last ? last.text : 'Диалог'}
-                    </p>
-                  </div>
-                  {isSent ? (
-                    <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-400" />
-                  ) : (
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-rose-500/15 text-rose-400">
-                      <AlertTriangle className="h-4 w-4" />
-                    </span>
-                  )}
-                </motion.button>
-              );
-            })}
-          </div>
-        )}
-
-        {sentTo && (
-          <p className="flex items-center justify-center gap-1.5 text-center text-[11px] font-bold text-emerald-300">
-            <Mail className="h-3.5 w-3.5" /> Письмо подготовлено для службы поддержки
-          </p>
-        )}
+  return <Modal isOpen={isOpen} onClose={close} title="Пожаловаться" subtitle="Жалоба попадёт в Moderation Center SportBuddy78"
+    footer={<button onClick={close} className="w-full rounded-2xl bg-slate-800 py-3 text-xs font-black text-slate-300">Закрыть</button>}>
+    <div className="space-y-3">
+      <div className="flex items-start gap-2.5 rounded-2xl border border-amber-400/40 bg-amber-400/[0.08] p-3">
+        <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-400"/>
+        <p className="text-[11px] leading-relaxed text-slate-200">SportBuddy78 сохраняет жалобу на сервере и прикладывает последние сообщения реального диалога. Подделать другого собеседника через форму нельзя.</p>
       </div>
-    </Modal>
-  );
+      {error&&<p className="rounded-xl border border-rose-500/30 bg-rose-950/30 p-3 text-[11px] text-rose-200">{error}</p>}
+      {sentTo&&<p className="flex items-center justify-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-3 text-[11px] font-bold text-emerald-300"><CheckCircle2 className="h-4 w-4"/>Жалоба отправлена в службу модерации</p>}
+      {!selected?<>
+        {contacts.length===0?<div className="rounded-2xl border border-slate-800 bg-slate-950 p-6 text-center"><MessageSquareWarning className="mx-auto h-8 w-8 text-slate-600"/><p className="mt-2 text-xs font-bold text-slate-300">Нет диалогов для жалобы</p></div>:
+        <div className="space-y-2">{contacts.map(contact=><motion.button key={contact.thread.id} whileTap={{scale:.985}} onClick={()=>{setSelected(contact);setSentTo(null);setError('');}} className="flex w-full items-center gap-3 rounded-2xl border border-slate-800 bg-slate-950 p-3 text-left hover:border-rose-500/50">
+          <img src={contact.user.avatar} alt="" className="h-11 w-11 rounded-full border border-slate-700 object-cover"/>
+          <div className="min-w-0 flex-1"><p className="truncate text-xs font-black text-white">{contact.user.name}</p><p className="mt-0.5 truncate text-[10px] text-slate-500">{contact.thread.messages.at(-1)?.text||'Диалог'}</p></div>
+          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-rose-500/15 text-rose-400"><AlertTriangle className="h-4 w-4"/></span>
+        </motion.button>)}</div>}
+      </>:<div className="rounded-2xl border border-slate-700 bg-slate-950 p-3 space-y-3">
+        <div className="flex items-center gap-3"><img src={selected.user.avatar} alt="" className="h-10 w-10 rounded-full object-cover"/><div><p className="text-xs font-black text-white">{selected.user.name}</p><p className="text-[9px] text-slate-500">Выберите причину жалобы</p></div></div>
+        <select value={reason} onChange={e=>setReason(e.target.value as typeof reason)} className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-xs text-white">{REASONS.map(([id,label])=><option key={id} value={id}>{label}</option>)}</select>
+        <textarea value={details} onChange={e=>setDetails(e.target.value)} maxLength={800} rows={3} placeholder="Комментарий модератору — необязательно" className="w-full resize-none rounded-xl border border-slate-700 bg-slate-900 p-3 text-xs text-white outline-none focus:border-rose-400"/>
+        <div className="grid grid-cols-2 gap-2"><button onClick={()=>setSelected(null)} className="rounded-xl border border-slate-700 py-2.5 text-[11px] font-bold text-slate-300">Назад</button><button onClick={()=>void send()} disabled={busy} className="rounded-xl bg-rose-500 py-2.5 text-[11px] font-black text-white disabled:opacity-50">{busy?'Отправка…':'Отправить жалобу'}</button></div>
+      </div>}
+    </div>
+  </Modal>;
 };

@@ -110,3 +110,25 @@ A dedicated **Объявления** workspace manages in-app communication with
 Only internal SportBuddy hash destinations are accepted. District audience values are validated against the shared district dictionary. Every create, update and delete is OTP-session protected and appended to the admin audit log.
 
 The user endpoint requires a valid Firebase identity and filters active announcements server-side against the user's actual verification, district and sports fields. Direct Firestore access to the announcements collection remains denied by the existing default-deny rules.
+
+
+## V2.4 Moderation Center
+
+The Control Center now includes a dedicated moderation workspace for reports, feed posts and profiles.
+
+### Complaints
+The previous mail-client-only complaint flow is replaced by a server-backed report:
+- the reporter must be authenticated;
+- the reported person must be a participant in the reporter's real Firestore chat;
+- the chat must contain messages;
+- the server, not the client, captures the last five messages for context;
+- duplicate reports for the same reporter/target/chat are limited to one per UTC day;
+- report states are new, reviewing, resolved and dismissed.
+
+### Feed moderation
+Administrators can hide a post with a mandatory reason and later restore it. Hidden posts are removed from the normal app feed and server mutations reject likes/comments against a hidden post. Moderation is reversible; this release deliberately does not hard-delete user content.
+
+### Profile moderation
+The profile queue shows verification state, suspension state and report count. Existing server-authoritative verification and reversible account suspension actions are reused rather than duplicated.
+
+Every report-status, post-hide and post-restore action is written to the admin audit trail. User report submission and all moderation mutations remain behind server endpoints; Firestore default-deny rules are unchanged.
