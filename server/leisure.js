@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { hasPremiumAccess } from '../shared/access-policy.js';
-import { LEISURE_DESTINATIONS, getLeisureDestination } from '../shared/leisure-destinations.js';
+import { LEISURE_CATALOG, getLeisureDestination } from '../shared/leisure-destinations.js';
 import { enqueueNotification } from './notification-policy.js';
 const fail=(message,status=400)=>Object.assign(new Error(message),{status});
 const text=(value,max)=>typeof value==='string'?value.trim().slice(0,max):'';
@@ -81,8 +81,8 @@ export async function listLeisureDestinations(db) {
  const snap=await db.collection('leisureDestinations').orderBy('name').get().catch(()=>null);
  const managed=snap?snap.docs.map(doc=>({id:doc.id,...doc.data()})):[];
  const byId=new Map(managed.map(place=>[place.id,place]));
- const merged=LEISURE_DESTINATIONS.map(place=>byId.get(place.id)||({...place,isPublished:true}));
- const staticIds=new Set(LEISURE_DESTINATIONS.map(place=>place.id));
+ const merged=LEISURE_CATALOG.map(place=>byId.get(place.id)||({...place,isPublished:true}));
+ const staticIds=new Set(LEISURE_CATALOG.map(place=>place.id));
  for(const place of managed)if(!staticIds.has(place.id))merged.push(place);
  return merged.filter(place=>place.isPublished!==false&&!place.archived);
 }
