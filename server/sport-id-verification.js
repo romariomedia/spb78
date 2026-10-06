@@ -43,7 +43,10 @@ export function sanitizeVerificationEvidence(input={}){
   const officialUrl=clean(input.officialUrl,1500);
   const note=clean(input.note,800);
   if(!evidenceUrl&&!officialUrl)throw Object.assign(new Error('Добавьте документ/скриншот или официальную ссылку.'),{status:400});
-  if(evidenceUrl&&!/^https:\/\//i.test(evidenceUrl))throw Object.assign(new Error('Некорректная ссылка на документ.'),{status:400});
+  if(evidenceUrl){
+    let parsed;try{parsed=new URL(evidenceUrl);}catch{}
+    if(!parsed||parsed.protocol!=='https:'||parsed.hostname!=='res.cloudinary.com')throw Object.assign(new Error('Документ должен быть загружен через защищённое медиахранилище SportBuddy78.'),{status:400});
+  }
   if(officialUrl&&!/^https:\/\//i.test(officialUrl))throw Object.assign(new Error('Официальная ссылка должна начинаться с https://'),{status:400});
   return {evidenceUrl,officialUrl,note};
 }
