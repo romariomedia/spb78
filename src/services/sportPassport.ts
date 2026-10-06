@@ -6,6 +6,7 @@ export interface SportPassportAchievement {
   title:string;
   date?:string;
   sport?:string;
+  placement?:string;
   verification:'declared'|'sportbuddy';
 }
 export interface SportPassportHistoryItem {
@@ -20,18 +21,19 @@ export interface SportPassportSnapshot {
   };
   profile:{
     mainSport:string;level:SportPassportLevel;levelLabel:string;rankTitle:string;yearsExperience:number;
-    declaredAchievements:Array<{id:string;title:string;date?:string;sport?:string;verification:'declared'}>;
+    declaredAchievements:Array<{id:string;title:string;date?:string;sport?:string;placement?:string;verification:'declared'}>;
   };
   stats:{
-    totalWorkouts:number;verifiedCheckins:number;organizedTrainings:number;rating:number;ratingCount:number;totalDailyMedals:number;
+    totalWorkouts:number;verifiedCheckins:number;organizedTrainings:number;rating:number;ratingCount:number;sportBuddyWins:number;sportBuddyPodiums:number;
   };
+  public:{enabled:boolean;slug:string};
   achievements:SportPassportAchievement[];
   officialResults:SportPassportResult[];
   history:SportPassportHistoryItem[];
 }
 export interface SportPassportDraft {
   mainSport:string;level:SportPassportLevel;rankTitle:string;yearsExperience:number;
-  declaredAchievements:Array<{id:string;title:string;date?:string;sport?:string;verification:'declared'}>;
+  declaredAchievements:Array<{id:string;title:string;date?:string;sport?:string;placement?:string;verification:'declared'}>;
 }
 
 async function call<T>(body:Record<string,unknown>):Promise<T>{
@@ -48,10 +50,27 @@ async function call<T>(body:Record<string,unknown>):Promise<T>{
 }
 
 export async function loadSportPassport():Promise<SportPassportSnapshot>{
-  const data=await call<{passport:SportPassportSnapshot}>({action:'read'});
-  return data.passport;
+  const data=await call<{sportId:SportPassportSnapshot}>({action:'read'});
+  return data.sportId;
 }
-export async function saveSportPassport(passport:SportPassportDraft):Promise<SportPassportSnapshot>{
-  const data=await call<{passport:SportPassportSnapshot}>({action:'update',passport});
-  return data.passport;
+export async function saveSportPassport(sportId:SportPassportDraft):Promise<SportPassportSnapshot>{
+  const data=await call<{sportId:SportPassportSnapshot}>({action:'update',sportId});
+  return data.sportId;
+}
+export async function setSportIdPublic(enabled:boolean):Promise<SportPassportSnapshot>{
+  const data=await call<{sportId:SportPassportSnapshot}>({action:'setPublic',enabled});
+  return data.sportId;
+}
+export async function loadPublicSportId(slug:string):Promise<SportPassportSnapshot>{
+  const response=await fetch('/api/public-sport-id?slug='+encodeURIComponent(slug));
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok)throw new Error(data.error||`HTTP ${response.status}`);
+  return data.sportId as SportPassportSnapshot;
+}
+export function publicSportIdUrl(slug:string):string{
+  return `${window.location.origin}/#/id/${encodeURIComponent(slug)}`;
+}
+export function publicSportIdQrUrl(slug:string):string{
+  const value=publicSportIdUrl(slug);
+  return `https://api.qrserver.com/v1/create-qr-code/?size=320x320&margin=10&data=${encodeURIComponent(value)}`;
 }

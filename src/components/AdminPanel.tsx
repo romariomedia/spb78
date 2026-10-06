@@ -29,6 +29,7 @@ import { AdminPushPanel } from './AdminPushPanel';
 import { AdminAnnouncementsPanel } from './AdminAnnouncementsPanel';
 import { AdminModerationPanel } from './AdminModerationPanel';
 import { AdminAnalyticsPanel } from './AdminAnalyticsPanel';
+import { AdminCompetitionResultsPanel } from './AdminCompetitionResultsPanel';
 
 import { SPORT_TAGS as SPORTS } from '../lib/types';
 
@@ -246,6 +247,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           {adminView === 'audit' && <AdminAuditPanel />}
 
           {adminView === 'events' && <>
+          <AdminCompetitionResultsPanel events={events} />
           <button
             onClick={() => {
               triggerHapticImpact('medium');
