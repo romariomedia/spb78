@@ -66,7 +66,8 @@ export default async function handler(req,res){
     let after=null;
     if(operation==='delete'){
       if(!beforeSnap.exists)return res.status(404).json({error:'Destination not found.'});
-      await ref.delete();
+      after={...before,isPublished:false,archived:true,updatedAt:new Date().toISOString()};
+      await ref.set(after,{merge:false});
     }else if(operation==='create'){
       if(beforeSnap.exists)return res.status(409).json({error:'Destination already exists.'});
       after=sanitize(body.destination,id);await ref.create(after);
