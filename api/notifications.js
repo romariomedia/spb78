@@ -2,6 +2,7 @@ import { getApps,initializeApp,cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 import { cleanSettings,notificationId,enqueueNotification } from '../server/notification-policy.js';
+import { requireActiveUser } from '../server/user-status.js';
 const streams=new Set();
 export const stopNotificationStreams=()=>{for(const close of streams)close();};
 const fail=(message,status=400)=>Object.assign(new Error(message),{status});
@@ -12,6 +13,7 @@ export default async function handler(req,res) {
     const token=String(req.headers.authorization||'').replace(/^Bearer\s+/i,'');
     if(!token)throw fail('Требуется вход',401);
     const {uid}=await getAuth().verifyIdToken(token),db=getFirestore(),body=req.body||{};
+    await requireActiveUser(db,uid);
     const inbox=db.collection('notificationInboxes').doc(uid),settings=db.collection('notificationSettings').doc(uid);
     if(body.action==='stream') {
       res.set({'Content-Type':'application/x-ndjson','Cache-Control':'no-cache, no-store','X-Accel-Buffering':'no'});res.flushHeaders();
