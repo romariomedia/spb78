@@ -62,7 +62,9 @@ export function publicClaimToken(){
 
 export function applyVerifiedClaims(passport={},claims=[]){
   const active=claims.filter(item=>item?.status==='verified');
-  const rankClaim=active.find(item=>item.claimType==='rank'&&item.fingerprint===claimFingerprint(claimFromPassport(passport,{claimType:'rank'})));
+  let rankFingerprint='';
+  try{rankFingerprint=claimFingerprint(claimFromPassport(passport,{claimType:'rank'}));}catch{}
+  const rankClaim=rankFingerprint?active.find(item=>item.claimType==='rank'&&item.fingerprint===rankFingerprint):null;
   const verifiedByAchievement=new Map();
   for(const achievement of passport.declaredAchievements||[]){
     const current=claimFromPassport(passport,{claimType:'achievement',claimId:achievement.id});
