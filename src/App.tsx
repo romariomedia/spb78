@@ -1580,6 +1580,24 @@ export default function App(): JSX.Element {
     </div>;
   }
 
+  if (currentUser?.isSuspended) {
+    return <div className="flex min-h-[100svh] items-center justify-center bg-slate-950 px-6 text-slate-100">
+      <div className="w-full max-w-sm rounded-[28px] border border-rose-500/40 bg-slate-900/95 p-6 text-center shadow-2xl">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl border border-rose-500/40 bg-rose-500/10 text-3xl">⛔</div>
+        <h2 className="mt-4 text-lg font-black text-white">Аккаунт временно ограничен</h2>
+        <p className="mt-2 text-xs leading-relaxed text-slate-400">
+          Доступ к действиям SportBuddy78 приостановлен администрацией. Для уточнения обратитесь в поддержку.
+        </p>
+        <a href="mailto:support@sportbuddy78.ru" className="mt-4 block rounded-2xl bg-emerald-500 px-4 py-3 text-xs font-black text-slate-950">
+          Написать в поддержку
+        </a>
+        <button onClick={handleLogout} className="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-xs font-bold text-slate-300">
+          Выйти из аккаунта
+        </button>
+      </div>
+    </div>;
+  }
+
   // Gender onboarding gate: mandatory once, immutable afterwards. It drives
   // the opposite-gender discovery feed, so it must be set before entry.
   if (needsGenderGate && currentUser) {

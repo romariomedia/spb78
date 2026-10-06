@@ -4,6 +4,7 @@ import { cert, getApps, initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getPlan, validPaymentId } from '../server/payment-config.js';
+import { requireActiveUser } from '../server/user-status.js';
 function init() {
   if (getApps().length) return;
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
@@ -24,6 +25,7 @@ export default async function handler(req, res) {
     if (!token) return res.status(401).json({ error: 'Требуется авторизация' });
     const { uid } = await getAuth().verifyIdToken(token);
     const db = getFirestore();
+    await requireActiveUser(db, uid);
     const key = createHash('sha256').update(`${uid}:${requestId}`).digest('hex');
     const requestRef = db.collection('paymentRequests').doc(key);
     const intent = await db.runTransaction(async tx => {

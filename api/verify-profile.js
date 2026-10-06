@@ -2,6 +2,7 @@ import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { hasVerificationPhotos, verificationExpired, photoVerificationPatch } from '../server/profile-verification.js';
+import { requireActiveUser } from '../server/user-status.js';
 
 if (!getApps().length) {
   initializeApp({ credential: cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '{}')) });
@@ -13,6 +14,7 @@ export default async function handler(req, res) {
     const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
     const decoded = await getAuth().verifyIdToken(token);
     const db = getFirestore();
+    await requireActiveUser(db,decoded.uid);
     const ref = db.collection('users').doc(decoded.uid);
     const result = await db.runTransaction(async tx => {
       const snap = await tx.get(ref);

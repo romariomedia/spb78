@@ -73,6 +73,8 @@ export interface UserProfile {
   // Verification (photo check within 24h after registration):
   isVerified?: boolean;
   verifiedAt?: string;
+  /** Server-enforced moderation state. Suspended profiles are hidden from discovery and cannot mutate data. */
+  isSuspended?: boolean;
   // Interface personalisation (Premium):
   themeAccent?: string;
   themeSurface?: string;
