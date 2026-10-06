@@ -17,6 +17,9 @@ export function evaluateDeletionSafety({email='',user={},counts={},authDisabled=
   if(Number(counts.reportsSent||0)>0||Number(counts.reportsReceived||0)>0)blockers.push('Есть записи модерации/жалобы, которые нельзя удалять обычной очисткой.');
   if(Number(counts.chats||0)>0||Number(counts.friendships||0)>0||Number(counts.friendRequestsFrom||0)>0||Number(counts.friendRequestsTo||0)>0)blockers.push('Есть социальные связи или чаты.');
   if(Number(counts.feed||0)>0||Number(counts.trainingsOwned||0)>0||Number(counts.leisureOwned||0)>0||Number(counts.stories||0)>0)blockers.push('Есть созданный пользователем контент.');
+  if(Number(counts.trainingsJoined||0)>0||Number(counts.leisureJoined||0)>0||Number(counts.checkins||0)>0)blockers.push('Есть участие в тренировках или активном отдыхе.');
+  if(Number(counts.goals||0)>0||Number(counts.workoutCredits||0)>0||Number(counts.promoCodes||0)>0)blockers.push('Есть прогресс, цели или промокоды.');
+  if(String(user.avatar||'').trim()||Array.isArray(user.photoPortfolio)&&user.photoPortfolio.length>0)blockers.push('Есть пользовательские фото — требуется отдельная очистка медиахранилища.');
   if(Number(user.totalWorkouts||0)>0)blockers.push('У профиля есть спортивная история.');
   const activityCount=Object.values(counts).reduce((sum,v)=>sum+Number(v||0),0);
   const signals=[];
