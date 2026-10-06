@@ -4,7 +4,7 @@ import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 import { competitionStats,levelLabel,sanitizeSportPassportDraft } from '../server/sport-passport.js';
 import { requireActiveUser } from '../server/user-status.js';
-import { applyVerifiedClaims } from '../server/sport-id-verification.js';
+import { applyVerifiedClaims,claimFingerprint,claimFromPassport } from '../server/sport-id-verification.js';
 
 if(!getApps().length)initializeApp({credential:cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY||'{}'))});
 
@@ -75,6 +75,28 @@ export default async function handler(req,res){
       const current=sanitizeSportPassportDraft(user.sportPassport||{},Array.isArray(user.sports)?user.sports:[]);
       const next=sanitizeSportPassportDraft({...req.body?.sportId,publicEnabled:current.publicEnabled,publicSlug:current.publicSlug},Array.isArray(user.sports)?user.sports:[]);
       await db.collection('users').doc(uid).update({sportPassport:{...next,updatedAt:new Date().toISOString()}});
+      const claims=await db.collection('sportVerifiedClaims').where('userId','==',uid).get().catch(()=>null);
+      const stale=[];
+      for(const doc of claims?.docs||[]){
+        const claim=doc.data()||{};
+        try{
+          const current=claimFromPassport(next,claim);
+          if(claimFingerprint(current)!==claim.fingerprint)stale.push({doc,claim});
+        }catch{stale.push({doc,claim});}
+      }
+      if(stale.length){
+        const batch=db.batch(),now=new Date().toISOString();
+        for(const item of stale){
+          batch.delete(item.doc.ref);
+          if(item.claim.sourceRequestId){
+            batch.set(db.collection('sportVerificationRequests').doc(String(item.claim.sourceRequestId)),{
+              status:'revoked',reviewNote:'Подтверждение автоматически отозвано: данные Спортивного ID были изменены пользователем.',
+              reviewedAt:now,reviewedBy:'system',updatedAt:now,updatedAtMs:Date.now()
+            },{merge:true});
+          }
+        }
+        await batch.commit();
+      }
       const fresh=(await db.collection('users').doc(uid).get()).data()||{};
       return res.json({sportId:await buildSportIdSnapshot(db,uid,fresh)});
     }
