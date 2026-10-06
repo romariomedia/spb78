@@ -1,6 +1,6 @@
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import { LEISURE_DESTINATIONS } from '../shared/leisure-destinations.js';
+import { LEISURE_CATALOG } from '../shared/leisure-destinations.js';
 import { requireAdminSession, writeAdminAudit } from '../server/admin-control.js';
 
 if (!getApps().length) {
@@ -52,13 +52,13 @@ export default async function handler(req,res){
     }
     if(operation==='seed'){
       const batch=db.batch();
-      for(const raw of LEISURE_DESTINATIONS){
+      for(const raw of LEISURE_CATALOG){
         const item=sanitize({...raw,isPublished:true},raw.id);
         batch.set(db.collection('leisureDestinations').doc(raw.id),item,{merge:true});
       }
       await batch.commit();
-      await writeAdminAudit(db,session,{action:'leisure.seed',entityType:'leisureCatalog',entityId:'leisureDestinations',after:{count:LEISURE_DESTINATIONS.length}});
-      return res.json({ok:true,count:LEISURE_DESTINATIONS.length});
+      await writeAdminAudit(db,session,{action:'leisure.seed',entityType:'leisureCatalog',entityId:'leisureDestinations',after:{count:LEISURE_CATALOG.length}});
+      return res.json({ok:true,count:LEISURE_CATALOG.length});
     }
     const id=text(body.destinationId,100);
     if(!id||!/^[a-z0-9][a-z0-9_-]{1,99}$/i.test(id))return res.status(400).json({error:'Destination id required.'});
