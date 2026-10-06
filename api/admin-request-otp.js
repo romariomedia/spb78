@@ -6,6 +6,7 @@ import { createHash, randomInt } from 'node:crypto';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import nodemailer from 'nodemailer';
+import { requireProductionAdminSecrets } from '../server/admin-control.js';
 
 if (!getApps().length) {
   initializeApp({ credential: cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '{}')) });
@@ -22,13 +23,15 @@ function adminKey(email, pepper) {
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
+  try { requireProductionAdminSecrets(); } catch (error) { return res.status(error.status || 503).json({ error: error.message }); }
+
   const { email, password } = req.body || {};
   const cleanEmail = String(email || '').trim().toLowerCase();
   if (cleanEmail !== ADMIN_EMAIL || password !== process.env.ADMIN_ACCESS_PASSWORD) {
     return res.status(403).json({ error: 'Invalid admin credentials.' });
   }
 
-  const pepper = process.env.ADMIN_OTP_PEPPER || 'dev-pepper';
+  const pepper = process.env.ADMIN_OTP_PEPPER;
   const key = adminKey(cleanEmail, pepper);
   const db = getFirestore();
   const ref = db.doc(`adminOtpChallenges/${key}`);
