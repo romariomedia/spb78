@@ -613,7 +613,7 @@ export async function loadAppData(): Promise<AppData> {
       // реальные аккаунты создаются с id вида vk_* или Firebase-uid.
       .filter(item => !LEGACY_DEMO_USER_IDS.includes(item.id))
       .map(item => normalizeUserProfile({ ...item.data(), id: item.id }))
-      .filter(profile => profile.isDemo !== true)
+      .filter(profile => profile.isDemo !== true && profile.isSuspended !== true)
     ), () => cached?.allUsers ?? [], timeout),
     // No orderBy: legacy records without createdAt must remain visible.
     readSection(getDocsFromServer(collection(db, 'trainings')).then(snap => snap.docs.map(item =>
