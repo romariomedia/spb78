@@ -49,6 +49,7 @@ export default async function handler(req,res){
         totalWorkouts:Number(user.totalWorkouts||0),rating:Number(user.rating||0),ratingCount:Number(user.ratingCount||0),
         sportBuddyWins:comp.wins,sportBuddyPodiums:comp.podiums
       },
+      achievements:verified.achievements,
       officialResults,
       public:{enabled:true,slug}
     }});
