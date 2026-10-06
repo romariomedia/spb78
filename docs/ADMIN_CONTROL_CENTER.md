@@ -41,3 +41,22 @@ The same config also stores the end of the free-Premium campaign, BOX launch dat
 - New admin writes require the existing revocable OTP session.
 - No client gets direct write access to `users` or `appConfig`.
 - Configuration and user mutations are audited.
+
+
+## V2.1 user moderation
+
+User administration now has a read-only detail view plus reversible account suspension.
+
+### Detail view
+The admin can inspect operational profile facts needed for support and moderation: verification, registration, last activity, district, sports, workouts, medals, friends, matches and public bio. Exact location, phone and birth date are intentionally not exposed in the Control Center view.
+
+### Suspension
+Suspension is intentionally reversible and requires a reason. It:
+- disables the Firebase Auth account;
+- marks the public profile as suspended and removes it from discovery;
+- sets activeLooking=false while remembering the prior value for restoration;
+- blocks server-side mutations, feed publishing, Active Leisure, Stories, notifications, verification and payment creation;
+- shows the suspended user a dedicated support screen if an already-issued session is still active;
+- writes the action, actor and reason to the existing admin audit trail.
+
+Hard deletion is deliberately not part of this release. Deletion touches authentication, chats, friendships, posts, trainings and other linked records and should ship as a separate lifecycle module with explicit eligibility checks and a dry-run preview rather than as a one-click admin action.
