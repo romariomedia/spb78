@@ -36,6 +36,14 @@ export interface AdminUserDetails extends AdminUserRow {
   suspendedBy:string;
 }
 
+export interface UserDeletionPreview {
+  id:string;userId:string;name:string;email:string;isVerified:boolean;isSuspended:boolean;
+  registeredAt:string;authCreatedAt:string;authLastSignInAt:string;
+  counts:Record<string,number>;blockers:string[];signals:string[];
+  classification:'test_candidate'|'review_required';safeToDelete:boolean;
+  confirmationCode:string;expiresAt:string;
+}
+
 export interface AppConfig {
   featureFlags:{
     activeLeisureEnabled:boolean;
@@ -87,6 +95,13 @@ export async function setAdminUserPremiumUntil(userId:string,premiumUntil:string
 export async function setAdminUserSuspension(userId:string,suspended:boolean,reason=''):Promise<AdminUserDetails>{
   const data=await post<{user:AdminUserDetails}>('/api/admin-users',{operation:'setSuspension',userId,suspended,reason,requestId:crypto.randomUUID?.()||String(Date.now())});
   return data.user;
+}
+export async function previewAdminUserDeletion(userId:string):Promise<UserDeletionPreview>{
+  const data=await post<{preview:UserDeletionPreview}>('/api/admin-user-lifecycle',{operation:'preview',userId});
+  return data.preview;
+}
+export async function executeAdminUserDeletion(userId:string,previewId:string,confirmation:string):Promise<{deletedDocuments:number;updatedMemberships:number}>{
+  return post('/api/admin-user-lifecycle',{operation:'delete',userId,previewId,confirmation,requestId:crypto.randomUUID?.()||String(Date.now())});
 }
 export async function loadAppConfig():Promise<AppConfig>{
   const data=await post<{config:AppConfig}>('/api/admin-config',{operation:'get'});
