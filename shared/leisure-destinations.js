@@ -1,3 +1,4 @@
+import { WINTER_RINKS } from './winter-rinks.js';
 // Curated destinations, reviewed 2026-10-06. Descriptions are SportBuddy editorial summaries.
 export const LEISURE_REGIONS = { spb: 'Санкт-Петербург', lo: 'Ленинградская область', karelia: 'Карелия' };
 export const LEISURE_DESTINATIONS = [
@@ -47,4 +48,5 @@ export const LEISURE_DESTINATIONS = [
   access:'Уточните разрешения и плату за посещение национального парка. Для выхода на воду учитывайте прогноз и условия перевозчика.',
   source:'https://parkladoga.ru/',photoCredit:'Национальный парк «Ладожские шхеры»'}
 ].map(place => ({...place, photo:`/leisure/${place.id}.webp`, checkedAt:'2026-10-06'}));
-export const getLeisureDestination = id => LEISURE_DESTINATIONS.find(place => place.id === id);
+export const LEISURE_CATALOG = [...LEISURE_DESTINATIONS.map(place=>({...place,category:'destination',season:'all'})), ...WINTER_RINKS];
+export const getLeisureDestination = id => LEISURE_CATALOG.find(place => place.id === id);
