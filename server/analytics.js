@@ -4,9 +4,9 @@ export const ANALYTICS_TIMEZONE='Europe/Moscow';
 
 export function analyticsDayKey(value=Date.now()){
   const date=value instanceof Date?value:new Date(value);
-  return new Intl.DateTimeFormat('en-CA',{
-    timeZone:ANALYTICS_TIMEZONE,year:'numeric',month:'2-digit',day:'2-digit'
-  }).format(date);
+  const parts=new Intl.DateTimeFormat('en-US',{timeZone:ANALYTICS_TIMEZONE,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(date);
+  const get=type=>parts.find(part=>part.type===type)?.value||'';
+  return get('year')+'-'+get('month')+'-'+get('day');
 }
 
 export function shiftAnalyticsDay(day,offset){
