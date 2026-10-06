@@ -1,5 +1,5 @@
 import { useEffect,useMemo,useState } from 'react';
-import { AlertTriangle,Ban,Eye,EyeOff,FileWarning,RefreshCw,ShieldCheck,Users } from 'lucide-react';
+import { Ban,Eye,EyeOff,FileWarning,RefreshCw,ShieldCheck,Users } from 'lucide-react';
 import { loadModeration,ModerationPost,ModerationProfile,ModerationReport,setPostHidden,setReportStatus } from '../services/adminModeration';
 import { setAdminUserSuspension,setAdminUserVerification } from '../services/adminManagement';
 
@@ -19,20 +19,20 @@ export function AdminModerationPanel(){
   const refresh=async()=>{setBusy('refresh');setError('');try{const d=await loadModeration();setReports(d.reports);setPosts(d.posts);setProfiles(d.profiles);}catch(e){setError(e instanceof Error?e.message:'Не удалось загрузить модерацию');}finally{setBusy('');}};
   useEffect(()=>{void refresh();},[]);
 
-  const mutate=async(key:string,fn:()=>Promise<void>,message:string)=>{setBusy(key);setError('');setNotice('');try{await fn();setNotice(message);await refresh();}catch(e){setError(e instanceof Error?e.message:'Операция не выполнена');}finally{setBusy('');}};
+  const mutate=async(key:string,fn:()=>Promise<unknown>,message:string)=>{setBusy(key);setError('');setNotice('');try{await fn();setNotice(message);await refresh();}catch(e){setError(e instanceof Error?e.message:'Операция не выполнена');}finally{setBusy('');}};
 
   const visibleReports=useMemo(()=>reportFilter==='all'?reports:reports.filter(r=>reportFilter==='open'?['new','reviewing'].includes(r.status):r.status===reportFilter),[reports,reportFilter]);
   const visibleProfiles=useMemo(()=>{const q=profileQuery.trim().toLowerCase();return profiles.filter(p=>!q||[p.name,p.id,p.districtId,...p.sports].join(' ').toLowerCase().includes(q));},[profiles,profileQuery]);
 
   const hidePost=(post:ModerationPost)=>{
     if(post.isHidden)return void mutate(`post:${post.id}`,()=>setPostHidden(post.id,false,''),'Публикация восстановлена.');
-    const reason=prompt('Причина скрытия публикации:','Нарушение правил сообщества')?.trim();
+    const reason=(prompt('Причина скрытия публикации:','Нарушение правил сообщества')||'').trim();
     if(!reason)return;
     void mutate(`post:${post.id}`,()=>setPostHidden(post.id,true,reason),'Публикация скрыта.');
   };
   const suspendProfile=(p:ModerationProfile)=>{
     if(p.isSuspended)return void mutate(`suspend:${p.id}`,()=>setAdminUserSuspension(p.id,false,''),'Аккаунт восстановлен.');
-    const reason=prompt('Причина ограничения аккаунта:','Нарушение правил сообщества')?.trim();
+    const reason=(prompt('Причина ограничения аккаунта:','Нарушение правил сообщества')||'').trim();
     if(!reason)return;
     void mutate(`suspend:${p.id}`,()=>setAdminUserSuspension(p.id,true,reason),'Аккаунт ограничен.');
   };
