@@ -11,12 +11,12 @@ const iso = value => value?.toDate ? value.toDate().toISOString() : String(value
 
 async function listUsers(db, query = '') {
   const snap = await db.collection('users').limit(250).get();
-  const rows = [];
-  for (const doc of snap.docs) {
+  const privateSnaps = await Promise.all(snap.docs.map(doc => db.collection('usersPrivate').doc(doc.id).get().catch(() => null)));
+  const rows = snap.docs.map((doc,index) => {
     const data = doc.data() || {};
-    const privateSnap = await db.collection('usersPrivate').doc(doc.id).get().catch(() => null);
+    const privateSnap = privateSnaps[index];
     const privateData = privateSnap?.exists ? (privateSnap.data() || {}) : {};
-    rows.push({
+    return {
       id: doc.id,
       name: text(data.name, 120) || 'Спортсмен',
       email: text(privateData.email || data.email, 180),
@@ -29,8 +29,8 @@ async function listUsers(db, query = '') {
       premiumUntil: iso(data.premiumUntil),
       hasRealPhoto: data.hasRealPhoto === true,
       subscriptionPlan: data.subscriptionPlan === 'premium' ? 'premium' : 'free'
-    });
-  }
+    };
+  });
   const needle = text(query, 120).toLowerCase();
   const filtered = needle ? rows.filter(row =>
     row.id.toLowerCase().includes(needle) ||
