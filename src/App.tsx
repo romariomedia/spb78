@@ -121,6 +121,7 @@ import { ProgressBar } from './components/ProgressBar';
 import { RewardsSection } from './components/RewardsSection';
 import { WelcomeGuide, hasSeenWelcomeGuide, markWelcomeGuideSeen } from './components/WelcomeGuide';
 import { PlacesSection } from './components/PlacesSection';
+const LeisureSection = lazy(() => import('./components/LeisureSection'));
 import { SportVenue } from './lib/venues';
 
 /* Тяжёлые экраны грузятся по требованию: карта (~45 КБ gzip), админка
@@ -181,6 +182,7 @@ export default function App(): JSX.Element {
 
   // App Core State
   const [activeTab, setActiveTab] = useState<TabType>('discover');
+  const [leisureEventId, setLeisureEventId] = useState('');
   const [direction, setDirection] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isGuideOpen, setIsGuideOpen] = useState<boolean>(false);
@@ -682,7 +684,7 @@ export default function App(): JSX.Element {
   }, []);
 
   const handleTabChange = (newTab: TabType) => {
-    const tabOrder: TabType[] = ['discover', 'trainings', 'chats', 'feed', 'profile'];
+    const tabOrder: TabType[] = ['discover', 'trainings', 'leisure', 'chats', 'feed', 'profile'];
     const oldIdx = tabOrder.indexOf(activeTab);
     const newIdx = tabOrder.indexOf(newTab);
     setDirection(newIdx > oldIdx ? 1 : -1);
@@ -806,6 +808,7 @@ export default function App(): JSX.Element {
       setActiveTab('trainings');
       void refreshEvents().then(events=>{const event=events.find(e=>e.id===id&&e.status==='published');if(event)setSelectedEvent(event);else notify('Событие больше недоступно','err');}).catch(()=>notify('Не удалось открыть событие','err'));
     }
+    else if(link.startsWith('#leisure=')){try{setLeisureEventId(decodeURIComponent(link.slice(9)));setActiveTab('leisure');}catch{/* malformed link */}}
     else if(link==='#events')setActiveTab('trainings');
     else if(link==='#notifications')setIsNotifModalOpen(true);
     setPendingNotificationLink('');
@@ -2172,6 +2175,13 @@ export default function App(): JSX.Element {
             )}
 
             {/* ==================== TAB 3: CHATS (ЧАТЫ) — PREMIUM ONLY ==================== */}
+            {activeTab === 'leisure' && currentUser && (
+              <Suspense fallback={<p className="p-8 text-slate-400">Загружаем активный отдых…</p>}>
+                <LeisureSection key={currentUser.id} user={currentUser} users={allUsers} isPremium={isPremium} initialEventId={leisureEventId}
+                  onOpenUser={setSelectedUserModal} onOpenTariff={() => {setProfileSection('tariff');handleTabChange('profile');}} />
+              </Suspense>
+            )}
+
             {activeTab === 'chats' && currentUser && (
               <div className="space-y-4">
                 {!isPremium ? (
@@ -3352,7 +3362,7 @@ export default function App(): JSX.Element {
                 onChange={e => setNewTrSport(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-100 focus:outline-none focus:border-emerald-500 font-semibold"
               >
-                {SPORTS.map(s => (
+                {SPORTS.filter(s => s !== 'Активный отдых').map(s => (
                   <option key={s} value={s}>{s}</option>
                 ))}
               </select>

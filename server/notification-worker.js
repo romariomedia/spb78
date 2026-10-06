@@ -20,6 +20,13 @@ export async function deliverNotification(db,messaging,job,uid) {
     const latest=await db.collection('trainings').doc(job.entityId).get();
     if(!latest.exists||!matchesTraining(user,latest.data(),prefs.radiusKm))return;
   }
+  if(job.kind==='leisure_new') {
+    const latest=await db.collection('leisureEvents').doc(job.entityId).get();
+    const event=latest.data();
+    if(!event || event.status!=='open' || event.startsAt<=Date.now() || event.participantIds.includes(uid) || event.participantIds.length>=event.capacity) return;
+    if(!(user.sports||[]).includes('Активный отдых')) return;
+    if(event.participantGender!=='any' && (user.genderSet===false || user.gender!==event.participantGender)) return;
+  }
   if(job.kind==='event_new') {
     const latest=await db.collection('events').doc(job.entityId).get();
     if(!latest.exists||latest.data().status!=='published')return;

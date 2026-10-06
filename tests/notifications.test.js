@@ -121,3 +121,20 @@ test('friend request remains available in inbox without a push token',async()=>{
   await deliverNotification(f.db,f.messaging,{...job(),category:'friends',kind:'friend_request',entityId:'a__b',requestVersion:'v1'},'b');
   assert.equal(f.rows.get('notificationInboxes/b').entries[0].type,'friend_request');assert.equal(f.sends.length,0);
 });
+
+test('leisure invitations require interest, available places and an open future meeting',async()=>{
+  const event={status:'open',startsAt:Date.now()+86400000,participantIds:['a'],capacity:6,participantGender:'any'};
+  const notification={...job(),category:'events',kind:'leisure_new',entityId:'outing',link:'#leisure=outing'};
+  for(const [profile,meeting,allowed] of [
+    [{sports:['Активный отдых']},event,true],
+    [{sports:['Бег']},event,false],
+    [{sports:['Активный отдых']},{...event,status:'cancelled'},false],
+    [{sports:['Активный отдых']},{...event,startsAt:Date.now()-1},false],
+    [{sports:['Активный отдых']},{...event,capacity:1},false],
+    [{sports:['Активный отдых'],gender:'male'},{...event,participantGender:'female'},false]
+  ]){
+    const f=fixture({'users/b':profile,'leisureEvents/outing':meeting});
+    await deliverNotification(f.db,f.messaging,notification,'b');
+    assert.equal(f.rows.has('notificationInboxes/b'),allowed);
+  }
+});

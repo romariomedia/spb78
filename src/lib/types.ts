@@ -270,11 +270,12 @@ export const SPORTS: string[] = [
   'Хоккей',
   'Велопрогулка',
   'Походы',
+  'Активный отдых',
   'Воркаут'
 ];
 
 /** Same list with the "Все" option for filters */
-export const SPORT_FILTERS: string[] = ['Все', ...SPORTS];
+export const SPORT_FILTERS: string[] = ['Все', ...SPORTS.filter(sport => sport !== 'Активный отдых')];
 
 /** Same list with the "Общее" option for feed posts / events */
 export const SPORT_TAGS: string[] = [...SPORTS, 'Общее'];
@@ -290,6 +291,7 @@ export const SPORT_ICONS: Record<string, string> = {
   'Хоккей': '🏒',
   'Велопрогулка': '🚴',
   'Походы': '🥾',
+  'Активный отдых': '🌲',
   'Воркаут': '🤸',
   'Общее': '🏅'
 };
@@ -424,7 +426,7 @@ export interface FeedPost {
   comments?: PostComment[];
 }
 
-export type TabType = 'discover' | 'trainings' | 'chats' | 'feed' | 'profile';
+export type TabType = 'discover' | 'trainings' | 'leisure' | 'chats' | 'feed' | 'profile';
 
 export interface ChatMessage {
   id: string;

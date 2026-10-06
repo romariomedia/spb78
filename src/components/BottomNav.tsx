@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Users, Dumbbell, Newspaper, User, Sparkles, MessageCircle } from 'lucide-react';
+import { Compass, Users, Dumbbell, Newspaper, User, Sparkles, MessageCircle } from 'lucide-react';
 import { TabType } from '../lib/types';
 import { triggerHapticImpact } from '../services/native';
 
@@ -31,6 +31,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   const navItems: NavItem[] = [
     { id: 'discover', label: 'Знакомства', icon: Users, badge: 0 },
     { id: 'trainings', label: 'Тренировки', icon: Dumbbell, badge: 0 },
+    { id: 'leisure', label: 'Отдых', icon: Compass, badge: 0 },
     { id: 'chats', label: 'Чаты', icon: MessageCircle, badge: isPremium ? chatUnreadCount : 0, locked: !isPremium },
     { id: 'feed', label: 'Лента', icon: Newspaper, badge: unreadCount },
     { id: 'profile', label: 'Профиль', icon: User, badge: 0, special: true }
@@ -54,7 +55,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
             <button
               key={item.id}
               onClick={() => handleTabClick(item.id)}
-              className="relative flex-1 flex flex-col items-center justify-center py-1.5 px-1 rounded-2xl group focus:outline-none transition-all duration-150 active:scale-95"
+              className="relative min-w-0 flex-1 flex flex-col items-center justify-center py-1.5 px-1 rounded-2xl group focus:outline-none transition-all duration-150 active:scale-95"
               aria-label={item.label}
               aria-current={isActive ? 'page' : undefined}
             >
@@ -95,7 +96,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
               </div>
 
               <span
-                className={`text-[11px] font-medium mt-1 tracking-tight transition-colors duration-200 ${
+                className={`text-[9px] sm:text-[11px] font-medium mt-1 tracking-tight transition-colors duration-200 ${
                   isActive ? 'text-emerald-400 font-semibold' : 'text-slate-400'
                 }`}
               >
