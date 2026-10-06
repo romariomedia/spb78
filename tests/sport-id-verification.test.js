@@ -28,6 +28,8 @@ test('verification evidence requires a document or official https link',()=>{
   });
   assert.throws(()=>sanitizeVerificationEvidence({}),error=>error.status===400);
   assert.throws(()=>sanitizeVerificationEvidence({officialUrl:'http://example.org'}),error=>error.status===400);
+  assert.throws(()=>sanitizeVerificationEvidence({evidenceUrl:'https://example.org/file.pdf'}),error=>error.status===400);
+  assert.equal(sanitizeVerificationEvidence({evidenceUrl:'https://res.cloudinary.com/demo/raw/upload/file.pdf'}).evidenceUrl.includes('res.cloudinary.com'),true);
 });
 
 test('verified claim is applied only while the underlying fact is unchanged',()=>{
