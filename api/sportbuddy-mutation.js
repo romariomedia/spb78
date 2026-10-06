@@ -7,6 +7,7 @@ import { cert, getApps, initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { randomUUID } from 'node:crypto';
+import { readUserStatus } from '../server/user-status.js';
 
 function init() {
   if (getApps().length) return;
@@ -457,6 +458,7 @@ export default async function handler(req,res) {
   if (req.method !== 'POST') return res.status(405).json({ error:'Method not allowed' });
   try {
     init(); const decoded = await verifyCaller(req), db = getFirestore(), body = req.body || {}; let result;
+    await readUserStatus(db, decoded.uid);
     switch(body.action) {
       case 'bootstrapProfile': result = await bootstrapProfile(db, decoded.uid, body.profile, decoded); break;
       case 'match': result = await matchMutation(db, decoded.uid, String(body.targetUserId || '')); break;
