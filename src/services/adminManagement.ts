@@ -13,6 +13,27 @@ export interface AdminUserRow {
   premiumUntil:string;
   hasRealPhoto:boolean;
   subscriptionPlan:'free'|'premium';
+  isSuspended:boolean;
+  suspensionReason:string;
+  avatar:string;
+}
+
+export interface AdminUserDetails extends AdminUserRow {
+  age:number;
+  gender:'male'|'female';
+  bio:string;
+  locationName:string;
+  provider:string;
+  totalWorkouts:number;
+  totalDailyMedals:number;
+  dailyMedalStreak:number;
+  rating:number;
+  ratingCount:number;
+  friendsCount:number;
+  matchesCount:number;
+  photoPortfolioCount:number;
+  suspendedAt:string;
+  suspendedBy:string;
 }
 
 export interface AppConfig {
@@ -53,11 +74,19 @@ export async function loadAdminUsers(query=''):Promise<AdminUserRow[]>{
   const data=await post<{users:AdminUserRow[]}>('/api/admin-users',{operation:'list',query});
   return data.users;
 }
+export async function loadAdminUser(userId:string):Promise<AdminUserDetails>{
+  const data=await post<{user:AdminUserDetails}>('/api/admin-users',{operation:'get',userId});
+  return data.user;
+}
 export async function setAdminUserVerification(userId:string,verified:boolean):Promise<void>{
   await post('/api/admin-users',{operation:'setVerification',userId,verified,requestId:crypto.randomUUID?.()||String(Date.now())});
 }
 export async function setAdminUserPremiumUntil(userId:string,premiumUntil:string):Promise<void>{
   await post('/api/admin-users',{operation:'setPremiumUntil',userId,premiumUntil,requestId:crypto.randomUUID?.()||String(Date.now())});
+}
+export async function setAdminUserSuspension(userId:string,suspended:boolean,reason=''):Promise<AdminUserDetails>{
+  const data=await post<{user:AdminUserDetails}>('/api/admin-users',{operation:'setSuspension',userId,suspended,reason,requestId:crypto.randomUUID?.()||String(Date.now())});
+  return data.user;
 }
 export async function loadAppConfig():Promise<AppConfig>{
   const data=await post<{config:AppConfig}>('/api/admin-config',{operation:'get'});
