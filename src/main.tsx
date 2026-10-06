@@ -3,11 +3,13 @@ import { createRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App";
 import { AppErrorBoundary } from "./components/AppErrorBoundary";
+import { PublicSportId } from "./components/PublicSportId";
 
+const publicMatch=window.location.pathname.match(/^\/id\/([A-Za-z0-9_-]{12,80})\/?$/);
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <AppErrorBoundary>
-      <App />
+      {publicMatch?<PublicSportId slug={publicMatch[1]!}/>:<App />}
     </AppErrorBoundary>
   </StrictMode>
 );
