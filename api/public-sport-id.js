@@ -1,6 +1,7 @@
 import { initializeApp,getApps,cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { competitionStats,levelLabel,sanitizeSportPassportDraft } from '../server/sport-passport.js';
+import { applyVerifiedClaims } from '../server/sport-id-verification.js';
 
 if(!getApps().length)initializeApp({credential:cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY||'{}'))});
 
@@ -17,7 +18,10 @@ export default async function handler(req,res){
     const doc=snap.docs[0],user=doc.data()||{};
     if(user.isSuspended===true||user.sportPassport?.publicEnabled!==true)return res.status(404).json({error:'SportBuddy78 ID не найден.'});
 
-    const resultSnap=await db.collection('sportPassportResults').where('userId','==',doc.id).get().catch(()=>null);
+    const [resultSnap,claimsSnap]=await Promise.all([
+      db.collection('sportPassportResults').where('userId','==',doc.id).get().catch(()=>null),
+      db.collection('sportVerifiedClaims').where('userId','==',doc.id).get().catch(()=>null)
+    ]);
     const officialResults=(resultSnap?.docs||[]).map(item=>({id:item.id,...item.data()}))
       .filter(x=>x.status==='verified')
       .sort((a,b)=>Number(b.achievedAt||0)-Number(a.achievedAt||0))
@@ -28,6 +32,7 @@ export default async function handler(req,res){
       }));
     const comp=competitionStats(officialResults);
     const profile=sanitizeSportPassportDraft(user.sportPassport||{},Array.isArray(user.sports)?user.sports:[]);
+    const verified=applyVerifiedClaims(profile,(claimsSnap?.docs||[]).map(item=>item.data()||{}));
 
     res.setHeader('Cache-Control','public, max-age=60, stale-while-revalidate=300');
     return res.json({sportId:{
@@ -37,8 +42,8 @@ export default async function handler(req,res){
       },
       profile:{
         mainSport:profile.mainSport,level:profile.level,levelLabel:levelLabel(profile.level),
-        rankTitle:profile.rankTitle,yearsExperience:profile.yearsExperience,
-        declaredAchievements:profile.declaredAchievements
+        rankTitle:profile.rankTitle,rankVerification:verified.rankVerification,yearsExperience:profile.yearsExperience,
+        declaredAchievements:verified.achievements
       },
       stats:{
         totalWorkouts:Number(user.totalWorkouts||0),rating:Number(user.rating||0),ratingCount:Number(user.ratingCount||0),
