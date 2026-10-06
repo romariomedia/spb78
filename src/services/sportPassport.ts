@@ -68,7 +68,7 @@ export async function loadPublicSportId(slug:string):Promise<SportPassportSnapsh
   return data.sportId as SportPassportSnapshot;
 }
 export function publicSportIdUrl(slug:string):string{
-  return `${window.location.origin}/id/${encodeURIComponent(slug)}`;
+  return `${window.location.origin}/#/id/${encodeURIComponent(slug)}`;
 }
 export function publicSportIdQrUrl(slug:string):string{
   const value=publicSportIdUrl(slug);
