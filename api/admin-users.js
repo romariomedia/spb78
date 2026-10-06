@@ -29,6 +29,7 @@ function userRow(doc, privateData = {}, adminData = {}) {
     hasRealPhoto: data.hasRealPhoto === true,
     subscriptionPlan: data.subscriptionPlan === 'premium' ? 'premium' : 'free',
     isSuspended: data.isSuspended === true,
+    analyticsExcluded: data.analyticsExcluded === true,
     suspensionReason: data.isSuspended === true ? text(adminData.suspensionReason, 300) : ''
   };
 }
@@ -123,6 +124,9 @@ export default async function handler(req, res) {
         patch = { premiumUntil:Timestamp.fromDate(parsed) };
       }
       await ref.update(patch);
+    } else if (operation === 'setAnalyticsExcluded') {
+      patch = { analyticsExcluded: body.excluded === true };
+      await ref.update(patch);
     } else if (operation === 'setSuspension') {
       if (text(privateData.email, 180).toLowerCase() === ADMIN_EMAIL) {
         return res.status(400).json({ error:'Нельзя ограничить основной аккаунт администратора.' });
@@ -177,6 +181,7 @@ export default async function handler(req, res) {
         verifiedAt:iso(before.verifiedAt),
         premiumUntil:iso(before.premiumUntil),
         isSuspended:before.isSuspended === true,
+        analyticsExcluded:before.analyticsExcluded === true,
         suspensionReason:text(adminData.suspensionReason, 300)
       },
       after:{
@@ -184,6 +189,7 @@ export default async function handler(req, res) {
         verifiedAt:iso(after.verifiedAt),
         premiumUntil:iso(after.premiumUntil),
         isSuspended:after.isSuspended === true,
+        analyticsExcluded:after.analyticsExcluded === true,
         suspensionReason:text(afterAdmin.suspensionReason, 300)
       },
       requestId:String(body.requestId || '')
