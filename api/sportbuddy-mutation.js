@@ -7,7 +7,7 @@ import { isValidCoords, protectedCoords } from '../shared/geo-privacy.js';
 import { cert, getApps, initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { readUserStatus } from '../server/user-status.js';
 import { chooseCanonicalPersonName } from '../shared/identity-policy.js';
 import {
@@ -574,15 +574,16 @@ async function trainingMutation(db, uid, body) {
   if (body.operation === 'createTraining') {
     const userSnap = await db.collection('users').doc(uid).get();
     if (!userSnap.exists) throw Object.assign(new Error('Профиль не найден'), { status: 404 });
-    if (!premiumActive(userSnap.data())) throw Object.assign(new Error('Создание тренировок доступно только Premium'), { status: 403 });
     const data = body.training || {}, max = Number(data.participantsMax);
     const participantGender = data.participantGender === undefined ? 'any' : data.participantGender;
     if (!['any','male','female'].includes(participantGender)) throw Object.assign(new Error('Некорректный фильтр пола участников'), { status: 400 });
     if (typeof data.title !== 'string' || data.title.trim().length < 2 || data.title.length > 120) throw Object.assign(new Error('Некорректное название тренировки'), { status: 400 });
     if (!Number.isInteger(max) || max < 2 || max > 100) throw Object.assign(new Error('Некорректный лимит участников'), { status: 400 });
-    const id = `tr_${randomUUID()}`;
+    const requestId = body.requestId;
+    if(requestId !== undefined && (typeof requestId!=='string'|| !/^[a-zA-Z0-9_-]{8,100}$/.test(requestId))) throw Object.assign(new Error('Некорректный идентификатор запроса'),{status:400});
+    const id = requestId ? `tr_${createHash('sha256').update(uid+':'+requestId).digest('hex').slice(0,40)}` : `tr_${randomUUID()}`;
     const lat=Number(data.lat), lng=Number(data.lng), dateKey=String(data.dateKey || ''), time=String(data.time || '');
-    if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat)>90 || Math.abs(lng)>180) throw Object.assign(new Error('Некорректные координаты'),{status:400});
+    if (typeof data.lat!=='number' || typeof data.lng!=='number' || !Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat)>90 || Math.abs(lng)>180) throw Object.assign(new Error('Некорректные координаты'),{status:400});
     const parsedDate = new Date(dateKey + 'T00:00:00Z');
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey) || !Number.isFinite(parsedDate.getTime()) || parsedDate.toISOString().slice(0,10)!==dateKey || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) throw Object.assign(new Error('Некорректная дата или время тренировки'),{status:400});
     const venueId = typeof data.venueId === 'string' ? data.venueId.trim().slice(0,120) : '';
@@ -597,12 +598,25 @@ async function trainingMutation(db, uid, body) {
       ...(venueId ? { venueId, venueName: venueName || String(data.address || '').slice(0,160), venueRentalConfirmed:true } : {}),
       createdBy:uid, participantIds:[uid],
       isCompleted:false, checkedInUserIds:[], ratedParticipantIds:[], organizerRatedByParticipantIds:[], createdAt:new Date().toISOString() };
-    await db.runTransaction(async tx=>{
-      tx.create(db.collection('trainings').doc(id),training);
+    const fingerprint=createHash('sha256').update(JSON.stringify({...training,id:undefined,createdAt:undefined})).digest('hex');
+    const saved = await db.runTransaction(async tx=>{
+      const ref=db.collection('trainings').doc(id),previous=await tx.get(ref);
+      if(previous.exists){
+        const value=previous.data();
+        if(value.requestFingerprint!==fingerprint)throw Object.assign(new Error('Этот запрос уже использован для другой тренировки'),{status:409});
+        return value;
+      }
+      const startsAt=Date.parse(`${dateKey}T${time}:00+03:00`);
+      if(startsAt<=Date.now())throw Object.assign(new Error('Выберите будущее время тренировки (МСК)'),{status:400});
+      const current=await tx.get(db.collection('users').doc(uid));
+      if(!current.exists||current.data().isSuspended===true||!premiumActive(current.data()))throw Object.assign(new Error('Создание тренировки недоступно'),{status:403});
+      const value={...training,requestFingerprint:fingerprint};
+      tx.create(ref,value);
       tx.create(db.collection('chats').doc(trainingChatId(id)),trainingChatBase(training));
       enqueueNotification(tx,db,{id:`training-new:${id}`,actorId:uid,broadcast:true,category:'trainings',kind:'training_new',entityId:id,title:training.sport==='Походы'?'Новый поход рядом':'Новая тренировка рядом',message:training.title,link:'#training='+encodeURIComponent(id)});
+      return value;
     });
-    return { training };
+    return { training:saved };
   }
   if(body.operation==='ensureGroupChat'){
     const trainingId=String(body.trainingId||'');
@@ -625,7 +639,8 @@ async function trainingMutation(db, uid, body) {
     });
   }
 
-    if (body.operation !== 'toggleJoinTraining') throw Object.assign(new Error('Неизвестная операция тренировки'),{status:400});
+    if (!['toggleJoinTraining','setTrainingMembership'].includes(body.operation)) throw Object.assign(new Error('Неизвестная операция тренировки'),{status:400});
+  if(body.operation==='setTrainingMembership' && typeof body.joined!=='boolean')throw Object.assign(new Error('Укажите действие записи'),{status:400});
   const trainingId = String(body.trainingId || '');
   if (!trainingId) throw Object.assign(new Error('Не указана тренировка'), { status: 400 });
   const ref = db.collection('trainings').doc(trainingId);
@@ -635,6 +650,7 @@ async function trainingMutation(db, uid, body) {
     const t = snap.data(), participants = cleanArray(t.participantIds), joined = participants.includes(uid);
     const groupRef=db.collection('chats').doc(trainingChatId(trainingId));
     const groupSnap=await tx.get(groupRef);
+    if(body.operation==='setTrainingMembership' && body.joined===joined)return {joined,participantIds:participants};
     if (t.isCompleted) throw Object.assign(new Error('Тренировка уже завершена'),{status:409});
     if (joined) {
       if (t.createdBy === uid) throw Object.assign(new Error('Организатор не может выйти из собственной тренировки'), { status: 409 });
@@ -643,9 +659,12 @@ async function trainingMutation(db, uid, body) {
       if(groupSnap.exists)tx.update(groupRef,{participantIds:next,updatedAt:new Date().toISOString()});
       return {joined:false,participantIds:next};
     }
+    const startsAt=Date.parse(`${t.dateKey}T${t.time}:00+03:00`);
+    if(!Number.isFinite(startsAt)||startsAt<=Date.now())throw Object.assign(new Error('Запись на начавшуюся тренировку закрыта'),{status:409});
+    const userSnap=await tx.get(db.collection('users').doc(uid)),ownerSnap=await tx.get(db.collection('users').doc(t.createdBy));
+    const user=userSnap.exists?userSnap.data():null,owner=ownerSnap.exists?ownerSnap.data():null;
+    if(!user||!owner||user.isSuspended===true||owner.isSuspended===true||cleanArray(user.blockedUserIds).includes(t.createdBy)||cleanArray(owner.blockedUserIds).includes(uid))throw Object.assign(new Error('Запись на тренировку недоступна'),{status:403});
     if (t.participantGender && t.participantGender !== 'any') {
-      const userSnap = await tx.get(db.collection('users').doc(uid));
-      const user = userSnap.exists ? userSnap.data() : null;
       if (!user?.gender || user.genderSet === false) throw Object.assign(new Error('Укажите пол в профиле для записи'), { status: 403 });
       if (user.gender !== t.participantGender) throw Object.assign(new Error(t.participantGender === 'female' ? 'На эту тренировку могут записаться только женщины' : 'На эту тренировку могут записаться только мужчины'), { status: 403 });
     }

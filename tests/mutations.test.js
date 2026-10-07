@@ -290,7 +290,7 @@ test('restricted signup uses stored gender and ignores forged request gender', a
 
 test('legacy and any-gender trainings remain open to all', async () => {
   for (const preference of [{},{participantGender:'any'}]) {
-    const f=fixture({'trainings/t':{...training(),...preference,createdBy:'a',participantIds:['a']},'users/b':{genderSet:false}});
+    const f=fixture({'trainings/t':{...training(),...preference,createdBy:'a',participantIds:['a']},'users/a':premium(),'users/b':{genderSet:false}});
     assert.equal((await f.request('b',{action:'training',operation:'toggleJoinTraining',trainingId:'t'})).body.joined,true);
   }
 });
@@ -333,7 +333,7 @@ test('reward inventory is scoped to authenticated owner',async()=>{
 test('beta grants expired accounts training and chat access but blocks BOX without changing rewards',async t=>{
   t.mock.timers.setTime(Date.parse('2026-12-31T20:59:59Z'));
   const f=fixture({'users/a':{...premium(),premiumUntil:'2020-01-01',totalWorkouts:30,matchIds:['b']},'users/b':{...premium(),premiumUntil:'2020-01-01',matchIds:['a']}});
-  assert.equal((await f.request('a',{action:'training',operation:'createTraining',training:training()})).statusCode,200);
+  assert.equal((await f.request('a',{action:'training',operation:'createTraining',training:{...training(),dateKey:'2027-01-01'}})).statusCode,200);
   assert.equal((await f.request('a',{action:'chat',chatId:'chat_a__b',companionId:'b',text:'Hi'})).statusCode,200);
   const box=await f.request('a',{action:'openBox',tierIndex:0});
   assert.equal(box.statusCode,403);assert.equal(f.records.get('users/a').claimedBoxTiers,undefined);
@@ -531,4 +531,59 @@ test('bootstrap rejects malformed profile rather than persisting unrenderable fi
  assert.equal((await f.request('a',{action:'bootstrapProfile',profile:{avatar:'x',sports:'Бег'}})).statusCode,400);
  assert.equal(f.records.has('users/a'),false);
  assert.equal(f.records.has('usersPrivate/a'),false);
+});
+
+
+test('create training retry reuses training, group chat and notification; changed payload conflicts',async()=>{
+ const f=fixture({'users/a':premium(),'users/b':premium()});
+ const body={action:'training',operation:'createTraining',requestId:'repeat-request-123',training:training()};
+ const first=await f.request('a',body),second=await f.request('a',body);
+ assert.equal(first.statusCode,200);assert.equal(second.body.training.id,first.body.training.id);
+ assert.equal([...f.records.keys()].filter(k=>k.startsWith('trainings/')).length,1);
+ assert.equal([...f.records.keys()].filter(k=>k.startsWith('chats/')).length,1);
+ const count=f.records.size;
+ assert.equal((await f.request('a',{...body,training:{...training(),title:'Другая тренировка'}})).statusCode,409);
+ assert.equal(f.records.size,count);
+ const other=await f.request('b',body);assert.notEqual(other.body.training.id,first.body.training.id);
+});
+
+test('explicit join and leave retries never toggle membership or duplicate notifications',async()=>{
+ const f=fixture({'users/a':premium(),'users/b':premium()});
+ const created=await f.request('a',{action:'training',operation:'createTraining',training:training()});
+ const body={action:'training',operation:'setTrainingMembership',trainingId:created.body.training.id,joined:true};
+ assert.equal((await f.request('b',body)).body.joined,true);
+ const count=f.records.size;
+ assert.equal((await f.request('b',body)).body.joined,true);assert.equal(f.records.size,count);
+ assert.equal((await f.request('b',{...body,joined:false})).body.joined,false);
+ assert.equal((await f.request('b',{...body,joined:false})).body.joined,false);
+ assert.deepEqual(f.records.get('trainings/'+body.trainingId).participantIds,['a']);
+ assert.deepEqual(f.records.get('chats/training_'+body.trainingId).participantIds,['a']);
+ assert.equal((await f.request('b',{...body,joined:'yes'})).statusCode,400);
+});
+
+test('training signup respects either side block and organizer suspension',async()=>{
+ for(const [owner,member] of [[{blockedUserIds:['b']},{}],[{},{blockedUserIds:['a']}],[{isSuspended:true},{}]]){
+  const f=fixture({'users/a':{...premium(),...owner},'users/b':{...premium(),...member},'trainings/t':{...training(),createdBy:'a',participantIds:['a']}});
+  assert.equal((await f.request('b',{action:'training',operation:'setTrainingMembership',trainingId:'t',joined:true})).statusCode,403);
+  assert.deepEqual(f.records.get('trainings/t').participantIds,['a']);
+ }
+});
+
+test('training creation rejects past Moscow time and missing coordinates, and closed signup permits leaving',async()=>{
+ const f=fixture({'users/a':premium(),'users/b':premium(),'trainings/t':{...training(),time:'10:00',createdBy:'a',participantIds:['a','b']}});
+ for(const value of [{...training(),time:'10:00'},{...training(),lat:null},{...training(),lng:''}]){
+  assert.equal((await f.request('a',{action:'training',operation:'createTraining',training:value})).statusCode,400);
+ }
+ assert.equal((await f.request('b',{action:'training',operation:'setTrainingMembership',trainingId:'t',joined:false})).statusCode,200);
+ assert.equal((await f.request('b',{action:'training',operation:'setTrainingMembership',trainingId:'t',joined:true})).statusCode,409);
+});
+
+
+test('a saved creation retry still resolves after Premium expires',async t=>{
+ const f=fixture({'users/a':premium()});
+ const body={action:'training',operation:'createTraining',requestId:'premium-retry-123',training:training()};
+ const first=await f.request('a',body);assert.equal(first.statusCode,200);
+ f.records.set('users/a',{...premium(),premiumUntil:'2020-01-01'});
+ t.mock.timers.setTime(Date.parse('2027-02-01T12:00:00Z'));
+ const retry=await f.request('a',body);assert.equal(retry.statusCode,200);assert.equal(retry.body.training.id,first.body.training.id);
 });

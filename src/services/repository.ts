@@ -1,3 +1,4 @@
+import { createTrainingRequest } from './trainingRequests';
 import { hasPremiumAccess } from '../../shared/access-policy.js';
 import { 
   collection, 
@@ -695,16 +696,16 @@ export async function createTraining(
   newTraining: Omit<Training, 'id' | 'createdBy' | 'createdAt' | 'participantIds'>, creator: UserProfile
 ): Promise<Training> {
   if (!hasActivePremium(creator)) throw new PremiumTrainingRequiredError();
-  const result = await callServer<{ training: Training }>('/api/sportbuddy-mutation', { action: 'training', operation: 'createTraining', training: newTraining });
+  const result = await createTrainingRequest<{ training: Training }>(creator.id, newTraining);
   const training = result.training; const cached = getOfflineCache();
   if (cached) { cached.trainings = [training, ...cached.trainings.filter(t => t.id !== training.id)]; saveOfflineCache(cached); }
   return training;
 }
 
 // 3. toggleJoinTraining
-export async function toggleJoinTraining(trainingId: string): Promise<boolean> {
+export async function toggleJoinTraining(trainingId: string, joined: boolean): Promise<boolean> {
   triggerHapticImpact('medium');
-  const result = await callServer<{ joined: boolean; participantIds: string[] }>('/api/sportbuddy-mutation', { action: 'training', operation: 'toggleJoinTraining', trainingId });
+  const result = await callServer<{ joined: boolean; participantIds: string[] }>('/api/sportbuddy-mutation', { action: 'training', operation: 'setTrainingMembership', trainingId, joined });
   const cached = getOfflineCache(); if (cached) { const training = cached.trainings.find(t => t.id === trainingId); if (training) training.participantIds = result.participantIds; saveOfflineCache(cached); }
   return result.joined;
 }

@@ -1288,7 +1288,7 @@ export default function App(): JSX.Element {
     const genderError = !tr.participantIds.includes(CURRENT_USER_ID) ? trainingGenderError(tr, currentUser) : null;
     if (genderError) { notify(genderError, 'err'); return; }
     let isJoined: boolean;
-    try { isJoined = await toggleJoinTraining(tr.id); }
+    try { isJoined = await toggleJoinTraining(tr.id, !tr.participantIds.includes(CURRENT_USER_ID)); }
     catch (error) { notify(error instanceof Error ? error.message : 'Не удалось изменить запись', 'err'); return; }
     // Keep the legacy local journal as a cache; render the server-confirmed result.
     setJoinedTraining(account?.id, tr.id, isJoined);
