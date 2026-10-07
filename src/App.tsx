@@ -29,7 +29,7 @@ import {
 import { 
   loadAppData, loadFeedPosts, createTraining, toggleJoinTraining, toggleLikeProfile, 
   createPost, createComment, toggleLikePost, PremiumTrainingRequiredError,
-  updateProfile, syncOfflineQueue, persistFreshProfile, setCurrentUserId, CURRENT_USER_ID, getOfflineQueue 
+  updateProfile, syncOfflineQueue, persistFreshProfile, syncProfileIdentity, setCurrentUserId, CURRENT_USER_ID, getOfflineQueue 
 } from './services/repository';
 import { getCurrentCoords, calculateDistanceKm, Coords, DEFAULT_COORDS } from './services/geolocation';
 import { getAddressFromCoords } from './services/geocoding';
