@@ -1,4 +1,4 @@
-import React,{useState} from 'react';
+import React,{useEffect,useState} from 'react';
 import { motion } from 'framer-motion';
 import { AlertTriangle,CheckCircle2,MessageSquareWarning,ShieldAlert } from 'lucide-react';
 import { ChatThread,UserProfile } from '../lib/types';
@@ -7,7 +7,7 @@ import { triggerHapticNotification } from '../services/native';
 import { Modal } from './Modal';
 
 interface ReportableContact{user:UserProfile;thread:ChatThread}
-interface ComplaintModalProps{isOpen:boolean;onClose:()=>void;reporter:UserProfile|null;contacts:ReportableContact[]}
+interface ComplaintModalProps{isOpen:boolean;onClose:()=>void;reporter:UserProfile|null;contacts:ReportableContact[];initialContactId?:string}
 const REASONS=[
   ['unsafe','Небезопасное предложение'],
   ['harassment','Оскорбления / давление'],
@@ -16,13 +16,18 @@ const REASONS=[
   ['other','Другое']
 ] as const;
 
-export const ComplaintModal:React.FC<ComplaintModalProps>=({isOpen,onClose,reporter,contacts})=>{
+export const ComplaintModal:React.FC<ComplaintModalProps>=({isOpen,onClose,reporter,contacts,initialContactId})=>{
   const [sentTo,setSentTo]=useState<string|null>(null);
   const [selected,setSelected]=useState<ReportableContact|null>(null);
   const [reason,setReason]=useState<(typeof REASONS)[number][0]>('unsafe');
   const [details,setDetails]=useState('');
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
+  useEffect(()=>{
+    if(!isOpen||!initialContactId)return;
+    const contact=contacts.find(item=>item.user.id===initialContactId);
+    if(contact){setSelected(contact);setSentTo(null);setError('');}
+  },[isOpen,initialContactId,contacts]);
 
   const close=()=>{setSentTo(null);setSelected(null);setReason('unsafe');setDetails('');setError('');onClose();};
   const send=async()=>{
