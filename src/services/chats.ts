@@ -226,6 +226,6 @@ export function countUnread(threads: ChatThread[]): number {
   return threads.reduce((sum, thread) => {
     const metadata = Number(thread.unreadCount?.[CURRENT_USER_ID]);
     if (Number.isFinite(metadata)) return sum + metadata;
-    return sum + thread.messages.filter((m) => !m.read && m.senderId !== CURRENT_USER_ID).length;
+    return sum + thread.messages.filter((m) => !m.deletedAt && !m.read && m.senderId !== CURRENT_USER_ID).length;
   }, 0);
 }
