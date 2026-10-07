@@ -24,7 +24,7 @@ import {
 } from './lib/types';
 import {
   loadChatThreads, sendChatMessage, sendTrainingGroupMessage, ensureTrainingGroupChat, markThreadAsRead, countUnread, deleteChatMessage, setChatTyping,
-  buildChatId, clearChatCache, formatTimeLabel, getReportableChatThreads, loadChatHistory, subscribeChatThreads
+  buildChatId, clearChatCache, formatTimeLabel, loadChatHistory, subscribeChatThreads
 } from './services/chats';
 import { 
   loadAppData, loadFeedPosts, createTraining, toggleJoinTraining, toggleLikeProfile, 
@@ -280,6 +280,7 @@ export default function App(): JSX.Element {
   const [chatDeleteTargetId, setChatDeleteTargetId] = useState<string | null>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const [complaintContactId, setComplaintContactId] = useState<string | undefined>();
+  const [complaintChatId, setComplaintChatId] = useState<string | undefined>();
   // Safety banner shown when a companion suggests a non-sport meeting
   const [safetyWarning, setSafetyWarning] = useState<string | null>(null);
 
@@ -845,15 +846,17 @@ export default function App(): JSX.Element {
     });
   },[chatThreads,chatSearch,allUsers]);
 
-  /** Contacts eligible for a safety report: only real chats with messages. */
+  /** Report targets come only from real conversations containing messages. */
   const reportableChatContacts = useMemo(() => {
     if (!currentUser) return [];
-    return getReportableChatThreads(currentUser.id).flatMap((thread) => {
-      const contactId = thread.participantIds.find((id) => id !== currentUser.id);
-      const user = allUsers.find((candidate) => candidate.id === contactId);
-      return user ? [{ user, thread }] : [];
-    });
-  }, [currentUser, allUsers, chatThreads]);
+    return allChatThreads
+      .filter(thread=>thread.participantIds.includes(currentUser.id)&&thread.messages.length>0)
+      .flatMap(thread=>thread.participantIds
+        .filter(id=>id!==currentUser.id)
+        .map(id=>allUsers.find(candidate=>candidate.id===id))
+        .filter((user):user is UserProfile=>Boolean(user))
+        .map(user=>({user,thread})));
+  }, [currentUser, allUsers, allChatThreads]);
 
   const [friendsNotificationVersion,setFriendsNotificationVersion]=useState(0);
   const [pendingNotificationLink,setPendingNotificationLink]=useState(()=>window.location.hash);
@@ -2427,7 +2430,7 @@ export default function App(): JSX.Element {
                       <div className="flex items-center gap-2 shrink-0">
                         {!openChatIsTraining && (
                           <button
-                            onClick={() => { setComplaintContactId(openChatCompanion!.id); setIsComplaintOpen(true); }}
+                            onClick={() => { setComplaintContactId(openChatCompanion!.id); setComplaintChatId(openChatThread.id); setIsComplaintOpen(true); }}
                             className="rounded-xl border border-rose-500/25 bg-rose-500/10 px-2.5 py-1.5 text-[9px] font-black text-rose-300 active:scale-95"
                           >
                             Пожаловаться
@@ -3348,10 +3351,11 @@ export default function App(): JSX.Element {
       {/* Safety complaint: choose a real chat contact, then open a prefilled support email */}
       <ComplaintModal
         isOpen={isComplaintOpen}
-        onClose={() => { setIsComplaintOpen(false); setComplaintContactId(undefined); }}
+        onClose={() => { setIsComplaintOpen(false); setComplaintContactId(undefined); setComplaintChatId(undefined); }}
         reporter={currentUser}
         contacts={reportableChatContacts}
         initialContactId={complaintContactId}
+        initialChatId={complaintChatId}
       />
 
       {/* Rate participants after a finished training */}
