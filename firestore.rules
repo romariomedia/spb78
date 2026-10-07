@@ -22,7 +22,7 @@ service cloud.firestore {
     function isActiveUser() {
       return isSignedIn()
         && exists(/databases/$(database)/documents/users/$(request.auth.uid))
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isSuspended != true;
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isSuspended', false) != true;
     }
 
     function isAdmin() {
