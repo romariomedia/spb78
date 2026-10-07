@@ -456,6 +456,12 @@ export interface FeedPost {
 
 export type TabType = 'discover' | 'trainings' | 'leisure' | 'chats' | 'feed' | 'profile';
 
+export interface ChatReplyPreview {
+  messageId: string;
+  senderId: string;
+  text: string;
+}
+
 export interface ChatMessage {
   id: string;
   chatId: string;
@@ -464,6 +470,9 @@ export interface ChatMessage {
   createdAt: string; // human readable label
   timestamp: number;
   read: boolean;
+  replyTo?: ChatReplyPreview;
+  deletedAt?: number;
+  deletedBy?: string;
 }
 
 export interface ChatThread {
@@ -480,6 +489,7 @@ export interface ChatThread {
   unreadCount?: Record<string, number>;
   messageCount?: number;
   lastSenderAt?: Record<string, number>;
+  typingAt?: Record<string, number>;
 }
 
 export interface MatchEvent {

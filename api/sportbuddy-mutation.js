@@ -9,8 +9,8 @@ import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { randomUUID } from 'node:crypto';
 import { readUserStatus } from '../server/user-status.js';
 import {
-  assertChatParticipants,assertChatRateLimit,assertChatRelationship,buildRecentMessages,
-  nextChatTimestamp,nextUnreadCounts,sanitizeChatText
+  assertChatParticipants,assertChatRateLimit,assertChatRelationship,assertMessageDeleteAllowed,
+  buildRecentMessages,nextChatTimestamp,nextUnreadCounts,replyPreview,sanitizeChatText,tombstoneMessage
 } from '../server/chat-policy.js';
 
 function init() {
@@ -215,7 +215,75 @@ async function chatMutation(db, uid, body) {
       const history=await chatRef.collection('messages').orderBy('timestamp','desc').limit(200).get().catch(()=>null);
       if(history?.docs?.length)messages=history.docs.map(doc=>({id:doc.id,...doc.data()})).sort((a,b)=>Number(a.timestamp||0)-Number(b.timestamp||0));
     }
-    return {messages:messages.slice(-200)};
+    return {messages:messages.slice(-200).map(message=>{
+      const {moderationText,...safe}=message||{};
+      return safe;
+    })};
+  }
+
+  if(body.operation==='typing') {
+    const snap=await chatRef.get();
+    if(!snap.exists) return {typingAt:0};
+    const thread=snap.data()||{},participants=cleanArray(thread.participantIds);
+    if(!participants.includes(uid)) throw Object.assign(new Error('Нет доступа к чату'),{status:403});
+    const otherId=participants.find(id=>id!==uid);
+    if(!otherId) throw Object.assign(new Error('Некорректный чат'),{status:400});
+    const [meS,otherS]=await Promise.all([db.collection('users').doc(uid).get(),db.collection('users').doc(otherId).get()]);
+    if(!meS.exists||!otherS.exists) throw Object.assign(new Error('Пользователь не найден'),{status:404});
+    assertChatRelationship(meS.data()||{},otherS.data()||{},otherId,uid);
+    const active=body.active===true,now=Date.now(),previous=Number(thread.typingAt?.[uid]||0);
+    if(active && previous>0 && now-previous<1200)return {typingAt:previous};
+    const typingAt=active?now:0;
+    await chatRef.set({typingAt:{...(thread.typingAt||{}),[uid]:typingAt}},{merge:true});
+    return {typingAt};
+  }
+
+  if(body.operation==='deleteMessage') {
+    const messageId=String(body.messageId||'');
+    if(!messageId||messageId.includes('/')) throw Object.assign(new Error('Некорректное сообщение'),{status:400});
+    return db.runTransaction(async tx=>{
+      const chatS=await tx.get(chatRef);
+      if(!chatS.exists) throw Object.assign(new Error('Диалог не найден'),{status:404});
+      const current=chatS.data()||{},participants=cleanArray(current.participantIds);
+      if(!participants.includes(uid)) throw Object.assign(new Error('Нет доступа к чату'),{status:403});
+      const otherId=participants.find(id=>id!==uid);
+      if(!otherId) throw Object.assign(new Error('Некорректный чат'),{status:400});
+      const meS=await tx.get(db.collection('users').doc(uid)),otherS=await tx.get(db.collection('users').doc(otherId));
+      if(!meS.exists||!otherS.exists) throw Object.assign(new Error('Пользователь не найден'),{status:404});
+      assertChatRelationship(meS.data()||{},otherS.data()||{},otherId,uid);
+      const legacy=Array.isArray(current.recentMessages)?current.recentMessages:(Array.isArray(current.messages)?current.messages:[]);
+      const messageRef=chatRef.collection('messages').doc(messageId);
+      const stored=await tx.get(messageRef);
+      const original=stored.exists?stored.data():legacy.find(item=>item?.id===messageId);
+      if(!original) throw Object.assign(new Error('Сообщение не найдено'),{status:404});
+      const now=Date.now();
+      assertMessageDeleteAllowed(original,uid,now);
+      if(Number(current.messageStorageVersion||0)<2){
+        for(const oldMessage of legacy.slice(-60)){
+          if(oldMessage?.id&&oldMessage?.senderId&&Number.isFinite(Number(oldMessage?.timestamp))){
+            tx.set(chatRef.collection('messages').doc(String(oldMessage.id)),oldMessage,{merge:true});
+          }
+        }
+      }
+      const tombstone=tombstoneMessage(original,uid,now);
+      tx.set(messageRef,{...tombstone,moderationText:String(original.text||'').slice(0,2000)},{merge:true});
+      const replace=item=>item?.id===messageId?tombstone:item;
+      const recentMessages=legacy.map(replace);
+      const unreadCount=current.unreadCount&&typeof current.unreadCount==='object'
+        ? {...current.unreadCount}
+        : Object.fromEntries(participants.map(participantId=>[
+            participantId,
+            legacy.filter(item=>!item?.deletedAt&&item?.senderId!==participantId&&Number(item?.timestamp||0)>Number(current.readAt?.[participantId]||0)).length
+          ]));
+      if(Number(current.readAt?.[otherId]||0)<Number(original.timestamp||0)&&Number(unreadCount[otherId]||0)>0){
+        unreadCount[otherId]=Math.max(0,Number(unreadCount[otherId])-1);
+      }
+      tx.update(chatRef,{
+        messages:recentMessages,recentMessages,unreadCount,
+        lastMessage:current.lastMessage?.id===messageId?tombstone:current.lastMessage
+      });
+      return {message:tombstone};
+    });
   }
 
   if(body.operation==='read') {
@@ -259,10 +327,20 @@ async function chatMutation(db, uid, body) {
 
     const now=Date.now();
     assertChatRateLimit(current,uid,now);
-    const ts=nextChatTimestamp(current.lastMessageAt,now);
-    const message={id:`msg_${randomUUID()}`,chatId,senderId:uid,text,timestamp:ts,createdAt:new Date(ts).toISOString(),read:false};
-    const messageRef=chatRef.collection('messages').doc(message.id);
     const legacy=Array.isArray(current.recentMessages)?current.recentMessages:(Array.isArray(current.messages)?current.messages:[]);
+    let replyTo;
+    const replyMessageId=String(body.replyToMessageId||'');
+    if(replyMessageId){
+      if(replyMessageId.includes('/'))throw Object.assign(new Error('Некорректное сообщение для ответа'),{status:400});
+      const replyRef=chatRef.collection('messages').doc(replyMessageId);
+      const replySnap=await tx.get(replyRef);
+      const source=replySnap.exists?replySnap.data():legacy.find(item=>item?.id===replyMessageId);
+      if(!source)throw Object.assign(new Error('Сообщение для ответа не найдено'),{status:404});
+      replyTo=replyPreview(source);
+    }
+    const ts=nextChatTimestamp(current.lastMessageAt,now);
+    const message={id:`msg_${randomUUID()}`,chatId,senderId:uid,text,timestamp:ts,createdAt:new Date(ts).toISOString(),read:false,...(replyTo?{replyTo}:{})};
+    const messageRef=chatRef.collection('messages').doc(message.id);
     if(Number(current.messageStorageVersion||0)<2){
       for(const oldMessage of legacy.slice(-60)){
         if(oldMessage?.id&&oldMessage?.senderId&&Number.isFinite(Number(oldMessage?.timestamp))){
@@ -286,6 +364,7 @@ async function chatMutation(db, uid, body) {
       messageCount:baseMessageCount+1,
       messageStorageVersion:2,
       unreadCount,
+      typingAt:{...(current.typingAt||{}),[uid]:0},
       lastSenderAt:{...(current.lastSenderAt||{}),[uid]:now}
     };
     enqueueNotification(tx,db,{id:message.id,actorId:uid,recipients:[companionId],category:'messages',kind:'message',title:'Новое сообщение',message:'Вам написали в SportBuddy78.',link:'#chat='+encodeURIComponent(chatId)});

@@ -29,7 +29,12 @@ export default async function handler(req,res){
     const ref=db.collection('reports').doc(id);
     const existing=await ref.get();
     if(existing.exists)return res.status(409).json({error:'Жалоба на этот диалог уже отправлена сегодня.'});
-    const excerpt=messages.slice(-5).map(m=>({senderId:String(m.senderId||''),text:String(m.text||'').slice(0,1000),timestamp:Number(m.timestamp||0)}));
+    const excerpt=messages.slice(-5).map(m=>({
+      senderId:String(m.senderId||''),
+      text:String(m.moderationText||m.text||'').slice(0,1000),
+      timestamp:Number(m.timestamp||0),
+      deletedAt:Number(m.deletedAt||0)||undefined
+    }));
     const [reporterSnap,targetSnap]=await Promise.all([db.collection('users').doc(uid).get(),db.collection('users').doc(input.targetUserId).get()]);
     const report={
       id,type:'chat_user',reporterId:uid,reporterName:String(reporterSnap.data()?.name||'Спортсмен').slice(0,120),

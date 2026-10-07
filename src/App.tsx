@@ -14,7 +14,7 @@ import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-mo
 import { 
   Users, Dumbbell, Newspaper, MapPin, Heart, X as CloseIcon, 
   Filter, Plus, Share2, MessageCircle, Send, Zap, Crown, 
-  ChevronRight, Bell, WifiOff, RefreshCw, Sparkles, Search, CheckCheck,
+  ChevronRight, Bell, WifiOff, RefreshCw, Sparkles, Search, CheckCheck, Reply, Trash2,
   Map as MapIcon, SlidersHorizontal, CheckCircle2,
   Calendar, ShieldAlert, Clock, Lock, UserPlus
 } from 'lucide-react';
@@ -23,7 +23,7 @@ import {
   UserProfile, Training, FeedPost, TabType, AppNotification, ChatThread, ChatMessage 
 } from './lib/types';
 import {
-  loadChatThreads, sendChatMessage, markThreadAsRead, countUnread,
+  loadChatThreads, sendChatMessage, markThreadAsRead, countUnread, deleteChatMessage, setChatTyping,
   buildChatId, clearChatCache, formatTimeLabel, getReportableChatThreads, loadChatHistory, subscribeChatThreads
 } from './services/chats';
 import { 
@@ -276,6 +276,8 @@ export default function App(): JSX.Element {
   const [chatSearch, setChatSearch] = useState('');
   const [chatSending, setChatSending] = useState(false);
   const [chatMessagesOffline, setChatMessagesOffline] = useState(false);
+  const [chatReplyTarget, setChatReplyTarget] = useState<ChatMessage | null>(null);
+  const [chatDeleteTargetId, setChatDeleteTargetId] = useState<string | null>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const [complaintContactId, setComplaintContactId] = useState<string | undefined>();
   // Safety banner shown when a companion suggests a non-sport meeting
@@ -813,7 +815,23 @@ export default function App(): JSX.Element {
     return () => clearTimeout(timer);
   }, [safetyWarning]);
 
-  const friendsCount = (currentUser?.friendIds || []).length;
+  useEffect(()=>{
+    if(!openChatId||!currentUser)return;
+    if(!chatDraft.trim()){
+      void setChatTyping(openChatId,false).catch(()=>undefined);
+      return;
+    }
+    const start=window.setTimeout(()=>void setChatTyping(openChatId,true).catch(()=>undefined),250);
+    const stop=window.setTimeout(()=>void setChatTyping(openChatId,false).catch(()=>undefined),3200);
+    return ()=>{clearTimeout(start);clearTimeout(stop);};
+  },[openChatId,currentUser?.id,chatDraft]);
+
+  useEffect(()=>{
+    setChatReplyTarget(null);
+    setChatDeleteTargetId(null);
+  },[openChatId]);
+
+    const friendsCount = (currentUser?.friendIds || []).length;
   const friendRequestsCount = (currentUser?.friendRequestsReceived || []).length;
 
   const chatUnreadCount = useMemo(() => (isPremium ? countUnread(allChatThreads) : 0), [allChatThreads, isPremium]);
@@ -881,6 +899,10 @@ export default function App(): JSX.Element {
   const lastMineMessageId = openChatThread
     ? [...openChatThread.messages].reverse().find(message=>message.senderId===CURRENT_USER_ID)?.id
     : undefined;
+  const companionTyping = Boolean(
+    openChatThread && openChatCompanion &&
+    Date.now() - Number(openChatThread.typingAt?.[openChatCompanion.id] || 0) < 5000
+  );
 
   const handleOpenChat = (chatId: string) => {
     triggerHapticImpact('light');
@@ -893,12 +915,33 @@ export default function App(): JSX.Element {
     if (chatSending || !chatDraft.trim() || !openChatThread || !openChatCompanion || !currentUser) return;
     triggerHapticImpact('light');
     const text = chatDraft.trim();
+    const replyTarget=chatReplyTarget;
     setChatDraft('');
+    setChatReplyTarget(null);
     setChatSending(true);
-    void sendChatMessage(openChatThread.id, openChatCompanion.id, text)
+    void setChatTyping(openChatThread.id,false).catch(()=>undefined);
+    void sendChatMessage(openChatThread.id, openChatCompanion.id, text, replyTarget?.id)
       .then(() => setChatThreads(loadChatThreads(currentUser, allUsers, chatCategory)))
-      .catch((error) => { setChatDraft(text); notify(error instanceof Error ? error.message : 'Не удалось отправить сообщение', 'err'); })
+      .catch((error) => {
+        setChatDraft(text);
+        setChatReplyTarget(replyTarget);
+        notify(error instanceof Error ? error.message : 'Не удалось отправить сообщение', 'err');
+      })
       .finally(()=>setChatSending(false));
+  };
+
+  const handleDeleteMessage = (message:ChatMessage) => {
+    if(!openChatThread||message.senderId!==CURRENT_USER_ID||message.deletedAt)return;
+    setChatDeleteTargetId(null);
+    void deleteChatMessage(openChatThread.id,message.id)
+      .then(deleted=>{
+        setChatThreads(previous=>previous.map(thread=>thread.id===openChatThread.id
+          ? {...thread,messages:thread.messages.map(item=>item.id===deleted.id?deleted:item),lastMessage:thread.lastMessage?.id===deleted.id?deleted:thread.lastMessage}
+          : thread));
+        if(chatReplyTarget?.id===deleted.id)setChatReplyTarget(null);
+        notify('Сообщение удалено для всех','ok');
+      })
+      .catch(error=>notify(error instanceof Error?error.message:'Не удалось удалить сообщение','err'));
   };
 
   // Open a chat with a matched partner (used from the match celebration modal)
@@ -2380,33 +2423,68 @@ export default function App(): JSX.Element {
 
                       {openChatThread.messages.map((m: ChatMessage) => {
                         const mine = m.senderId === CURRENT_USER_ID;
+                        const canDelete=mine&&!m.deletedAt&&Date.now()-m.timestamp<=15*60*1000;
                         return (
-                          <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'} gap-2`}>
+                          <div key={m.id} className={`group flex ${mine ? 'justify-end' : 'justify-start'} gap-2`}>
                             {!mine && (
                               <AvatarImage src={avatarUrl(openChatCompanion.avatar, 28) || AVATAR_FALLBACK} alt="" width={28} height={28} loading="lazy" decoding="async" className="w-7 h-7 rounded-full object-cover border border-slate-700 shrink-0 mt-auto" />
                             )}
-                            <div
-                              className={`max-w-[75%] px-3.5 py-2.5 rounded-2xl text-xs leading-relaxed shadow ${
-                                mine
-                                  ? 'bg-emerald-500 text-slate-950 font-semibold rounded-br-md'
-                                  : 'bg-slate-900 text-slate-100 border border-slate-800 rounded-bl-md'
-                              }`}
-                            >
-                              <p>{m.text}</p>
-                              <span className={`flex items-center gap-1 text-[9px] mt-1 ${mine ? 'text-emerald-900/70' : 'text-slate-500'}`}>
-                                {formatTimeLabel(m.timestamp)}
-                                {mine && m.id === lastMineMessageId && (
-                                  <>
-                                    <span>·</span>
-                                    <CheckCheck className="h-3 w-3"/>
-                                    <span>{Number(openChatThread.readAt?.[openChatCompanion.id] || 0) >= m.timestamp ? 'прочитано' : 'доставлено'}</span>
-                                  </>
+                            <div className="max-w-[78%]">
+                              <div
+                                className={`px-3.5 py-2.5 rounded-2xl text-xs leading-relaxed shadow ${
+                                  mine
+                                    ? 'bg-emerald-500 text-slate-950 font-semibold rounded-br-md'
+                                    : 'bg-slate-900 text-slate-100 border border-slate-800 rounded-bl-md'
+                                }`}
+                              >
+                                {m.replyTo && (
+                                  <div className={`mb-2 rounded-xl border-l-2 px-2.5 py-1.5 text-[10px] ${mine?'border-slate-900/40 bg-slate-950/10':'border-emerald-500/60 bg-slate-950/70 text-slate-400'}`}>
+                                    <p className="font-black">{m.replyTo.senderId===CURRENT_USER_ID?'Вы':openChatCompanion.name}</p>
+                                    <p className="truncate opacity-80">{m.replyTo.text||'Сообщение'}</p>
+                                  </div>
                                 )}
-                              </span>
+                                <p className={m.deletedAt?'italic opacity-70':''}>{m.text}</p>
+                                <span className={`flex items-center gap-1 text-[9px] mt-1 ${mine ? 'text-emerald-900/70' : 'text-slate-500'}`}>
+                                  {formatTimeLabel(m.timestamp)}
+                                  {mine && !m.deletedAt && m.id === lastMineMessageId && (
+                                    <>
+                                      <span>·</span>
+                                      <CheckCheck className="h-3 w-3"/>
+                                      <span>{Number(openChatThread.readAt?.[openChatCompanion.id] || 0) >= m.timestamp ? 'прочитано' : 'доставлено'}</span>
+                                    </>
+                                  )}
+                                </span>
+                              </div>
+                              {!m.deletedAt && (
+                                <div className={`mt-1 flex gap-1 ${mine?'justify-end':'justify-start'}`}>
+                                  <button onClick={()=>setChatReplyTarget(m)} className="flex items-center gap-1 rounded-lg px-2 py-1 text-[9px] font-bold text-slate-500 hover:bg-slate-900 hover:text-slate-300">
+                                    <Reply className="h-3 w-3"/> Ответить
+                                  </button>
+                                  {canDelete && (
+                                    chatDeleteTargetId===m.id ? (
+                                      <>
+                                        <button onClick={()=>handleDeleteMessage(m)} className="rounded-lg bg-rose-500/15 px-2 py-1 text-[9px] font-black text-rose-300">Удалить для всех</button>
+                                        <button onClick={()=>setChatDeleteTargetId(null)} className="rounded-lg px-2 py-1 text-[9px] font-bold text-slate-500">Отмена</button>
+                                      </>
+                                    ) : (
+                                      <button onClick={()=>setChatDeleteTargetId(m.id)} className="flex items-center gap-1 rounded-lg px-2 py-1 text-[9px] font-bold text-slate-500 hover:bg-rose-500/10 hover:text-rose-300">
+                                        <Trash2 className="h-3 w-3"/> Удалить
+                                      </button>
+                                    )
+                                  )}
+                                </div>
+                              )}
                             </div>
                           </div>
                         );
                       })}
+
+                      {companionTyping && (
+                        <div className="flex items-center gap-2 text-[10px] font-semibold text-slate-500">
+                          <span className="flex gap-1"><i className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400"/><i className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400"/><i className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400"/></span>
+                          {openChatCompanion.name.split(' ')[0]} печатает…
+                        </div>
+                      )}
 
                     </div>
 
@@ -2436,6 +2514,16 @@ export default function App(): JSX.Element {
 
                     {/* Composer */}
                     <div className="space-y-1.5">
+                      {chatReplyTarget && (
+                        <div className="flex items-center gap-2 rounded-2xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2">
+                          <Reply className="h-4 w-4 shrink-0 text-emerald-400"/>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[9px] font-black uppercase tracking-wide text-emerald-400">Ответ на сообщение</p>
+                            <p className="truncate text-[10px] text-slate-300">{chatReplyTarget.text}</p>
+                          </div>
+                          <button onClick={()=>setChatReplyTarget(null)} className="rounded-lg p-1 text-slate-500 hover:text-white" aria-label="Отменить ответ"><CloseIcon className="h-3.5 w-3.5"/></button>
+                        </div>
+                      )}
                       <div className="flex gap-2">
                         <input
                           type="text"

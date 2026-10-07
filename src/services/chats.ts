@@ -182,9 +182,26 @@ export async function loadChatHistory(chatId: string, userId: string): Promise<C
   return messages;
 }
 
-export async function sendChatMessage(chatId: string, companionId: string, text: string): Promise<ChatMessage> {
-  const result = await callServer<{message:ChatMessage;thread:ChatThread}>('/api/sportbuddy-mutation', {action:'chat', chatId, companionId, text});
+export async function sendChatMessage(chatId: string, companionId: string, text: string, replyToMessageId?: string): Promise<ChatMessage> {
+  const result = await callServer<{message:ChatMessage;thread:ChatThread}>('/api/sportbuddy-mutation', {
+    action:'chat', chatId, companionId, text, ...(replyToMessageId?{replyToMessageId}:{})
+  });
   const threads=readAllThreads(CURRENT_USER_ID); threads[chatId]=result.thread; writeAllThreads(threads,CURRENT_USER_ID); return result.message;
+}
+
+export async function setChatTyping(chatId:string, active:boolean):Promise<void>{
+  await callServer('/api/sportbuddy-mutation',{action:'chat',operation:'typing',chatId,active});
+}
+
+export async function deleteChatMessage(chatId:string,messageId:string):Promise<ChatMessage>{
+  const result=await callServer<{message:ChatMessage}>('/api/sportbuddy-mutation',{action:'chat',operation:'deleteMessage',chatId,messageId});
+  const threads=readAllThreads(CURRENT_USER_ID),thread=threads[chatId];
+  if(thread){
+    thread.messages=thread.messages.map(message=>message.id===messageId?result.message:message);
+    if(thread.lastMessage?.id===messageId)thread.lastMessage=result.message;
+    writeAllThreads(threads,CURRENT_USER_ID);
+  }
+  return result.message;
 }
 
 export async function markThreadAsRead(chatId: string): Promise<void> {
@@ -209,6 +226,6 @@ export function countUnread(threads: ChatThread[]): number {
   return threads.reduce((sum, thread) => {
     const metadata = Number(thread.unreadCount?.[CURRENT_USER_ID]);
     if (Number.isFinite(metadata)) return sum + metadata;
-    return sum + thread.messages.filter((m) => !m.read && m.senderId !== CURRENT_USER_ID).length;
+    return sum + thread.messages.filter((m) => !m.deletedAt && !m.read && m.senderId !== CURRENT_USER_ID).length;
   }, 0);
 }
