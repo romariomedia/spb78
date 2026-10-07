@@ -2498,6 +2498,14 @@ export default function App(): JSX.Element {
                                   <button onClick={()=>setChatReplyTarget(m)} className="flex items-center gap-1 rounded-lg px-2 py-1 text-[9px] font-bold text-slate-500 hover:bg-slate-900 hover:text-slate-300">
                                     <Reply className="h-3 w-3"/> Ответить
                                   </button>
+                                  {!mine && openChatIsTraining && (
+                                    <button
+                                      onClick={()=>{setComplaintContactId(m.senderId);setComplaintChatId(openChatThread.id);setIsComplaintOpen(true);}}
+                                      className="flex items-center gap-1 rounded-lg px-2 py-1 text-[9px] font-bold text-slate-500 hover:bg-rose-500/10 hover:text-rose-300"
+                                    >
+                                      <ShieldAlert className="h-3 w-3"/> Пожаловаться
+                                    </button>
+                                  )}
                                   {canDelete && (
                                     chatDeleteTargetId===m.id ? (
                                       <>
