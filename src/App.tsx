@@ -481,6 +481,8 @@ export default function App(): JSX.Element {
       if (freshAccount || data.profileMissing) {
         (profile as UserProfile & { provider?: string }).provider = session?.provider === 'vk' ? 'vk' : 'email';
         profile = await persistFreshProfile(profile);
+        const synced = syncLocalAccountIdentity(profile.name, profile.email ?? session?.email);
+        if (synced) setAccount(current => current?.id === synced.id ? synced : current);
         freshAccountRef.current = null;
         profile = initFriendsState(profile, data.allUsers);
         profile = syncProfileMedals(profile);
