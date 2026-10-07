@@ -269,7 +269,12 @@ async function chatMutation(db, uid, body) {
       tx.set(messageRef,{...tombstone,moderationText:String(original.text||'').slice(0,2000)},{merge:true});
       const replace=item=>item?.id===messageId?tombstone:item;
       const recentMessages=legacy.map(replace);
-      const unreadCount={...(current.unreadCount||{})};
+      const unreadCount=current.unreadCount&&typeof current.unreadCount==='object'
+        ? {...current.unreadCount}
+        : Object.fromEntries(participants.map(participantId=>[
+            participantId,
+            legacy.filter(item=>!item?.deletedAt&&item?.senderId!==participantId&&Number(item?.timestamp||0)>Number(current.readAt?.[participantId]||0)).length
+          ]));
       if(Number(current.readAt?.[otherId]||0)<Number(original.timestamp||0)&&Number(unreadCount[otherId]||0)>0){
         unreadCount[otherId]=Math.max(0,Number(unreadCount[otherId])-1);
       }
