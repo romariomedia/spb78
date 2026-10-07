@@ -1,4 +1,4 @@
-import { collection, onSnapshot, query, where, Unsubscribe } from 'firebase/firestore';
+import { collection, limit, onSnapshot, orderBy, query, where, Unsubscribe } from 'firebase/firestore';
 import { callServer } from './serverApi';
 import { db } from '../lib/firebase';
 import { ChatMessage, ChatThread, UserProfile } from '../lib/types';
@@ -147,11 +147,12 @@ export function subscribeChatThreads(
         const data = chatDoc.data() as ChatThread & { readAt?: Record<string, number> };
         const companionId = data.participantIds.find((id) => id !== currentUser.id);
         if (!companionId) return;
+        const sourceMessages = data.recentMessages || data.messages || [];
         stored[chatDoc.id] = {
           ...data,
           id: chatDoc.id,
           companionId,
-          messages: (data.messages || []).map((message) => ({
+          messages: sourceMessages.map((message) => ({
             ...message,
             read: message.senderId === currentUser.id || message.timestamp <= (data.readAt?.[currentUser.id] ?? 0),
             createdAt: formatTimeLabel(message.timestamp)
@@ -169,6 +170,42 @@ export function subscribeChatThreads(
     () => {
       // Offline cache remains active; no UI error needed.
     }
+  );
+}
+
+
+/**
+ * Subscribes to message history for one opened conversation.
+ * New chat storage keeps messages in a subcollection so the chat metadata
+ * document stays bounded. Legacy messages from the thread are merged in.
+ */
+export function subscribeChatMessages(
+  chatId: string,
+  userId: string,
+  onChange: (messages: ChatMessage[]) => void,
+  onError?: (failed: boolean) => void
+): Unsubscribe {
+  const cached = readAllThreads()[chatId];
+  const legacy = cached?.messages || [];
+  return onSnapshot(
+    query(collection(db, 'chats', chatId, 'messages'), orderBy('timestamp', 'desc'), limit(200)),
+    (snapshot) => {
+      onError?.(false);
+      const readAt = Number(readAllThreads()[chatId]?.readAt?.[userId] || cached?.readAt?.[userId] || 0);
+      const merged = new Map<string, ChatMessage>();
+      for (const message of legacy) merged.set(message.id, message);
+      for (const doc of snapshot.docs) {
+        const message = doc.data() as ChatMessage;
+        merged.set(doc.id, {
+          ...message,
+          id: doc.id,
+          read: message.senderId === userId || message.timestamp <= readAt,
+          createdAt: formatTimeLabel(message.timestamp)
+        });
+      }
+      onChange([...merged.values()].sort((a,b)=>a.timestamp-b.timestamp).slice(-200));
+    },
+    () => onError?.(true)
   );
 }
 
@@ -194,10 +231,11 @@ export async function markThreadAsRead(chatId: string): Promise<void> {
 }
 
 export function countUnread(threads: ChatThread[]): number {
-  return threads.reduce(
-    (sum, t) => sum + t.messages.filter((m) => !m.read && m.senderId !== CURRENT_USER_ID).length,
-    0
-  );
+  return threads.reduce((sum, thread) => {
+    const metadata = Number(thread.unreadCount?.[CURRENT_USER_ID]);
+    if (Number.isFinite(metadata)) return sum + metadata;
+    return sum + thread.messages.filter((m) => !m.read && m.senderId !== CURRENT_USER_ID).length;
+  }, 0);
 }
 
 /** Auto-reply so the conversation feels alive in the demo/preview build */
