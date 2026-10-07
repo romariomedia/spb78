@@ -56,7 +56,8 @@ service cloud.firestore {
     /* ------------------------------ users ------------------------------ */
 
     match /users/{userId} {
-      allow read: if isSignedIn();
+      // Public discovery uses the server's explicit field projection.
+      allow read: if isSelf(userId);
       allow create, update, delete: if false;
     }
 

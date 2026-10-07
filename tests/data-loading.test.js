@@ -12,12 +12,16 @@ const bundled = await build({
       const sources = {
         'firebase/firestore': `export const collection=(_db,name)=>name; export const doc=(_db,name,id)=>name+'/'+id;
           const read=async path=>{const value=globalThis.__sbReads[path];if(value instanceof Error)throw value;return value;};
-          export const getDocsFromServer=read,getDocFromServer=read;`,
+          export const getDocsFromServer=path=>{if(path==='users')throw Error('Raw user collection read forbidden');return read(path)},getDocFromServer=read;`,
         '../lib/firebase': 'export const db={};',
         './native': 'export const triggerHapticImpact=()=>{};',
         './schedule': 'export const getActiveTrainings=x=>x;',
         './reset': 'export const createFreshProfile=(id,extra={})=>({id,name:"New",...extra});',
-        './serverApi': 'export const callServer=()=>{throw new Error("Unexpected mutation");};'
+        './serverApi': `export const callServer=async(path)=>{
+          if(path!=='/api/public-profiles')throw new Error('Unexpected mutation');
+          const value=globalThis.__sbReads.users;if(value instanceof Error)throw value;
+          return {profiles:value.docs.map(d=>({id:d.id,...d.data()})),nextCursor:null};
+        };`
       };
       return { contents: sources[args.path], loader: 'js' };
     });
@@ -90,3 +94,10 @@ test('membership on a second device uses server participants', () => {
   assert.deepEqual([...joinedTrainingIds([{ id: 't1', participantIds: ['alice'] }, { id: 't2', participantIds: ['bob'] }], 'alice')], ['t1']);
   assert.equal(joinedTrainingIds([{ id: 't1', participantIds: ['alice'] }], 'bob').size, 0);
 });
+
+ test('upgrade removes old community cache containing private social fields',async()=>{
+  reset();storage.set('sportbuddy_offline_cache_v4',JSON.stringify({allUsers:[{email:'secret',friendIds:['other']}]}));
+  await repository.loadAppData();
+  assert.equal(storage.has('sportbuddy_offline_cache_v4'),false);
+  assert.equal(storage.has('sportbuddy_offline_cache_v5'),true);
+ });

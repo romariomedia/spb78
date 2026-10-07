@@ -31,10 +31,8 @@ export let CURRENT_USER_ID = 'user-me-1';
 export function setCurrentUserId(id: string): void {
   if (id.trim()) CURRENT_USER_ID = id;
 }
-// v4 инвалидирует зеркала, в которые успели попасть демонстрационные посты
-// («post-1…post-3» с датами-строками «Вчера»): после обновления у всех
-// пользователей локальный кэш создаётся заново из базы.
-const OFFLINE_CACHE_KEY = 'sportbuddy_offline_cache_v4';
+// v5 excludes private fields from other athletes' cached profiles.
+const OFFLINE_CACHE_KEY = 'sportbuddy_offline_cache_v5';
 const OFFLINE_QUEUE_KEY = 'sportbuddy_offline_queue_v4';
 
 /**
@@ -496,6 +494,7 @@ const INITIAL_FEED: FeedPost[] = ENABLE_SAMPLE_DATA ? DEMO_FEED : [];
 // Helper: Get offline cache from localStorage
 function getOfflineCache(): AppData | null {
   try {
+    for (const version of [1,2,3,4]) localStorage.removeItem(`sportbuddy_offline_cache_v${version}`);
     const raw = localStorage.getItem(OFFLINE_CACHE_KEY);
     if (!raw) return null;
     return JSON.parse(raw) as AppData;
@@ -585,6 +584,20 @@ export async function persistFreshProfile(profile: UserProfile): Promise<UserPro
   return authoritative;
 }
 
+async function loadPublicProfiles(): Promise<UserProfile[]> {
+  const profiles: UserProfile[] = [];
+  let cursor: string | null = null;
+  do {
+    const page: {profiles: Record<string, unknown>[]; nextCursor: string | null} =
+      await callServer('/api/public-profiles', cursor ? {cursor} : {});
+    profiles.push(...page.profiles.filter(item => !LEGACY_DEMO_USER_IDS.includes(String(item.id)))
+      .map(item => normalizeUserProfile(item)));
+    if (page.nextCursor && page.nextCursor === cursor) throw new Error('Не удалось загрузить следующую страницу анкет');
+    cursor = page.nextCursor;
+  } while (cursor);
+  return profiles;
+}
+
 /** Load collections independently, scoped to the account that began the request. */
 export async function loadAppData(): Promise<AppData> {
   const uid = CURRENT_USER_ID;
@@ -608,13 +621,7 @@ export async function loadAppData(): Promise<AppData> {
         return { user: cached.currentUser, missing: false };
       }, timeout
     ),
-    readSection(getDocsFromServer(collection(db, 'users')).then(snap => snap.docs
-      // Служебные профили демо-режима не должны попадать в сообщество:
-      // реальные аккаунты создаются с id вида vk_* или Firebase-uid.
-      .filter(item => !LEGACY_DEMO_USER_IDS.includes(item.id))
-      .map(item => normalizeUserProfile({ ...item.data(), id: item.id }))
-      .filter(profile => profile.isDemo !== true && profile.isSuspended !== true)
-    ), () => cached?.allUsers ?? [], timeout),
+    readSection(loadPublicProfiles(), () => cached?.allUsers ?? [], timeout),
     // No orderBy: legacy records without createdAt must remain visible.
     readSection(getDocsFromServer(collection(db, 'trainings')).then(snap => snap.docs.map(item =>
       ({ ...item.data(), id: item.id }) as Training

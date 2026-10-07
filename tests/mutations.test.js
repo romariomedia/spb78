@@ -517,3 +517,18 @@ test('bootstrap uses Firebase email over a stale private email and never trusts 
   const result=await noEmail.request('a',{action:'bootstrapProfile',profile:{name:'Анна Тест',email:'forged@example.com'}});
   assert.equal(result.statusCode,200);assert.equal(result.body.profile.email,undefined);
 });
+
+test('invalid profile update leaves public and private documents unchanged',async()=>{
+ const initial={'users/a':{...premium(),registeredAt:new Date().toISOString()},'usersPrivate/a':{phone:'123'}};
+ const f=fixture(initial);
+ for(const updates of [{age:-999},{sports:'Бег'},{avatar:'x',photoPortfolio:['x']},{phone:{number:'123'}},{birthDate:'2020-01-01'}]){
+  assert.equal((await f.request('a',{action:'profile',updates})).statusCode,400);
+  assert.deepEqual(f.records.get('users/a'),initial['users/a']);assert.deepEqual(f.records.get('usersPrivate/a'),initial['usersPrivate/a']);
+ }
+});
+test('bootstrap rejects malformed profile rather than persisting unrenderable fields',async()=>{
+ const f=fixture({});
+ assert.equal((await f.request('a',{action:'bootstrapProfile',profile:{avatar:'x',sports:'Бег'}})).statusCode,400);
+ assert.equal(f.records.has('users/a'),false);
+ assert.equal(f.records.has('usersPrivate/a'),false);
+});

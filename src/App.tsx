@@ -460,17 +460,16 @@ export default function App(): JSX.Element {
       // Recalculate medal totals & tier (burns the cycle if a day was missed)
       profile = syncProfileMedals(profile);
 
-      // Do not keep an expired unverified athlete in the application. This is
-      // immediate on return to the app; Cloud Scheduler handles inactive users.
+      // Expired verification requires support review; never assume deletion succeeded.
       if (getVerificationState(profile).expired) {
-        await deleteExpiredUnverifiedProfile(profile);
-        // Remove the local mirror too so the person can register again as a
-        // brand-new user with the same e-mail afterwards.
-        if (session) removeLocalAccount(session.id);
+        const deleted = await deleteExpiredUnverifiedProfile(profile);
+        if (deleted && session) removeLocalAccount(session.id);
         clearLocalAuthSession();
         void signOutFirebase();
         void signOutTransport();
-        setAuthNotice('Аккаунт удалён: верификация с личным фото и портфолио не была завершена в течение 24 часов.');
+        setAuthNotice(deleted
+          ? 'Аккаунт удалён: верификация не была завершена в течение 24 часов.'
+          : 'Срок верификации истёк. Данные аккаунта сохранены. Для восстановления доступа напишите в support@sportbuddy78.ru.');
         setAccount(null);
         setCurrentUser(null);
         return;
@@ -525,7 +524,7 @@ export default function App(): JSX.Element {
         return;
       }
       void fetchAllData();
-    });
+    }, account.id);
     return unsubscribe;
   }, [account?.id, fetchAllData]);
 

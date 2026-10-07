@@ -18,6 +18,7 @@ const bundled = await build({
         contents: args.path === 'lib/firebase'
           ? 'export const db = { name: "fake" };'
           : [
+            'export const doc = (_db, name, id) => ({ name, id });',
             'export const collection = (_db, name) => ({ name });',
             'export const onSnapshot = (ref, next) => {',
             '  globalThis.__listeners.push({ ref, next });',
@@ -44,8 +45,9 @@ test('изменения разделов копятся и приходят о�
   globalThis.__stopped = 0;
 
   const calls = [];
-  const stop = subscribeAppInvalidation((sections) => calls.push([...sections]));
+  const stop = subscribeAppInvalidation((sections) => calls.push([...sections]), 'athlete-a');
 
+  assert.equal(listenerFor('users').ref.id, 'athlete-a');
   assert.equal(globalThis.__listeners.length, 3, 'должны слушаться три коллекции');
 
   listenerFor('feed').next();
@@ -66,7 +68,7 @@ test('после отписки изменения больше не прихо�
   globalThis.__stopped = 0;
 
   const calls = [];
-  const stop = subscribeAppInvalidation((sections) => calls.push([...sections]));
+  const stop = subscribeAppInvalidation((sections) => calls.push([...sections]), 'athlete-a');
   listenerFor('users').next();
   stop();
   t.mock.timers.tick(350);

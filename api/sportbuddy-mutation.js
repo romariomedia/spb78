@@ -1,3 +1,4 @@
+import { validateProfileInput } from '../server/profile-input.js';
 import { validateDistrictId } from '../shared/districts.js';
 import { enqueueNotification } from '../server/notification-policy.js';
 import { isBetaActive, hasPremiumAccess } from '../shared/access-policy.js';
@@ -51,7 +52,7 @@ async function bootstrapProfile(db, uid, incoming, claims = {}) {
       }
       return { created:false, premiumGranted:false, profile:{ id:uid, ...user, ...(privateSnap.exists ? privateSnap.data() : {}) } };
     }
-    const body = incoming && typeof incoming === 'object' ? incoming : {};
+    const body = validateProfileInput(incoming ?? {});
     const gender = body.gender === 'female' ? 'female' : 'male';
     const cleanString=(v,max=500)=>String(v??'').trim().slice(0,max);
     const cleanArray=(v,max=20)=>Array.isArray(v)?v.filter(x=>typeof x==='string').map(x=>x.trim()).filter(Boolean).slice(0,max):[];
@@ -125,6 +126,7 @@ async function syncIdentity(db, uid, candidateName) {
 }
 
 async function profileMutation(db, uid, updates) {
+  updates = validateProfileInput(updates);
   const publicAllowed = new Set(['age','gender','genderSet','bio','sports','districtId','locationName','lat','lng','activeLooking','avatar','photoPortfolio','legalAcceptedAt','themeAccent','themeSurface','hasUsedGeolocation','lastSeenAt','lastGeoAt']);
   const privateAllowed = new Set(['phone','hidePhone','birthDate','hideBirthDate','deviceId']);
   const pub={}, priv={};

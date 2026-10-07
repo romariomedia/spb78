@@ -13,6 +13,8 @@ const PROGRESS_KEYS = [
   'sportbuddy_offline_cache_v1',
   'sportbuddy_offline_cache_v2',
   'sportbuddy_offline_cache_v3',
+  'sportbuddy_offline_cache_v4',
+  'sportbuddy_offline_cache_v5',
   'sportbuddy_offline_queue_v1',
   'sportbuddy_offline_queue_v2',
   'sportbuddy_offline_queue_v3',

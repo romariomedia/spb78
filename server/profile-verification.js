@@ -1,8 +1,9 @@
+import { isPhotoUrl } from './profile-input.js';
 const PLACEHOLDERS = /ui-avatars|placeholder|dicebear|gravatar\.com\/avatar\/00000/i;
 export function hasVerificationPhotos(user) {
   const avatar = typeof user.avatar === 'string' ? user.avatar.trim() : '';
-  return Boolean(avatar && !PLACEHOLDERS.test(avatar) && Array.isArray(user.photoPortfolio)
-    && user.photoPortfolio.some(photo => typeof photo === 'string' && photo.trim()));
+  return Boolean(isPhotoUrl(avatar) && !PLACEHOLDERS.test(avatar) && Array.isArray(user.photoPortfolio)
+    && user.photoPortfolio.some(photo => isPhotoUrl(photo) && !PLACEHOLDERS.test(photo)));
 }
 export function verificationExpired(user, now = Date.now()) {
   const registered = user.registeredAt?.toDate ? user.registeredAt.toDate().getTime()

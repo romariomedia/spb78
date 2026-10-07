@@ -1,4 +1,4 @@
-import { collection, onSnapshot, Unsubscribe } from 'firebase/firestore';
+import { doc, collection, onSnapshot, Unsubscribe } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
 /** Коллекции, изменения в которых делают локальное зеркало устаревшим. */
@@ -13,7 +13,8 @@ export type InvalidatedSection = 'users' | 'trainings' | 'feed';
  * профиля, пользователей, тренировок и приватных полей.
  */
 export function subscribeAppInvalidation(
-  onInvalidate: (sections: Set<InvalidatedSection>) => void
+  onInvalidate: (sections: Set<InvalidatedSection>) => void,
+  userId: string
 ): Unsubscribe {
   let timer: ReturnType<typeof setTimeout> | null = null;
   const pending = new Set<InvalidatedSection>();
@@ -30,12 +31,15 @@ export function subscribeAppInvalidation(
   };
 
   const stops = [
-    onSnapshot(collection(db, 'users'), () => schedule('users'), () => undefined),
+    onSnapshot(doc(db, 'users', userId), () => schedule('users'), () => undefined),
     onSnapshot(collection(db, 'trainings'), () => schedule('trainings'), () => undefined),
     onSnapshot(collection(db, 'feed'), () => schedule('feed'), () => undefined)
   ];
 
+  // Other athletes are fetched through the public API, never a raw collection listener.
+  const poll = setInterval(() => schedule('users'), 120_000);
   return () => {
+    clearInterval(poll);
     if (timer) clearTimeout(timer);
     pending.clear();
     stops.forEach((stop) => stop());
