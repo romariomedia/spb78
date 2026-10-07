@@ -471,8 +471,15 @@ export interface ChatThread {
   participantIds: string[];
   companionId: string;     // the matched partner (not me)
   messages: ChatMessage[];
+  /** Bounded preview cache. Full v2 history is stored under chats/{id}/messages. */
+  recentMessages?: ChatMessage[];
+  lastMessage?: ChatMessage;
   lastMessageAt: number;
   createdAt: string;
+  readAt?: Record<string, number>;
+  unreadCount?: Record<string, number>;
+  messageCount?: number;
+  lastSenderAt?: Record<string, number>;
 }
 
 export interface MatchEvent {

@@ -19,7 +19,11 @@ export default async function handler(req,res){
     if(!chat.exists)return res.status(404).json({error:'Диалог не найден.'});
     const thread=chat.data()||{},participants=Array.isArray(thread.participantIds)?thread.participantIds:[];
     if(!participants.includes(uid)||!participants.includes(input.targetUserId))return res.status(403).json({error:'Жалоба доступна только для вашего реального диалога.'});
-    const messages=Array.isArray(thread.messages)?thread.messages:[];
+    let messages=Array.isArray(thread.recentMessages)?thread.recentMessages:(Array.isArray(thread.messages)?thread.messages:[]);
+    if(Number(thread.messageStorageVersion||0)>=2){
+      const history=await chat.ref.collection('messages').orderBy('timestamp','desc').limit(5).get().catch(()=>null);
+      if(history?.docs?.length)messages=history.docs.map(doc=>doc.data()).sort((a,b)=>Number(a.timestamp||0)-Number(b.timestamp||0));
+    }
     if(messages.length<1)return res.status(409).json({error:'В диалоге нет сообщений.'});
     const now=Date.now(),id=complaintDailyId(uid,input.targetUserId,input.chatId,now);
     const ref=db.collection('reports').doc(id);

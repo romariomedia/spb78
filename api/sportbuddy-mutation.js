@@ -8,6 +8,10 @@ import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { randomUUID } from 'node:crypto';
 import { readUserStatus } from '../server/user-status.js';
+import {
+  assertChatParticipants,assertChatRateLimit,assertChatRelationship,buildRecentMessages,
+  nextChatTimestamp,nextUnreadCounts,sanitizeChatText
+} from '../server/chat-policy.js';
 
 function init() {
   if (getApps().length) return;
@@ -195,39 +199,99 @@ async function chatMutation(db, uid, body) {
   const chatId=String(body.chatId||'');
   if(!chatId || chatId.includes('/')) throw Object.assign(new Error('Некорректный чат'),{status:400});
   const chatRef=db.collection('chats').doc(chatId);
+
+  if(body.operation==='history') {
+    const snap=await chatRef.get();
+    if(!snap.exists) return {messages:[]};
+    const thread=snap.data()||{};
+    if(!cleanArray(thread.participantIds).includes(uid)) throw Object.assign(new Error('Нет доступа к чату'),{status:403});
+    const otherId=cleanArray(thread.participantIds).find(id=>id!==uid);
+    if(!otherId) throw Object.assign(new Error('Некорректный чат'),{status:400});
+    const [meS,otherS]=await Promise.all([db.collection('users').doc(uid).get(),db.collection('users').doc(otherId).get()]);
+    if(!meS.exists||!otherS.exists) throw Object.assign(new Error('Пользователь не найден'),{status:404});
+    assertChatRelationship(meS.data()||{},otherS.data()||{},otherId,uid);
+    let messages=Array.isArray(thread.recentMessages)?thread.recentMessages:(Array.isArray(thread.messages)?thread.messages:[]);
+    if(Number(thread.messageStorageVersion||0)>=2){
+      const history=await chatRef.collection('messages').orderBy('timestamp','desc').limit(200).get().catch(()=>null);
+      if(history?.docs?.length)messages=history.docs.map(doc=>({id:doc.id,...doc.data()})).sort((a,b)=>Number(a.timestamp||0)-Number(b.timestamp||0));
+    }
+    return {messages:messages.slice(-200)};
+  }
+
   if(body.operation==='read') {
     return db.runTransaction(async tx=>{
       const snap=await tx.get(chatRef);
       if(!snap.exists) return {readAt:0};
-      const thread=snap.data();
+      const thread=snap.data()||{};
       if(!cleanArray(thread.participantIds).includes(uid)) throw Object.assign(new Error('Нет доступа к чату'),{status:403});
       const through=Number(body.throughTimestamp);
       if(!Number.isFinite(through)||through<0) throw Object.assign(new Error('Некорректная отметка прочтения'),{status:400});
       const readAt=Math.max(Number(thread.readAt?.[uid]||0),Math.min(through,Number(thread.lastMessageAt||0)));
-      tx.update(chatRef,{readAt:{...(thread.readAt||{}),[uid]:readAt}});
+      tx.update(chatRef,{
+        readAt:{...(thread.readAt||{}),[uid]:readAt},
+        unreadCount:{...(thread.unreadCount||{}),[uid]:0}
+      });
       return {readAt};
     });
   }
+
   if(body.operation && body.operation!=='send') throw Object.assign(new Error('Неизвестная операция чата'),{status:400});
-  const companionId=String(body.companionId||''), text=String(body.text||'').trim();
-  if(!companionId||companionId===uid||!text||text.length>2000) throw Object.assign(new Error('Некорректное сообщение'),{status:400});
-  if(chatId!==`chat_${[uid,companionId].sort().join('__')}`) throw Object.assign(new Error('Некорректный идентификатор чата'),{status:400});
+  const companionId=String(body.companionId||'');
+  assertChatParticipants({uid,companionId,chatId});
+  const text=sanitizeChatText(body.text);
+
   return db.runTransaction(async tx=>{
-    const meS=await tx.get(db.collection('users').doc(uid)),otherS=await tx.get(db.collection('users').doc(companionId)),chatS=await tx.get(chatRef);
+    const meRef=db.collection('users').doc(uid),otherRef=db.collection('users').doc(companionId);
+    const meS=await tx.get(meRef),otherS=await tx.get(otherRef),chatS=await tx.get(chatRef);
     if(!meS.exists||!otherS.exists) throw Object.assign(new Error('Пользователь не найден'),{status:404});
-    const me=meS.data(),other=otherS.data();
+    const me=meS.data()||{},other=otherS.data()||{};
     if(!premiumActive(me)) throw Object.assign(new Error('Переписка доступна только Premium'),{status:403});
-    const matched=cleanArray(me.matchIds).includes(companionId)&&cleanArray(other.matchIds).includes(uid);
-    const friends=cleanArray(me.friendIds).includes(companionId)&&cleanArray(other.friendIds).includes(uid);
-    if(!matched&&!friends) throw Object.assign(new Error('Чат доступен после взаимного мэтча или дружбы'),{status:403});
-    const current=chatS.exists?chatS.data():{id:chatId,participantIds:[uid,companionId],messages:[],createdAt:new Date().toISOString()};
+    assertChatRelationship(me,other,companionId,uid);
+
+    const current=chatS.exists?chatS.data():{
+      id:chatId,participantIds:[uid,companionId],createdAt:new Date().toISOString(),
+      readAt:{},unreadCount:{[uid]:0,[companionId]:0},messageCount:0,recentMessages:[]
+    };
     const participants=cleanArray(current.participantIds);
-    if(participants.length!==2||!participants.includes(uid)||!participants.includes(companionId)) throw Object.assign(new Error('Нет доступа к чату'),{status:403});
-    const ts=Math.max(Date.now(),Number(current.lastMessageAt||0)+1);
+    if(participants.length!==2||!participants.includes(uid)||!participants.includes(companionId)) {
+      throw Object.assign(new Error('Нет доступа к чату'),{status:403});
+    }
+
+    const now=Date.now();
+    assertChatRateLimit(current,uid,now);
+    const ts=nextChatTimestamp(current.lastMessageAt,now);
     const message={id:`msg_${randomUUID()}`,chatId,senderId:uid,text,timestamp:ts,createdAt:new Date(ts).toISOString(),read:false};
-    const thread={...current,messages:[...(Array.isArray(current.messages)?current.messages:[]),message],lastMessageAt:ts};
-    enqueueNotification(tx,db,{id:message.id,actorId:uid,recipients:[companionId],category:'messages',kind:'message',title:'Новое сообщение',message:'Вам написали в SportBuddy.',link:'#chat='+encodeURIComponent(chatId)});
-    tx.set(chatRef,thread,{merge:true});return {message,thread};
+    const messageRef=chatRef.collection('messages').doc(message.id);
+    const legacy=Array.isArray(current.recentMessages)?current.recentMessages:(Array.isArray(current.messages)?current.messages:[]);
+    if(Number(current.messageStorageVersion||0)<2){
+      for(const oldMessage of legacy.slice(-60)){
+        if(oldMessage?.id&&oldMessage?.senderId&&Number.isFinite(Number(oldMessage?.timestamp))){
+          tx.set(chatRef.collection('messages').doc(String(oldMessage.id)),oldMessage,{merge:true});
+        }
+      }
+    }
+    const baseUnread=current.unreadCount&&typeof current.unreadCount==='object'
+      ? current.unreadCount
+      : Object.fromEntries(participants.map(participantId=>[
+          participantId,
+          legacy.filter(item=>item?.senderId!==participantId&&Number(item?.timestamp||0)>Number(current.readAt?.[participantId]||0)).length
+        ]));
+    const recentMessages=buildRecentMessages(current,message);
+    const unreadCount=nextUnreadCounts({...current,unreadCount:baseUnread},uid,companionId);
+    const baseMessageCount=Number.isFinite(Number(current.messageCount))?Number(current.messageCount):legacy.length;
+    const thread={
+      ...current,id:chatId,participantIds:[uid,companionId],
+      messages:recentMessages,recentMessages,
+      lastMessage:message,lastMessageAt:ts,
+      messageCount:baseMessageCount+1,
+      messageStorageVersion:2,
+      unreadCount,
+      lastSenderAt:{...(current.lastSenderAt||{}),[uid]:now}
+    };
+    enqueueNotification(tx,db,{id:message.id,actorId:uid,recipients:[companionId],category:'messages',kind:'message',title:'Новое сообщение',message:'Вам написали в SportBuddy78.',link:'#chat='+encodeURIComponent(chatId)});
+    tx.set(messageRef,message);
+    tx.set(chatRef,thread,{merge:true});
+    return {message,thread};
   });
 }
 

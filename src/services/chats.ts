@@ -4,14 +4,15 @@ import { db } from '../lib/firebase';
 import { ChatMessage, ChatThread, UserProfile } from '../lib/types';
 import { CURRENT_USER_ID } from './repository';
 
-const CHATS_STORAGE_KEY = 'sportbuddy_chats_spb_v1';
+const CHATS_STORAGE_KEY = 'sportbuddy_chats_spb_v2';
+const storageKey = (userId = CURRENT_USER_ID) => `${CHATS_STORAGE_KEY}:${userId || 'anonymous'}`;
 export function buildChatId(userA: string, userB: string): string {
   return `chat_${[userA, userB].sort().join('__')}`;
 }
 
-function readAllThreads(): Record<string, ChatThread> {
+function readAllThreads(userId = CURRENT_USER_ID): Record<string, ChatThread> {
   try {
-    const raw = localStorage.getItem(CHATS_STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey(userId));
     return raw ? (JSON.parse(raw) as Record<string, ChatThread>) : {};
   } catch {
     return {};
@@ -24,18 +25,22 @@ function readAllThreads(): Record<string, ChatThread> {
  * never actually chatted with.
  */
 export function getReportableChatThreads(userId: string): ChatThread[] {
-  return Object.values(readAllThreads())
+  return Object.values(readAllThreads(userId))
     .filter((thread) => thread.participantIds.includes(userId))
     .filter((thread) => thread.messages.length > 0)
     .sort((a, b) => b.lastMessageAt - a.lastMessageAt);
 }
 
-function writeAllThreads(threads: Record<string, ChatThread>): void {
+function writeAllThreads(threads: Record<string, ChatThread>, userId = CURRENT_USER_ID): void {
   try {
-    localStorage.setItem(CHATS_STORAGE_KEY, JSON.stringify(threads));
+    localStorage.setItem(storageKey(userId), JSON.stringify(threads));
   } catch {
     /* quota exceeded — ignore */
   }
+}
+
+export function clearChatCache(userId: string): void {
+  try { localStorage.removeItem(storageKey(userId)); } catch { /* storage unavailable */ }
 }
 
 export function formatTimeLabel(timestamp: number): string {
@@ -54,34 +59,15 @@ export function formatTimeLabel(timestamp: number): string {
  * No pre-written conversations: every chat starts empty.
  * A thread is created only after a real mutual like or friendship.
  */
-const SEED_DIALOGS: Record<string, { fromCompanion: boolean; text: string; minutesAgo: number }[]> = {};
-
-function createSeedThread(companion: UserProfile): ChatThread {
-  const chatId = buildChatId(CURRENT_USER_ID, companion.id);
-  const seed = SEED_DIALOGS[companion.id];
+function createEmptyThread(currentUserId: string, companion: UserProfile): ChatThread {
+  const chatId = buildChatId(currentUserId, companion.id);
   const now = Date.now();
-
-  const messages: ChatMessage[] = (seed || []).map((entry, idx) => {
-    const timestamp = now - entry.minutesAgo * 60000;
-    return {
-      id: `${chatId}_seed_${idx}`,
-      chatId,
-      senderId: entry.fromCompanion ? companion.id : CURRENT_USER_ID,
-      text: entry.text,
-      createdAt: formatTimeLabel(timestamp),
-      timestamp,
-      read: entry.minutesAgo > 60
-    };
-  });
-
-  const last = messages[messages.length - 1];
-
   return {
     id: chatId,
-    participantIds: [CURRENT_USER_ID, companion.id],
+    participantIds: [currentUserId, companion.id],
     companionId: companion.id,
-    messages,
-    lastMessageAt: last ? last.timestamp : now,
+    messages: [],
+    lastMessageAt: now,
     createdAt: new Date(now).toISOString()
   };
 }
@@ -95,7 +81,7 @@ export function loadChatThreads(
   allUsers: UserProfile[],
   category: 'matches' | 'friends' = 'matches'
 ): ChatThread[] {
-  const stored = readAllThreads();
+  const stored = readAllThreads(currentUser.id);
   let changed = false;
 
   const ids = category === 'friends'
@@ -115,13 +101,13 @@ export function loadChatThreads(
       existing.companionId = companion.id;
       return existing;
     }
-    const fresh = createSeedThread(companion);
+    const fresh = createEmptyThread(currentUser.id, companion);
     stored[chatId] = fresh;
     changed = true;
     return fresh;
   });
 
-  if (changed) writeAllThreads(stored);
+  if (changed) writeAllThreads(stored,currentUser.id);
 
   return threads.sort((a, b) => b.lastMessageAt - a.lastMessageAt);
 }
@@ -133,7 +119,8 @@ export function loadChatThreads(
 export function subscribeChatThreads(
   currentUser: UserProfile,
   category: 'matches' | 'friends',
-  onChange: (threads: ChatThread[]) => void
+  onChange: (threads: ChatThread[]) => void,
+  onAllChange?: (threads: ChatThread[]) => void
 ): Unsubscribe {
   const companionIds = new Set(
     category === 'friends' ? (currentUser.friendIds || []) : currentUser.matchIds
@@ -142,29 +129,34 @@ export function subscribeChatThreads(
   return onSnapshot(
     query(collection(db, 'chats'), where('participantIds', 'array-contains', currentUser.id)),
     (snapshot) => {
-      const stored = readAllThreads();
+      const stored = readAllThreads(currentUser.id);
       snapshot.docs.forEach((chatDoc) => {
         const data = chatDoc.data() as ChatThread & { readAt?: Record<string, number> };
         const companionId = data.participantIds.find((id) => id !== currentUser.id);
         if (!companionId) return;
+        const sourceMessages = data.recentMessages || data.messages || [];
+        const merged=new Map<string,ChatMessage>();
+        for(const message of stored[chatDoc.id]?.messages||[])merged.set(message.id,message);
+        for(const message of sourceMessages)merged.set(message.id,{
+          ...message,
+          read: message.senderId === currentUser.id || message.timestamp <= (data.readAt?.[currentUser.id] ?? 0),
+          createdAt: formatTimeLabel(message.timestamp)
+        });
         stored[chatDoc.id] = {
+          ...stored[chatDoc.id],
           ...data,
           id: chatDoc.id,
           companionId,
-          messages: (data.messages || []).map((message) => ({
-            ...message,
-            read: message.senderId === currentUser.id || message.timestamp <= (data.readAt?.[currentUser.id] ?? 0),
-            createdAt: formatTimeLabel(message.timestamp)
-          }))
+          messages:[...merged.values()].sort((a,b)=>a.timestamp-b.timestamp).slice(-200)
         };
       });
-      writeAllThreads(stored);
+      writeAllThreads(stored,currentUser.id);
 
-      const threads = Object.values(stored)
+      const allThreads = Object.values(stored)
         .filter((thread) => thread.participantIds.includes(currentUser.id))
-        .filter((thread) => companionIds.has(thread.companionId))
         .sort((a, b) => b.lastMessageAt - a.lastMessageAt);
-      onChange(threads);
+      onAllChange?.(allThreads);
+      onChange(allThreads.filter((thread) => companionIds.has(thread.companionId)));
     },
     () => {
       // Offline cache remains active; no UI error needed.
@@ -172,68 +164,51 @@ export function subscribeChatThreads(
   );
 }
 
+
+export async function loadChatHistory(chatId: string, userId: string): Promise<ChatMessage[]> {
+  const data=await callServer<{messages:ChatMessage[]}>('/api/sportbuddy-mutation',{action:'chat',operation:'history',chatId});
+  const threads=readAllThreads(userId);
+  const cached=threads[chatId];
+  const readAt=Number(cached?.readAt?.[userId]||0);
+  const messages=(Array.isArray(data.messages)?data.messages:[]).map(message=>({
+    ...message,
+    read:message.senderId===userId||message.timestamp<=readAt,
+    createdAt:formatTimeLabel(message.timestamp)
+  })).sort((a,b)=>a.timestamp-b.timestamp).slice(-200);
+  if(cached){
+    threads[chatId]={...cached,messages};
+    writeAllThreads(threads,userId);
+  }
+  return messages;
+}
+
 export async function sendChatMessage(chatId: string, companionId: string, text: string): Promise<ChatMessage> {
   const result = await callServer<{message:ChatMessage;thread:ChatThread}>('/api/sportbuddy-mutation', {action:'chat', chatId, companionId, text});
-  const threads=readAllThreads(); threads[chatId]=result.thread; writeAllThreads(threads); return result.message;
+  const threads=readAllThreads(CURRENT_USER_ID); threads[chatId]=result.thread; writeAllThreads(threads,CURRENT_USER_ID); return result.message;
 }
 
 export async function markThreadAsRead(chatId: string): Promise<void> {
   const uid = CURRENT_USER_ID;
-  const thread = readAllThreads()[chatId];
+  const thread = readAllThreads(uid)[chatId];
   if (!thread || !thread.participantIds.includes(uid)) return;
   const result = await callServer<{readAt:number}>('/api/sportbuddy-mutation', {
     action:'chat', operation:'read', chatId, throughTimestamp:thread.lastMessageAt
   });
   if (CURRENT_USER_ID !== uid) return;
-  const threads=readAllThreads(), latest=threads[chatId];
+  const threads=readAllThreads(uid), latest=threads[chatId];
   if (!latest) return;
   latest.messages=latest.messages.map(message=>({ ...message,
     read:message.senderId===uid || message.timestamp<=result.readAt
   }));
-  writeAllThreads(threads);
+  latest.readAt={...(latest.readAt||{}),[uid]:result.readAt};
+  latest.unreadCount={...(latest.unreadCount||{}),[uid]:0};
+  writeAllThreads(threads,uid);
 }
 
 export function countUnread(threads: ChatThread[]): number {
-  return threads.reduce(
-    (sum, t) => sum + t.messages.filter((m) => !m.read && m.senderId !== CURRENT_USER_ID).length,
-    0
-  );
-}
-
-/** Auto-reply so the conversation feels alive in the demo/preview build */
-export function scheduleCompanionReply(
-  chatId: string,
-  companion: UserProfile,
-  onReply: (message: ChatMessage) => void
-): void {
-  const replies = [
-    'Отлично, я в деле! 💪',
-    'Супер! Тогда до встречи на Крестовском 🎾',
-    'Договорились, беру ракетки и воду 🚀',
-    'Хорошо! Если что — напишу за час до старта ⏰',
-    'Класс! Люблю тренироваться в компании 🔥'
-  ];
-  const text = replies[Math.floor(Math.random() * replies.length)] || replies[0]!;
-
-  setTimeout(() => {
-    const threads = readAllThreads();
-    const thread = threads[chatId];
-    if (!thread) return;
-
-    const timestamp = Date.now();
-    const reply: ChatMessage = {
-      id: `${chatId}_${timestamp}_r`,
-      chatId,
-      senderId: companion.id,
-      text,
-      createdAt: 'только что',
-      timestamp,
-      read: true
-    };
-    thread.messages = [...thread.messages, reply];
-    thread.lastMessageAt = timestamp;
-    threads[chatId] = thread;
-    writeAllThreads(threads);
-    onReply(reply);
-  }, 1400 + Math.random() * 900);
+  return threads.reduce((sum, thread) => {
+    const metadata = Number(thread.unreadCount?.[CURRENT_USER_ID]);
+    if (Number.isFinite(metadata)) return sum + metadata;
+    return sum + thread.messages.filter((m) => !m.read && m.senderId !== CURRENT_USER_ID).length;
+  }, 0);
 }
