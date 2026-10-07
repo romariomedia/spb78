@@ -200,6 +200,24 @@ async function chatMutation(db, uid, body) {
   if(!chatId || chatId.includes('/')) throw Object.assign(new Error('Некорректный чат'),{status:400});
   const chatRef=db.collection('chats').doc(chatId);
 
+  if(body.operation==='history') {
+    const snap=await chatRef.get();
+    if(!snap.exists) return {messages:[]};
+    const thread=snap.data()||{};
+    if(!cleanArray(thread.participantIds).includes(uid)) throw Object.assign(new Error('Нет доступа к чату'),{status:403});
+    const otherId=cleanArray(thread.participantIds).find(id=>id!==uid);
+    if(!otherId) throw Object.assign(new Error('Некорректный чат'),{status:400});
+    const [meS,otherS]=await Promise.all([db.collection('users').doc(uid).get(),db.collection('users').doc(otherId).get()]);
+    if(!meS.exists||!otherS.exists) throw Object.assign(new Error('Пользователь не найден'),{status:404});
+    assertChatRelationship(meS.data()||{},otherS.data()||{},otherId,uid);
+    let messages=Array.isArray(thread.recentMessages)?thread.recentMessages:(Array.isArray(thread.messages)?thread.messages:[]);
+    if(Number(thread.messageStorageVersion||0)>=2){
+      const history=await chatRef.collection('messages').orderBy('timestamp','desc').limit(200).get().catch(()=>null);
+      if(history?.docs?.length)messages=history.docs.map(doc=>({id:doc.id,...doc.data()})).sort((a,b)=>Number(a.timestamp||0)-Number(b.timestamp||0));
+    }
+    return {messages:messages.slice(-200)};
+  }
+
   if(body.operation==='read') {
     return db.runTransaction(async tx=>{
       const snap=await tx.get(chatRef);
