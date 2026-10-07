@@ -23,8 +23,8 @@ import {
   UserProfile, Training, FeedPost, TabType, AppNotification, ChatThread, ChatMessage 
 } from './lib/types';
 import {
-  loadChatThreads, sendChatMessage, markThreadAsRead, countUnread, deleteChatMessage, setChatTyping,
-  buildChatId, clearChatCache, formatTimeLabel, getReportableChatThreads, loadChatHistory, subscribeChatThreads
+  loadChatThreads, sendChatMessage, sendTrainingGroupMessage, ensureTrainingGroupChat, markThreadAsRead, countUnread, deleteChatMessage, setChatTyping,
+  buildChatId, clearChatCache, formatTimeLabel, loadChatHistory, subscribeChatThreads
 } from './services/chats';
 import { 
   loadAppData, loadFeedPosts, createTraining, toggleJoinTraining, toggleLikeProfile, 
@@ -280,6 +280,7 @@ export default function App(): JSX.Element {
   const [chatDeleteTargetId, setChatDeleteTargetId] = useState<string | null>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const [complaintContactId, setComplaintContactId] = useState<string | undefined>();
+  const [complaintChatId, setComplaintChatId] = useState<string | undefined>();
   // Safety banner shown when a companion suggests a non-sport meeting
   const [safetyWarning, setSafetyWarning] = useState<string | null>(null);
 
@@ -841,19 +842,21 @@ export default function App(): JSX.Element {
     return chatThreads.filter(thread=>{
       const companion=allUsers.find(user=>user.id===thread.companionId);
       const last=thread.messages[thread.messages.length-1];
-      return [companion?.name,companion?.sports?.join(' '),last?.text].filter(Boolean).join(' ').toLowerCase().includes(needle);
+      return [thread.trainingTitle,thread.trainingSport,companion?.name,companion?.sports?.join(' '),last?.text].filter(Boolean).join(' ').toLowerCase().includes(needle);
     });
   },[chatThreads,chatSearch,allUsers]);
 
-  /** Contacts eligible for a safety report: only real chats with messages. */
+  /** Report targets come only from real conversations containing messages. */
   const reportableChatContacts = useMemo(() => {
     if (!currentUser) return [];
-    return getReportableChatThreads(currentUser.id).flatMap((thread) => {
-      const contactId = thread.participantIds.find((id) => id !== currentUser.id);
-      const user = allUsers.find((candidate) => candidate.id === contactId);
-      return user ? [{ user, thread }] : [];
-    });
-  }, [currentUser, allUsers, chatThreads]);
+    return allChatThreads
+      .filter(thread=>thread.participantIds.includes(currentUser.id)&&thread.messages.length>0)
+      .flatMap(thread=>thread.participantIds
+        .filter(id=>id!==currentUser.id)
+        .map(id=>allUsers.find(candidate=>candidate.id===id))
+        .filter((user):user is UserProfile=>Boolean(user))
+        .map(user=>({user,thread})));
+  }, [currentUser, allUsers, allChatThreads]);
 
   const [friendsNotificationVersion,setFriendsNotificationVersion]=useState(0);
   const [pendingNotificationLink,setPendingNotificationLink]=useState(()=>window.location.hash);
@@ -869,7 +872,7 @@ export default function App(): JSX.Element {
     if(link.startsWith('#chat=')){
       let id;try{id=decodeURIComponent(link.slice(6));}catch{return;}
       setActiveTab('chats');
-      const category=(currentUser.friendIds||[]).some(friend=>buildChatId(currentUser.id,friend)===id)?'friends':'matches';
+      const category:ChatCategory=id.startsWith('training_')?'trainings':(currentUser.friendIds||[]).some(friend=>buildChatId(currentUser.id,friend)===id)?'friends':'matches';
       if(chatCategory!==category){setChatCategory(category);return;}
       if(!chatThreads.some(t=>t.id===id))return;
       setOpenChatId(id);
@@ -893,16 +896,18 @@ export default function App(): JSX.Element {
   },[openChatId]);
 
   const openChatThread = chatThreads.find(t => t.id === openChatId) || null;
-  const openChatCompanion = openChatThread
+  const openChatIsTraining = openChatThread?.kind === 'training';
+  const openChatCompanion = openChatThread && !openChatIsTraining
     ? allUsers.find(u => u.id === openChatThread.companionId) || null
     : null;
   const lastMineMessageId = openChatThread
     ? [...openChatThread.messages].reverse().find(message=>message.senderId===CURRENT_USER_ID)?.id
     : undefined;
-  const companionTyping = Boolean(
-    openChatThread && openChatCompanion &&
-    Date.now() - Number(openChatThread.typingAt?.[openChatCompanion.id] || 0) < 5000
-  );
+  const typingUserIds = openChatThread
+    ? openChatThread.participantIds.filter(id=>id!==CURRENT_USER_ID && Date.now()-Number(openChatThread.typingAt?.[id]||0)<5000)
+    : [];
+  const typingNames=typingUserIds.map(id=>allUsers.find(user=>user.id===id)?.name?.split(' ')[0]).filter(Boolean) as string[];
+  const messageAuthor=(senderId:string)=>senderId===CURRENT_USER_ID?'Вы':allUsers.find(user=>user.id===senderId)?.name||'Участник';
 
   const handleOpenChat = (chatId: string) => {
     triggerHapticImpact('light');
@@ -912,7 +917,9 @@ export default function App(): JSX.Element {
   };
 
   const handleSendChatMessage = () => {
-    if (chatSending || !chatDraft.trim() || !openChatThread || !openChatCompanion || !currentUser) return;
+    if (chatSending || !chatDraft.trim() || !openChatThread || !currentUser) return;
+    if(!openChatIsTraining && !openChatCompanion)return;
+    if(openChatThread.archivedAt){notify('Чат завершённой тренировки доступен только для чтения','err');return;}
     triggerHapticImpact('light');
     const text = chatDraft.trim();
     const replyTarget=chatReplyTarget;
@@ -920,7 +927,10 @@ export default function App(): JSX.Element {
     setChatReplyTarget(null);
     setChatSending(true);
     void setChatTyping(openChatThread.id,false).catch(()=>undefined);
-    void sendChatMessage(openChatThread.id, openChatCompanion.id, text, replyTarget?.id)
+    const sending=openChatIsTraining
+      ? sendTrainingGroupMessage(openChatThread.id,text,replyTarget?.id)
+      : sendChatMessage(openChatThread.id,openChatCompanion!.id,text,replyTarget?.id);
+    void sending
       .then(() => setChatThreads(loadChatThreads(currentUser, allUsers, chatCategory)))
       .catch((error) => {
         setChatDraft(text);
@@ -928,6 +938,21 @@ export default function App(): JSX.Element {
         notify(error instanceof Error ? error.message : 'Не удалось отправить сообщение', 'err');
       })
       .finally(()=>setChatSending(false));
+  };
+
+  const openTrainingGroupChat=async(training:Training)=>{
+    if(!currentUser||!training.participantIds.includes(currentUser.id)){
+      notify('Чат доступен только участникам тренировки','err');return;
+    }
+    try{
+      const result=await ensureTrainingGroupChat(training.id);
+      setSelectedTraining(null);
+      setChatCategory('trainings');
+      handleTabChange('chats');
+      setPendingNotificationLink('#chat='+encodeURIComponent(result.chatId));
+    }catch(error){
+      notify(error instanceof Error?error.message:'Не удалось открыть чат тренировки','err');
+    }
   };
 
   const handleDeleteMessage = (message:ChatMessage) => {
@@ -2368,7 +2393,7 @@ export default function App(): JSX.Element {
                       </div>
                     )}
                   </div>
-                ) : openChatThread && openChatCompanion ? (
+                ) : openChatThread && (openChatCompanion || openChatIsTraining) ? (
                   /* ACTIVE CONVERSATION */
                   <div className="space-y-3">
                     <div className="flex items-center gap-3 bg-slate-900 border border-slate-800 rounded-3xl p-3 shadow-lg">
@@ -2379,32 +2404,40 @@ export default function App(): JSX.Element {
                       >
                         <ChevronRight className="w-4 h-4 rotate-180" />
                       </button>
-                      <AvatarImage
-                        src={avatarUrl(openChatCompanion.avatar, 88) || AVATAR_FALLBACK}
-                        width={44} height={44} decoding="async"
-                        alt={openChatCompanion.name}
-                        className="w-11 h-11 rounded-full object-cover border-2 border-emerald-500 shadow"
-                      />
+                      {openChatIsTraining ? (
+                        <div className="w-11 h-11 rounded-2xl border-2 border-cyan-500/60 bg-cyan-500/10 flex items-center justify-center text-xl shadow">🏃</div>
+                      ) : (
+                        <AvatarImage
+                          src={avatarUrl(openChatCompanion!.avatar, 88) || AVATAR_FALLBACK}
+                          width={44} height={44} decoding="async"
+                          alt={openChatCompanion!.name}
+                          className="w-11 h-11 rounded-full object-cover border-2 border-emerald-500 shadow"
+                        />
+                      )}
                       <div className="flex-1 min-w-0">
                         <h3 className="text-sm font-black text-white truncate flex items-center gap-1.5">
-                          {openChatCompanion.name}
-                          {openChatCompanion.subscriptionPlan === 'premium' && (
+                          {openChatIsTraining ? openChatThread.trainingTitle : openChatCompanion!.name}
+                          {!openChatIsTraining && openChatCompanion!.subscriptionPlan === 'premium' && (
                             <Crown className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
                           )}
                         </h3>
                         <p className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1 truncate">
-                          <MapPin className="w-3 h-3 shrink-0" /> {openChatCompanion.locationName}
+                          {openChatIsTraining
+                            ? <><Users className="w-3 h-3 shrink-0"/>{openChatThread.participantIds.length} участников • {openChatThread.trainingSport}</>
+                            : <><MapPin className="w-3 h-3 shrink-0"/>{openChatCompanion!.locationName}</>}
                         </p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <button
-                          onClick={() => { setComplaintContactId(openChatCompanion.id); setIsComplaintOpen(true); }}
-                          className="rounded-xl border border-rose-500/25 bg-rose-500/10 px-2.5 py-1.5 text-[9px] font-black text-rose-300 active:scale-95"
-                        >
-                          Пожаловаться
-                        </button>
-                        <span className="text-[10px] font-black bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded-lg border border-emerald-500/30">
-                          {chatCategory === 'friends' ? 'ДРУГ 👥' : 'МЭТЧ 🤝'}
+                        {!openChatIsTraining && (
+                          <button
+                            onClick={() => { setComplaintContactId(openChatCompanion!.id); setComplaintChatId(openChatThread.id); setIsComplaintOpen(true); }}
+                            className="rounded-xl border border-rose-500/25 bg-rose-500/10 px-2.5 py-1.5 text-[9px] font-black text-rose-300 active:scale-95"
+                          >
+                            Пожаловаться
+                          </button>
+                        )}
+                        <span className={`text-[10px] font-black px-2 py-1 rounded-lg border ${openChatIsTraining?'bg-cyan-500/15 text-cyan-300 border-cyan-500/30':'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'}`}>
+                          {openChatIsTraining ? (openChatThread.archivedAt?'АРХИВ 🏁':'ГРУППА 👥') : chatCategory === 'friends' ? 'ДРУГ 👥' : 'МЭТЧ 🤝'}
                         </span>
                       </div>
                     </div>
@@ -2418,16 +2451,21 @@ export default function App(): JSX.Element {
                     {/* Message list */}
                     <div ref={chatScrollRef} className="bg-slate-950 border border-slate-800 rounded-3xl p-4 space-y-3 min-h-[320px] max-h-[52vh] overflow-y-auto no-scrollbar">
                       <p className="text-center text-[10px] text-slate-600 font-medium">
-                        Начало переписки • {openChatCompanion.sports.join(' • ')}
+                        {openChatIsTraining
+                          ? `Чат участников • ${openChatThread.trainingSport || 'тренировка'}`
+                          : `Начало переписки • ${openChatCompanion!.sports.join(' • ')}`}
                       </p>
 
                       {openChatThread.messages.map((m: ChatMessage) => {
                         const mine = m.senderId === CURRENT_USER_ID;
-                        const canDelete=mine&&!m.deletedAt&&Date.now()-m.timestamp<=15*60*1000;
+                        const sender=openChatIsTraining?allUsers.find(user=>user.id===m.senderId):openChatCompanion;
+                        const canDelete=mine&&!m.deletedAt&&!openChatThread.archivedAt&&Date.now()-m.timestamp<=15*60*1000;
+                        const groupRecipients=openChatIsTraining?openChatThread.participantIds.filter(id=>id!==CURRENT_USER_ID):[];
+                        const groupReadCount=openChatIsTraining?groupRecipients.filter(id=>Number(openChatThread.readAt?.[id]||0)>=m.timestamp).length:0;
                         return (
                           <div key={m.id} className={`group flex ${mine ? 'justify-end' : 'justify-start'} gap-2`}>
                             {!mine && (
-                              <AvatarImage src={avatarUrl(openChatCompanion.avatar, 28) || AVATAR_FALLBACK} alt="" width={28} height={28} loading="lazy" decoding="async" className="w-7 h-7 rounded-full object-cover border border-slate-700 shrink-0 mt-auto" />
+                              <AvatarImage src={avatarUrl(sender?.avatar, 28) || AVATAR_FALLBACK} alt="" width={28} height={28} loading="lazy" decoding="async" className="w-7 h-7 rounded-full object-cover border border-slate-700 shrink-0 mt-auto" />
                             )}
                             <div className="max-w-[78%]">
                               <div
@@ -2439,7 +2477,7 @@ export default function App(): JSX.Element {
                               >
                                 {m.replyTo && (
                                   <div className={`mb-2 rounded-xl border-l-2 px-2.5 py-1.5 text-[10px] ${mine?'border-slate-900/40 bg-slate-950/10':'border-emerald-500/60 bg-slate-950/70 text-slate-400'}`}>
-                                    <p className="font-black">{m.replyTo.senderId===CURRENT_USER_ID?'Вы':openChatCompanion.name}</p>
+                                    <p className="font-black">{messageAuthor(m.replyTo.senderId)}</p>
                                     <p className="truncate opacity-80">{m.replyTo.text||'Сообщение'}</p>
                                   </div>
                                 )}
@@ -2450,7 +2488,7 @@ export default function App(): JSX.Element {
                                     <>
                                       <span>·</span>
                                       <CheckCheck className="h-3 w-3"/>
-                                      <span>{Number(openChatThread.readAt?.[openChatCompanion.id] || 0) >= m.timestamp ? 'прочитано' : 'доставлено'}</span>
+                                      <span>{openChatIsTraining ? (groupRecipients.length ? `прочитали ${groupReadCount}/${groupRecipients.length}` : 'отправлено') : Number(openChatThread.readAt?.[openChatCompanion!.id] || 0) >= m.timestamp ? 'прочитано' : 'доставлено'}</span>
                                     </>
                                   )}
                                 </span>
@@ -2460,6 +2498,14 @@ export default function App(): JSX.Element {
                                   <button onClick={()=>setChatReplyTarget(m)} className="flex items-center gap-1 rounded-lg px-2 py-1 text-[9px] font-bold text-slate-500 hover:bg-slate-900 hover:text-slate-300">
                                     <Reply className="h-3 w-3"/> Ответить
                                   </button>
+                                  {!mine && openChatIsTraining && (
+                                    <button
+                                      onClick={()=>{setComplaintContactId(m.senderId);setComplaintChatId(openChatThread.id);setIsComplaintOpen(true);}}
+                                      className="flex items-center gap-1 rounded-lg px-2 py-1 text-[9px] font-bold text-slate-500 hover:bg-rose-500/10 hover:text-rose-300"
+                                    >
+                                      <ShieldAlert className="h-3 w-3"/> Пожаловаться
+                                    </button>
+                                  )}
                                   {canDelete && (
                                     chatDeleteTargetId===m.id ? (
                                       <>
@@ -2479,10 +2525,10 @@ export default function App(): JSX.Element {
                         );
                       })}
 
-                      {companionTyping && (
+                      {typingNames.length > 0 && (
                         <div className="flex items-center gap-2 text-[10px] font-semibold text-slate-500">
                           <span className="flex gap-1"><i className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400"/><i className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400"/><i className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400"/></span>
-                          {openChatCompanion.name.split(' ')[0]} печатает…
+                          {typingNames.slice(0,2).join(', ')}{typingNames.length>2?' и другие':''} печатает…
                         </div>
                       )}
 
@@ -2512,6 +2558,12 @@ export default function App(): JSX.Element {
                       )}
                     </AnimatePresence>
 
+                    {openChatThread.archivedAt ? (
+                      <div className="rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-center text-[11px] font-bold text-slate-400">
+                        🏁 Тренировка завершена. Чат сохранён в архиве только для чтения.
+                      </div>
+                    ) : (
+                    <>
                     {/* Composer */}
                     <div className="space-y-1.5">
                       {chatReplyTarget && (
@@ -2552,12 +2604,10 @@ export default function App(): JSX.Element {
 
                     {/* Quick replies tailored to SPb */}
                     <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
-                      {[
-                        'Побегаем на Елагином? 🏃',
-                        'Падел на Крестовском в субботу? 🎾',
-                        'Велопрогулка от Севкабеля? 🚴',
-                        'Во сколько встречаемся?'
-                      ].map(q => (
+                      {(openChatIsTraining
+                        ? ['Я на месте 📍','Буду через 5 минут','Где встречаемся?','Начинаем по плану?']
+                        : ['Побегаем на Елагином? 🏃','Падел на Крестовском в субботу? 🎾','Велопрогулка от Севкабеля? 🚴','Во сколько встречаемся?']
+                      ).map(q => (
                         <button
                           key={q}
                           onClick={() => setChatDraft(q)}
@@ -2567,6 +2617,8 @@ export default function App(): JSX.Element {
                         </button>
                       ))}
                     </div>
+                    </>
+                    )}
                   </div>
                 ) : (
                   /* THREAD LIST */
@@ -2575,7 +2627,7 @@ export default function App(): JSX.Element {
                       <div>
                         <h2 className="text-lg font-black text-white tracking-tight">Чаты</h2>
                         <p className="text-xs text-slate-400">
-                          {chatCategory === 'matches' ? 'Общение с взаимными симпатиями' : 'Общение с друзьями'}
+                          {chatCategory === 'matches' ? 'Общение с взаимными симпатиями' : chatCategory === 'friends' ? 'Общение с друзьями' : 'Группы ваших тренировок'}
                         </p>
                       </div>
                       <span className="text-[10px] font-black bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 px-2.5 py-1 rounded-xl flex items-center gap-1 shadow">
@@ -2587,7 +2639,8 @@ export default function App(): JSX.Element {
                     <div className="bg-slate-900 border border-slate-800 p-1 rounded-2xl flex gap-1">
                       {([
                         { id: 'matches' as ChatCategory, label: 'Мэтчи', icon: '💚', count: currentUser.matchIds.length },
-                        { id: 'friends' as ChatCategory, label: 'Друзья', icon: '👥', count: friendsCount }
+                        { id: 'friends' as ChatCategory, label: 'Друзья', icon: '👥', count: friendsCount },
+                        { id: 'trainings' as ChatCategory, label: 'Группы', icon: '🏃', count: allChatThreads.filter(thread=>thread.kind==='training').length }
                       ]).map((c) => (
                         <button
                           key={c.id}
@@ -2634,77 +2687,88 @@ export default function App(): JSX.Element {
                     {visibleChatThreads.length === 0 ? (
                       <div className="text-center py-14 px-4 bg-slate-900/60 rounded-3xl border border-slate-800 space-y-3">
                         <div className="w-16 h-16 rounded-3xl bg-emerald-500/15 border border-emerald-500/40 mx-auto flex items-center justify-center text-3xl">
-                          {chatCategory === 'matches' ? '💬' : '👥'}
+                          {chatCategory === 'matches' ? '💬' : chatCategory === 'friends' ? '👥' : '🏃'}
                         </div>
                         <h3 className="text-base font-bold text-white">
-                          {chatSearch.trim() ? 'Ничего не найдено' : chatCategory === 'matches' ? 'Пока нет взаимных симпатий' : 'Пока нет друзей'}
+                          {chatSearch.trim() ? 'Ничего не найдено' : chatCategory === 'matches' ? 'Пока нет взаимных симпатий' : chatCategory === 'friends' ? 'Пока нет друзей' : 'Пока нет групп тренировок'}
                         </h3>
                         <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
                           {chatSearch.trim()
                             ? 'Попробуйте изменить запрос.'
                             : chatCategory === 'matches'
                               ? 'Чат открывается автоматически, когда вы и другой спортсмен из Санкт-Петербурга ставите друг другу «Симпатию».'
-                              : 'Добавляйте спортсменов в друзья из анкет и таблицы лидеров — чат откроется после взаимного согласия.'}
+                              : chatCategory === 'friends'
+                                ? 'Добавляйте спортсменов в друзья из анкет и таблицы лидеров — чат откроется после взаимного согласия.'
+                                : 'Запишитесь на тренировку или создайте свою — общий чат появится автоматически для участников.'}
                         </p>
                         <button
-                          onClick={() => handleTabChange('discover')}
+                          onClick={() => handleTabChange(chatCategory==='trainings'?'trainings':'discover')}
                           className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold px-5 py-2.5 rounded-2xl text-xs transition shadow-[0_0_18px_rgba(16,185,129,0.4)] active:scale-95 inline-flex items-center gap-2"
                         >
-                          <Heart className="w-4 h-4 fill-slate-950 stroke-none" /> Найти напарника
+                          {chatCategory==='trainings'
+                            ? <><Dumbbell className="w-4 h-4" /> Открыть тренировки</>
+                            : <><Heart className="w-4 h-4 fill-slate-950 stroke-none" /> Найти напарника</>}
                         </button>
                       </div>
                     ) : (
                       <div className="space-y-2.5">
                         {visibleChatThreads.map(thread => {
-                          const companion = allUsers.find(u => u.id === thread.companionId);
-                          if (!companion) return null;
-                          const last = thread.messages[thread.messages.length - 1];
-                          const metadataUnread = Number(thread.unreadCount?.[CURRENT_USER_ID]);
-                          const unread = Number.isFinite(metadataUnread) ? metadataUnread : thread.messages.filter(m => !m.read && m.senderId !== CURRENT_USER_ID).length;
+                          const isTraining=thread.kind==='training';
+                          const companion=isTraining?null:allUsers.find(u=>u.id===thread.companionId);
+                          if(!isTraining&&!companion)return null;
+                          const last=thread.messages[thread.messages.length-1];
+                          const metadataUnread=Number(thread.unreadCount?.[CURRENT_USER_ID]);
+                          const unread=Number.isFinite(metadataUnread)
+                            ? metadataUnread
+                            : thread.messages.filter(m=>!m.deletedAt&&!m.read&&m.senderId!==CURRENT_USER_ID).length;
+                          const subtitle=isTraining
+                            ? `${thread.trainingSport||'Тренировка'} • ${thread.participantIds.length} участников`
+                            : companion!.sports.slice(0,3).join(' • ');
+                          const preview=last
+                            ? `${last.senderId===CURRENT_USER_ID?'Вы: ':isTraining?messageAuthor(last.senderId)+': ':''}${last.text}`
+                            : isTraining?'Группа создана для участников тренировки':'Начните диалог первым!';
 
                           return (
                             <button
                               key={thread.id}
-                              onClick={() => handleOpenChat(thread.id)}
-                              className="w-full text-left bg-slate-900 border border-slate-800 hover:border-emerald-500/50 rounded-3xl p-3.5 transition active:scale-[0.99] shadow-lg flex items-center gap-3"
+                              onClick={()=>handleOpenChat(thread.id)}
+                              className={`w-full text-left bg-slate-900 border hover:border-emerald-500/50 rounded-3xl p-3.5 transition active:scale-[0.99] shadow-lg flex items-center gap-3 ${thread.archivedAt?'border-slate-800/70 opacity-80':'border-slate-800'}`}
                             >
                               <div className="relative shrink-0">
-                                <AvatarImage
-                                  src={avatarUrl(companion.avatar, 96) || AVATAR_FALLBACK}
-                                  width={48} height={48} loading="lazy" decoding="async"
-                                  alt={companion.name}
-                                  className="w-12 h-12 rounded-full object-cover border-2 border-emerald-500/70"
-                                />
-                                {Date.now() - Number(companion.lastSeenAt || 0) < 5 * 60 * 1000 && (
-                                  <span title="Онлайн" className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full" />
+                                {isTraining ? (
+                                  <div className="w-12 h-12 rounded-2xl border-2 border-cyan-500/60 bg-cyan-500/10 flex items-center justify-center text-xl">🏃</div>
+                                ) : (
+                                  <>
+                                    <AvatarImage
+                                      src={avatarUrl(companion!.avatar,96)||AVATAR_FALLBACK}
+                                      width={48} height={48} loading="lazy" decoding="async"
+                                      alt={companion!.name}
+                                      className="w-12 h-12 rounded-full object-cover border-2 border-emerald-500/70"
+                                    />
+                                    {Date.now()-Number(companion!.lastSeenAt||0)<5*60*1000&&(
+                                      <span title="Онлайн" className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full"/>
+                                    )}
+                                  </>
                                 )}
                               </div>
-
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center justify-between gap-2">
                                   <h4 className="text-sm font-extrabold text-white truncate flex items-center gap-1">
-                                    {companion.name}
-                                    {companion.subscriptionPlan === 'premium' && (
-                                      <Crown className="w-3 h-3 fill-amber-400 text-amber-400 shrink-0" />
+                                    {isTraining?thread.trainingTitle:companion!.name}
+                                    {isTraining ? (
+                                      <span className={`text-[8px] font-black ${thread.archivedAt?'text-slate-500':'text-cyan-300'}`}>{thread.archivedAt?'АРХИВ':'ГРУППА'}</span>
+                                    ) : companion!.subscriptionPlan==='premium'&&(
+                                      <Crown className="w-3 h-3 fill-amber-400 text-amber-400 shrink-0"/>
                                     )}
                                   </h4>
-                                  <span className="text-[10px] text-slate-500 shrink-0">
-                                    {last ? formatTimeLabel(last.timestamp) : ''}
-                                  </span>
+                                  <span className="text-[10px] text-slate-500 shrink-0">{last?formatTimeLabel(last.timestamp):''}</span>
                                 </div>
-                                <p className={`text-xs truncate mt-0.5 ${unread > 0 ? 'text-slate-100 font-semibold' : 'text-slate-400'}`}>
-                                  {last
-                                    ? `${last.senderId === CURRENT_USER_ID ? 'Вы: ' : ''}${last.text}`
-                                    : 'Начните диалог первым!'}
-                                </p>
-                                <p className="text-[10px] text-emerald-400/80 truncate mt-0.5">
-                                  {companion.sports.slice(0, 3).join(' • ')}
-                                </p>
+                                <p className={`text-xs truncate mt-0.5 ${unread>0?'text-slate-100 font-semibold':'text-slate-400'}`}>{preview}</p>
+                                <p className="text-[10px] text-emerald-400/80 truncate mt-0.5">{subtitle}</p>
                               </div>
-
-                              {unread > 0 && (
-                                <span className="bg-emerald-500 text-slate-950 text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center shrink-0 shadow">
-                                  {unread}
+                              {unread>0&&(
+                                <span className="bg-emerald-500 text-slate-950 text-[10px] font-black min-w-5 h-5 px-1 rounded-full flex items-center justify-center shrink-0 shadow">
+                                  {unread>99?'99+':unread}
                                 </span>
                               )}
                             </button>
@@ -3297,10 +3361,11 @@ export default function App(): JSX.Element {
       {/* Safety complaint: choose a real chat contact, then open a prefilled support email */}
       <ComplaintModal
         isOpen={isComplaintOpen}
-        onClose={() => { setIsComplaintOpen(false); setComplaintContactId(undefined); }}
+        onClose={() => { setIsComplaintOpen(false); setComplaintContactId(undefined); setComplaintChatId(undefined); }}
         reporter={currentUser}
         contacts={reportableChatContacts}
         initialContactId={complaintContactId}
+        initialChatId={complaintChatId}
       />
 
       {/* Rate participants after a finished training */}
@@ -3897,6 +3962,23 @@ export default function App(): JSX.Element {
                 "{selectedTraining.description}"
               </p>
             </div>
+
+            {selectedTraining.participantIds.includes(CURRENT_USER_ID) && (
+              <button
+                onClick={()=>void openTrainingGroupChat(selectedTraining)}
+                className="w-full rounded-2xl border border-cyan-500/40 bg-cyan-500/10 px-4 py-3 text-left transition active:scale-[0.99] hover:bg-cyan-500/15"
+              >
+                <span className="flex items-center justify-between gap-3">
+                  <span>
+                    <span className="block text-xs font-black text-cyan-300">💬 Чат участников</span>
+                    <span className="mt-0.5 block text-[10px] text-slate-400">
+                      {selectedTraining.isCompleted ? 'Тренировка завершена — открыть архив переписки' : 'Договоритесь о встрече, месте сбора и деталях тренировки'}
+                    </span>
+                  </span>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-cyan-300"/>
+                </span>
+              </button>
+            )}
 
             <div>
               <div className="flex justify-between items-center mb-2">

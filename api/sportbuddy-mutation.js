@@ -195,6 +195,39 @@ async function feedMutation(db, uid, body) {
   });
 }
 
+const trainingChatId = trainingId => `training_${String(trainingId || '')}`;
+const trainingChatBase = training => ({
+  id: trainingChatId(training.id),
+  kind: 'training',
+  trainingId: String(training.id),
+  trainingTitle: String(training.title || 'Тренировка').slice(0,120),
+  trainingSport: String(training.sport || '').slice(0,80),
+  organizerId: String(training.createdBy || ''),
+  participantIds: cleanArray(training.participantIds),
+  createdAt: String(training.createdAt || new Date().toISOString()),
+  readAt: {},
+  unreadCount: Object.fromEntries(cleanArray(training.participantIds).map(id => [id, 0])),
+  messageCount: 0,
+  recentMessages: [],
+  messages: []
+});
+
+function isTrainingThread(thread) {
+  return thread?.kind === 'training' && typeof thread.trainingId === 'string';
+}
+
+async function assertTrainingThreadActive(db, uid, thread) {
+  if (!isTrainingThread(thread)) throw Object.assign(new Error('Некорректный групповой чат'), { status: 400 });
+  if (!cleanArray(thread.participantIds).includes(uid)) throw Object.assign(new Error('Вы больше не участник этой группы'), { status: 403 });
+  if (thread.archivedAt) throw Object.assign(new Error('Чат тренировки находится в архиве'), { status: 409, code: 'CHAT_ARCHIVED' });
+  const trainingSnap = await db.collection('trainings').doc(String(thread.trainingId)).get();
+  if (!trainingSnap.exists) throw Object.assign(new Error('Тренировка не найдена'), { status: 404 });
+  const training = trainingSnap.data() || {};
+  if (training.isCompleted) throw Object.assign(new Error('Чат тренировки находится в архиве'), { status: 409, code: 'CHAT_ARCHIVED' });
+  if (!cleanArray(training.participantIds).includes(uid)) throw Object.assign(new Error('Вы больше не участник тренировки'), { status: 403 });
+  return training;
+}
+
 async function chatMutation(db, uid, body) {
   const chatId=String(body.chatId||'');
   if(!chatId || chatId.includes('/')) throw Object.assign(new Error('Некорректный чат'),{status:400});
@@ -205,11 +238,13 @@ async function chatMutation(db, uid, body) {
     if(!snap.exists) return {messages:[]};
     const thread=snap.data()||{};
     if(!cleanArray(thread.participantIds).includes(uid)) throw Object.assign(new Error('Нет доступа к чату'),{status:403});
-    const otherId=cleanArray(thread.participantIds).find(id=>id!==uid);
-    if(!otherId) throw Object.assign(new Error('Некорректный чат'),{status:400});
-    const [meS,otherS]=await Promise.all([db.collection('users').doc(uid).get(),db.collection('users').doc(otherId).get()]);
-    if(!meS.exists||!otherS.exists) throw Object.assign(new Error('Пользователь не найден'),{status:404});
-    assertChatRelationship(meS.data()||{},otherS.data()||{},otherId,uid);
+    if(!isTrainingThread(thread)){
+      const otherId=cleanArray(thread.participantIds).find(id=>id!==uid);
+      if(!otherId) throw Object.assign(new Error('Некорректный чат'),{status:400});
+      const [meS,otherS]=await Promise.all([db.collection('users').doc(uid).get(),db.collection('users').doc(otherId).get()]);
+      if(!meS.exists||!otherS.exists) throw Object.assign(new Error('Пользователь не найден'),{status:404});
+      assertChatRelationship(meS.data()||{},otherS.data()||{},otherId,uid);
+    }
     let messages=Array.isArray(thread.recentMessages)?thread.recentMessages:(Array.isArray(thread.messages)?thread.messages:[]);
     if(Number(thread.messageStorageVersion||0)>=2){
       const history=await chatRef.collection('messages').orderBy('timestamp','desc').limit(200).get().catch(()=>null);
@@ -226,11 +261,15 @@ async function chatMutation(db, uid, body) {
     if(!snap.exists) return {typingAt:0};
     const thread=snap.data()||{},participants=cleanArray(thread.participantIds);
     if(!participants.includes(uid)) throw Object.assign(new Error('Нет доступа к чату'),{status:403});
-    const otherId=participants.find(id=>id!==uid);
-    if(!otherId) throw Object.assign(new Error('Некорректный чат'),{status:400});
-    const [meS,otherS]=await Promise.all([db.collection('users').doc(uid).get(),db.collection('users').doc(otherId).get()]);
-    if(!meS.exists||!otherS.exists) throw Object.assign(new Error('Пользователь не найден'),{status:404});
-    assertChatRelationship(meS.data()||{},otherS.data()||{},otherId,uid);
+    if(isTrainingThread(thread)){
+      await assertTrainingThreadActive(db,uid,thread);
+    } else {
+      const otherId=participants.find(id=>id!==uid);
+      if(!otherId) throw Object.assign(new Error('Некорректный чат'),{status:400});
+      const [meS,otherS]=await Promise.all([db.collection('users').doc(uid).get(),db.collection('users').doc(otherId).get()]);
+      if(!meS.exists||!otherS.exists) throw Object.assign(new Error('Пользователь не найден'),{status:404});
+      assertChatRelationship(meS.data()||{},otherS.data()||{},otherId,uid);
+    }
     const active=body.active===true,now=Date.now(),previous=Number(thread.typingAt?.[uid]||0);
     if(active && previous>0 && now-previous<1200)return {typingAt:previous};
     const typingAt=active?now:0;
@@ -246,11 +285,16 @@ async function chatMutation(db, uid, body) {
       if(!chatS.exists) throw Object.assign(new Error('Диалог не найден'),{status:404});
       const current=chatS.data()||{},participants=cleanArray(current.participantIds);
       if(!participants.includes(uid)) throw Object.assign(new Error('Нет доступа к чату'),{status:403});
-      const otherId=participants.find(id=>id!==uid);
-      if(!otherId) throw Object.assign(new Error('Некорректный чат'),{status:400});
-      const meS=await tx.get(db.collection('users').doc(uid)),otherS=await tx.get(db.collection('users').doc(otherId));
-      if(!meS.exists||!otherS.exists) throw Object.assign(new Error('Пользователь не найден'),{status:404});
-      assertChatRelationship(meS.data()||{},otherS.data()||{},otherId,uid);
+      let otherId='';
+      if(isTrainingThread(current)){
+        if(current.archivedAt) throw Object.assign(new Error('Архивный чат доступен только для чтения'),{status:409,code:'CHAT_ARCHIVED'});
+      } else {
+        otherId=participants.find(id=>id!==uid)||'';
+        if(!otherId) throw Object.assign(new Error('Некорректный чат'),{status:400});
+        const meS=await tx.get(db.collection('users').doc(uid)),otherS=await tx.get(db.collection('users').doc(otherId));
+        if(!meS.exists||!otherS.exists) throw Object.assign(new Error('Пользователь не найден'),{status:404});
+        assertChatRelationship(meS.data()||{},otherS.data()||{},otherId,uid);
+      }
       const legacy=Array.isArray(current.recentMessages)?current.recentMessages:(Array.isArray(current.messages)?current.messages:[]);
       const messageRef=chatRef.collection('messages').doc(messageId);
       const stored=await tx.get(messageRef);
@@ -275,8 +319,11 @@ async function chatMutation(db, uid, body) {
             participantId,
             legacy.filter(item=>!item?.deletedAt&&item?.senderId!==participantId&&Number(item?.timestamp||0)>Number(current.readAt?.[participantId]||0)).length
           ]));
-      if(Number(current.readAt?.[otherId]||0)<Number(original.timestamp||0)&&Number(unreadCount[otherId]||0)>0){
-        unreadCount[otherId]=Math.max(0,Number(unreadCount[otherId])-1);
+      const affectedRecipients=isTrainingThread(current)?participants.filter(id=>id!==uid):[otherId];
+      for(const recipientId of affectedRecipients){
+        if(Number(current.readAt?.[recipientId]||0)<Number(original.timestamp||0)&&Number(unreadCount[recipientId]||0)>0){
+          unreadCount[recipientId]=Math.max(0,Number(unreadCount[recipientId])-1);
+        }
       }
       tx.update(chatRef,{
         messages:recentMessages,recentMessages,unreadCount,
@@ -303,7 +350,63 @@ async function chatMutation(db, uid, body) {
     });
   }
 
-  if(body.operation && body.operation!=='send') throw Object.assign(new Error('Неизвестная операция чата'),{status:400});
+  if(body.operation==='sendTraining') {
+    const text=sanitizeChatText(body.text);
+    return db.runTransaction(async tx=>{
+      const chatS=await tx.get(chatRef);
+      if(!chatS.exists) throw Object.assign(new Error('Групповой чат ещё не создан'),{status:404});
+      const current=chatS.data()||{},participants=cleanArray(current.participantIds);
+      if(!isTrainingThread(current)) throw Object.assign(new Error('Некорректный групповой чат'),{status:400});
+      if(!participants.includes(uid)) throw Object.assign(new Error('Вы не участник этой группы'),{status:403});
+      if(current.archivedAt) throw Object.assign(new Error('Чат тренировки находится в архиве'),{status:409,code:'CHAT_ARCHIVED'});
+      const trainingS=await tx.get(db.collection('trainings').doc(String(current.trainingId)));
+      if(!trainingS.exists) throw Object.assign(new Error('Тренировка не найдена'),{status:404});
+      const training=trainingS.data()||{};
+      if(training.isCompleted) throw Object.assign(new Error('Чат тренировки находится в архиве'),{status:409,code:'CHAT_ARCHIVED'});
+      if(!cleanArray(training.participantIds).includes(uid)) throw Object.assign(new Error('Вы больше не участник тренировки'),{status:403});
+      const userS=await tx.get(db.collection('users').doc(uid));
+      if(!userS.exists) throw Object.assign(new Error('Профиль не найден'),{status:404});
+      if(!premiumActive(userS.data()||{})) throw Object.assign(new Error('Переписка доступна только Premium'),{status:403});
+
+      const now=Date.now();
+      assertChatRateLimit(current,uid,now);
+      const legacy=Array.isArray(current.recentMessages)?current.recentMessages:(Array.isArray(current.messages)?current.messages:[]);
+      let replyTo;
+      const replyMessageId=String(body.replyToMessageId||'');
+      if(replyMessageId){
+        if(replyMessageId.includes('/'))throw Object.assign(new Error('Некорректное сообщение для ответа'),{status:400});
+        const replySnap=await tx.get(chatRef.collection('messages').doc(replyMessageId));
+        const source=replySnap.exists?replySnap.data():legacy.find(item=>item?.id===replyMessageId);
+        if(!source)throw Object.assign(new Error('Сообщение для ответа не найдено'),{status:404});
+        replyTo=replyPreview(source);
+      }
+      const ts=nextChatTimestamp(current.lastMessageAt,now);
+      const message={id:`msg_${randomUUID()}`,chatId,senderId:uid,text,timestamp:ts,createdAt:new Date(ts).toISOString(),read:false,...(replyTo?{replyTo}:{})};
+      const messageRef=chatRef.collection('messages').doc(message.id);
+      if(Number(current.messageStorageVersion||0)<2){
+        for(const oldMessage of legacy.slice(-60)){
+          if(oldMessage?.id&&oldMessage?.senderId&&Number.isFinite(Number(oldMessage?.timestamp))){
+            tx.set(chatRef.collection('messages').doc(String(oldMessage.id)),oldMessage,{merge:true});
+          }
+        }
+      }
+      const baseUnread=current.unreadCount&&typeof current.unreadCount==='object'?{...current.unreadCount}:Object.fromEntries(participants.map(id=>[id,0]));
+      for(const recipientId of participants){
+        if(recipientId!==uid)baseUnread[recipientId]=Math.min(999,Number(baseUnread[recipientId]||0)+1);
+      }
+      baseUnread[uid]=Number(baseUnread[uid]||0);
+      const recentMessages=buildRecentMessages(current,message);
+      const thread={...current,participantIds:cleanArray(training.participantIds),messages:recentMessages,recentMessages,lastMessage:message,lastMessageAt:ts,
+        messageCount:Number(current.messageCount||legacy.length)+1,messageStorageVersion:2,unreadCount:baseUnread,
+        typingAt:{...(current.typingAt||{}),[uid]:0},lastSenderAt:{...(current.lastSenderAt||{}),[uid]:now}};
+      const recipients=participants.filter(id=>id!==uid);
+      if(recipients.length)enqueueNotification(tx,db,{id:message.id,actorId:uid,recipients,category:'messages',kind:'message',title:`Чат: ${String(training.title||'Тренировка').slice(0,80)}`,message:'Новое сообщение в группе тренировки.',link:'#chat='+encodeURIComponent(chatId)});
+      tx.set(messageRef,message);tx.set(chatRef,thread,{merge:true});
+      return {message,thread};
+    });
+  }
+
+    if(body.operation && body.operation!=='send') throw Object.assign(new Error('Неизвестная операция чата'),{status:400});
   const companionId=String(body.companionId||'');
   assertChatParticipants({uid,companionId,chatId});
   const text=sanitizeChatText(body.text);
@@ -446,11 +549,33 @@ async function trainingMutation(db, uid, body) {
       isCompleted:false, checkedInUserIds:[], ratedParticipantIds:[], organizerRatedByParticipantIds:[], createdAt:new Date().toISOString() };
     await db.runTransaction(async tx=>{
       tx.create(db.collection('trainings').doc(id),training);
+      tx.create(db.collection('chats').doc(trainingChatId(id)),trainingChatBase(training));
       enqueueNotification(tx,db,{id:`training-new:${id}`,actorId:uid,broadcast:true,category:'trainings',kind:'training_new',entityId:id,title:training.sport==='Походы'?'Новый поход рядом':'Новая тренировка рядом',message:training.title,link:'#training='+encodeURIComponent(id)});
     });
     return { training };
   }
-  if (body.operation !== 'toggleJoinTraining') throw Object.assign(new Error('Неизвестная операция тренировки'),{status:400});
+  if(body.operation==='ensureGroupChat'){
+    const trainingId=String(body.trainingId||'');
+    if(!trainingId)throw Object.assign(new Error('Не указана тренировка'),{status:400});
+    const trainingRef=db.collection('trainings').doc(trainingId),chatRef=db.collection('chats').doc(trainingChatId(trainingId));
+    return db.runTransaction(async tx=>{
+      const trainingS=await tx.get(trainingRef),chatS=await tx.get(chatRef);
+      if(!trainingS.exists)throw Object.assign(new Error('Тренировка не найдена'),{status:404});
+      const training=trainingS.data()||{},participants=cleanArray(training.participantIds);
+      if(!participants.includes(uid))throw Object.assign(new Error('Чат доступен только участникам тренировки'),{status:403});
+      const base=trainingChatBase({...training,id:trainingId});
+      if(chatS.exists){
+        const current=chatS.data()||{};
+        tx.set(chatRef,{...base,...current,participantIds:participants,
+          ...(training.isCompleted?{archivedAt:current.archivedAt||training.completedAt||new Date().toISOString()}:{})},{merge:true});
+      }else{
+        tx.create(chatRef,{...base,...(training.isCompleted?{archivedAt:training.completedAt||new Date().toISOString()}:{})});
+      }
+      return {chatId:chatRef.id,archived:training.isCompleted===true};
+    });
+  }
+
+    if (body.operation !== 'toggleJoinTraining') throw Object.assign(new Error('Неизвестная операция тренировки'),{status:400});
   const trainingId = String(body.trainingId || '');
   if (!trainingId) throw Object.assign(new Error('Не указана тренировка'), { status: 400 });
   const ref = db.collection('trainings').doc(trainingId);
@@ -458,10 +583,15 @@ async function trainingMutation(db, uid, body) {
     const snap = await tx.get(ref);
     if (!snap.exists) throw Object.assign(new Error('Тренировка не найдена'), { status: 404 });
     const t = snap.data(), participants = cleanArray(t.participantIds), joined = participants.includes(uid);
+    const groupRef=db.collection('chats').doc(trainingChatId(trainingId));
+    const groupSnap=await tx.get(groupRef);
     if (t.isCompleted) throw Object.assign(new Error('Тренировка уже завершена'),{status:409});
     if (joined) {
       if (t.createdBy === uid) throw Object.assign(new Error('Организатор не может выйти из собственной тренировки'), { status: 409 });
-      const next = participants.filter(id => id !== uid); tx.update(ref, { participantIds: next }); return { joined: false, participantIds: next };
+      const next = participants.filter(id => id !== uid);
+      tx.update(ref,{participantIds:next});
+      if(groupSnap.exists)tx.update(groupRef,{participantIds:next,updatedAt:new Date().toISOString()});
+      return {joined:false,participantIds:next};
     }
     if (t.participantGender && t.participantGender !== 'any') {
       const userSnap = await tx.get(db.collection('users').doc(uid));
@@ -472,7 +602,10 @@ async function trainingMutation(db, uid, body) {
     if (participants.length >= Number(t.participantsMax)) throw Object.assign(new Error('Все места уже заняты'), { status: 409 });
     const next = [...participants, uid];
     enqueueNotification(tx,db,{id:`training-join:${trainingId}:${uid}:${randomUUID()}`,actorId:uid,recipients:[t.createdBy],category:'trainings',kind:'training_join',title:'Новый участник тренировки',message:String(t.title||'К вашей тренировке присоединились.'),link:'#training='+encodeURIComponent(trainingId)});
-    tx.update(ref, { participantIds: next }); return { joined: true, participantIds: next };
+    tx.update(ref,{participantIds:next});
+    if(groupSnap.exists)tx.set(groupRef,{...groupSnap.data(),participantIds:next,updatedAt:new Date().toISOString()},{merge:true});
+    else tx.create(groupRef,{...trainingChatBase({...t,id:trainingId,participantIds:next}),participantIds:next});
+    return {joined:true,participantIds:next};
   });
 }
 
@@ -538,8 +671,23 @@ async function checkinMutation(db, uid, body) {
 }
 
 async function completeTraining(db, uid, trainingId) {
-  const ref=db.collection('trainings').doc(String(trainingId));
-  return db.runTransaction(async tx=>{const snap=await tx.get(ref);if(!snap.exists)throw Object.assign(new Error('Тренировка не найдена'),{status:404});const t=snap.data();if(t.createdBy!==uid)throw Object.assign(new Error('Только организатор может завершить тренировку'),{status:403});if(t.isCompleted===true)return {training:t};if(String(t.dateKey||'')!==dayKey())throw Object.assign(new Error('Тренировка не относится к сегодняшнему дню'),{status:409});if(!(Array.isArray(t.checkedInUserIds)&&t.checkedInUserIds.includes(uid)))throw Object.assign(new Error('Организатор должен подтвердить присутствие'),{status:409});const updated={isCompleted:true,completedAt:new Date().toISOString(),ratedParticipantIds:Array.isArray(t.ratedParticipantIds)?t.ratedParticipantIds:[],organizerRatedByParticipantIds:Array.isArray(t.organizerRatedByParticipantIds)?t.organizerRatedByParticipantIds:[]};tx.update(ref,updated);return {training:{...t,...updated}};});
+  const id=String(trainingId),ref=db.collection('trainings').doc(id),groupRef=db.collection('chats').doc(trainingChatId(id));
+  return db.runTransaction(async tx=>{
+    const snap=await tx.get(ref),groupSnap=await tx.get(groupRef);
+    if(!snap.exists)throw Object.assign(new Error('Тренировка не найдена'),{status:404});
+    const t=snap.data();
+    if(t.createdBy!==uid)throw Object.assign(new Error('Только организатор может завершить тренировку'),{status:403});
+    if(t.isCompleted===true)return {training:t};
+    if(String(t.dateKey||'')!==dayKey())throw Object.assign(new Error('Тренировка не относится к сегодняшнему дню'),{status:409});
+    if(!(Array.isArray(t.checkedInUserIds)&&t.checkedInUserIds.includes(uid)))throw Object.assign(new Error('Организатор должен подтвердить присутствие'),{status:409});
+    const completedAt=new Date().toISOString();
+    const updated={isCompleted:true,completedAt,ratedParticipantIds:Array.isArray(t.ratedParticipantIds)?t.ratedParticipantIds:[],organizerRatedByParticipantIds:Array.isArray(t.organizerRatedByParticipantIds)?t.organizerRatedByParticipantIds:[]};
+    tx.update(ref,updated);
+    const base=trainingChatBase({...t,id});
+    if(groupSnap.exists)tx.set(groupRef,{...base,...groupSnap.data(),participantIds:cleanArray(t.participantIds),archivedAt:completedAt},{merge:true});
+    else tx.create(groupRef,{...base,participantIds:cleanArray(t.participantIds),archivedAt:completedAt});
+    return {training:{...t,...updated}};
+  });
 }
 
 async function ratingMutation(db,uid,body){

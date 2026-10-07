@@ -30,7 +30,7 @@ function fixture(initial) {
   };
   const db={collection(name){
     const query=(filters=[])=>({
-      where:(field,op,value)=>query([...filters,[field,op,value]]),limit:()=>query(filters),
+      where:(field,op,value)=>query([...filters,[field,op,value]]),orderBy:()=>query(filters),limit:()=>query(filters),
       async get(){const docs=[...records.keys()].filter(path=>path.startsWith(name+'/')).filter(path=>filters.every(([field,op,value])=>op==='=='?records.get(path)[field]===value:records.get(path)[field]?.includes(value))).map(path=>snap(db.collection(name).doc(path.slice(name.length+1))));return {docs,empty:docs.length===0};}
     });
     return {...query(),doc(id){const ref={id,path:name+'/'+id};ref.get=async()=>snap(ref);ref.create=async value=>write('create',ref,value);ref.set=async(value,options)=>write('set',ref,value,options?.merge);ref.collection=sub=>db.collection(ref.path+'/'+sub);return ref;}};
@@ -153,6 +153,64 @@ test('chat v3 supports reply typing and sender-only delete while retaining moder
   const late=fixture({'users/a':{...premium(),friendIds:['b']},'users/b':{...premium(),friendIds:['a']},
     'chats/chat_a__b':{id:'chat_a__b',participantIds:['a','b'],messages:[{id:'old',chatId:'chat_a__b',senderId:'a',text:'old',timestamp:Date.now()-16*60*1000}],recentMessages:[{id:'old',chatId:'chat_a__b',senderId:'a',text:'old',timestamp:Date.now()-16*60*1000}],lastMessageAt:Date.now()-16*60*1000}});
   assert.equal((await late.request('a',{action:'chat',operation:'deleteMessage',chatId:'chat_a__b',messageId:'old'})).statusCode,409);
+});
+
+test('training group chat follows training membership and archives on completion',async()=>{
+  const f=fixture({'users/a':premium(),'users/b':premium(),'users/c':premium()});
+  const created=await f.request('a',{action:'training',operation:'createTraining',training:{...training(),participantsMax:4}});
+  assert.equal(created.statusCode,200);
+  const trainingId=created.body.training.id;
+  const chatId='training_'+trainingId;
+  let group=f.records.get('chats/'+chatId);
+  assert.equal(group.kind,'training');
+  assert.deepEqual(group.participantIds,['a']);
+  assert.equal(group.trainingId,trainingId);
+
+  assert.equal((await f.request('b',{action:'training',operation:'toggleJoinTraining',trainingId})).statusCode,200);
+  group=f.records.get('chats/'+chatId);
+  assert.deepEqual(group.participantIds,['a','b']);
+
+  assert.equal((await f.request('c',{action:'chat',operation:'sendTraining',chatId,text:'Я тут'})).statusCode,403);
+  const sent=await f.request('b',{action:'chat',operation:'sendTraining',chatId,text:'Всем привет'});
+  assert.equal(sent.statusCode,200);
+  assert.equal(sent.body.message.text,'Всем привет');
+  assert.equal(f.records.get('chats/'+chatId).unreadCount.a,1);
+  assert.equal(f.records.get('chats/'+chatId).unreadCount.b,0);
+
+  const jobs=[...f.records].filter(([key])=>key.startsWith('notificationOutbox/')).map(([,value])=>value);
+  const groupNotice=jobs.find(item=>item.kind==='message');
+  assert.ok(groupNotice);
+  assert.deepEqual(groupNotice.recipients,['a']);
+  assert.equal(groupNotice.link,'#chat='+encodeURIComponent(chatId));
+
+  assert.equal((await f.request('b',{action:'training',operation:'toggleJoinTraining',trainingId})).body.joined,false);
+  assert.deepEqual(f.records.get('chats/'+chatId).participantIds,['a']);
+  assert.equal((await f.request('b',{action:'chat',operation:'history',chatId})).statusCode,403);
+
+  // Rejoin and complete: final participants retain read-only archive access.
+  await f.request('b',{action:'training',operation:'toggleJoinTraining',trainingId});
+  f.records.set('trainings/'+trainingId,{...f.records.get('trainings/'+trainingId),dateKey:today(),checkedInUserIds:['a']});
+  const completed=await f.request('a',{action:'completeTraining',trainingId});
+  assert.equal(completed.statusCode,200);
+  group=f.records.get('chats/'+chatId);
+  assert.ok(group.archivedAt);
+  assert.deepEqual(group.participantIds,['a','b']);
+  assert.equal((await f.request('b',{action:'chat',operation:'history',chatId})).statusCode,200);
+  const archivedSend=await f.request('b',{action:'chat',operation:'sendTraining',chatId,text:'После финиша'});
+  assert.equal(archivedSend.statusCode,409);
+  assert.equal(archivedSend.body.code,'CHAT_ARCHIVED');
+});
+
+test('legacy training can lazily create its group chat only for participants',async()=>{
+  const f=fixture({
+    'users/a':premium(),'users/b':premium(),
+    'trainings/legacy':{...training(),id:'legacy',createdBy:'a',participantIds:['a']}
+  });
+  assert.equal((await f.request('b',{action:'training',operation:'ensureGroupChat',trainingId:'legacy'})).statusCode,403);
+  const ensured=await f.request('a',{action:'training',operation:'ensureGroupChat',trainingId:'legacy'});
+  assert.equal(ensured.statusCode,200);
+  assert.equal(ensured.body.chatId,'training_legacy');
+  assert.equal(f.records.get('chats/training_legacy').kind,'training');
 });
 
 test('event registration accepts only published events with space',async()=>{

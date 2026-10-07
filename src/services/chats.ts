@@ -27,6 +27,7 @@ function readAllThreads(userId = CURRENT_USER_ID): Record<string, ChatThread> {
 export function getReportableChatThreads(userId: string): ChatThread[] {
   return Object.values(readAllThreads(userId))
     .filter((thread) => thread.participantIds.includes(userId))
+    .filter((thread) => thread.kind !== 'training')
     .filter((thread) => thread.messages.length > 0)
     .sort((a, b) => b.lastMessageAt - a.lastMessageAt);
 }
@@ -79,10 +80,17 @@ function createEmptyThread(currentUserId: string, companion: UserProfile): ChatT
 export function loadChatThreads(
   currentUser: UserProfile,
   allUsers: UserProfile[],
-  category: 'matches' | 'friends' = 'matches'
+  category: 'matches' | 'friends' | 'trainings' = 'matches'
 ): ChatThread[] {
   const stored = readAllThreads(currentUser.id);
   let changed = false;
+
+  if(category==='trainings'){
+    return Object.values(stored)
+      .filter(thread=>thread.kind==='training'&&thread.participantIds.includes(currentUser.id))
+      .map(thread=>({...thread,messages:thread.messages.map(message=>({...message,createdAt:formatTimeLabel(message.timestamp)}))}))
+      .sort((a,b)=>b.lastMessageAt-a.lastMessageAt);
+  }
 
   const ids = category === 'friends'
     ? (currentUser.friendIds || [])
@@ -118,12 +126,12 @@ export function loadChatThreads(
  */
 export function subscribeChatThreads(
   currentUser: UserProfile,
-  category: 'matches' | 'friends',
+  category: 'matches' | 'friends' | 'trainings',
   onChange: (threads: ChatThread[]) => void,
   onAllChange?: (threads: ChatThread[]) => void
 ): Unsubscribe {
   const companionIds = new Set(
-    category === 'friends' ? (currentUser.friendIds || []) : currentUser.matchIds
+    category === 'friends' ? (currentUser.friendIds || []) : category === 'matches' ? currentUser.matchIds : []
   );
 
   return onSnapshot(
@@ -132,8 +140,8 @@ export function subscribeChatThreads(
       const stored = readAllThreads(currentUser.id);
       snapshot.docs.forEach((chatDoc) => {
         const data = chatDoc.data() as ChatThread & { readAt?: Record<string, number> };
-        const companionId = data.participantIds.find((id) => id !== currentUser.id);
-        if (!companionId) return;
+        const companionId = data.kind === 'training' ? '' : (data.participantIds.find((id) => id !== currentUser.id) || '');
+        if (data.kind !== 'training' && !companionId) return;
         const sourceMessages = data.recentMessages || data.messages || [];
         const merged=new Map<string,ChatMessage>();
         for(const message of stored[chatDoc.id]?.messages||[])merged.set(message.id,message);
@@ -156,7 +164,9 @@ export function subscribeChatThreads(
         .filter((thread) => thread.participantIds.includes(currentUser.id))
         .sort((a, b) => b.lastMessageAt - a.lastMessageAt);
       onAllChange?.(allThreads);
-      onChange(allThreads.filter((thread) => companionIds.has(thread.companionId)));
+      onChange(category==='trainings'
+        ? allThreads.filter(thread=>thread.kind==='training')
+        : allThreads.filter((thread) => thread.kind!=='training' && companionIds.has(thread.companionId)));
     },
     () => {
       // Offline cache remains active; no UI error needed.
@@ -180,6 +190,20 @@ export async function loadChatHistory(chatId: string, userId: string): Promise<C
     writeAllThreads(threads,userId);
   }
   return messages;
+}
+
+export async function ensureTrainingGroupChat(trainingId:string):Promise<{chatId:string;archived:boolean}>{
+  return callServer('/api/sportbuddy-mutation',{action:'training',operation:'ensureGroupChat',trainingId});
+}
+
+export async function sendTrainingGroupMessage(chatId:string,text:string,replyToMessageId?:string):Promise<ChatMessage>{
+  const result=await callServer<{message:ChatMessage;thread:ChatThread}>('/api/sportbuddy-mutation',{
+    action:'chat',operation:'sendTraining',chatId,text,...(replyToMessageId?{replyToMessageId}:{})
+  });
+  const threads=readAllThreads(CURRENT_USER_ID);
+  threads[chatId]=result.thread;
+  writeAllThreads(threads,CURRENT_USER_ID);
+  return result.message;
 }
 
 export async function sendChatMessage(chatId: string, companionId: string, text: string, replyToMessageId?: string): Promise<ChatMessage> {
