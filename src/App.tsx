@@ -744,11 +744,18 @@ export default function App(): JSX.Element {
       setChatMessagesOffline(false);
       return;
     }
+    const thread=chatThreads.find(item=>item.id===openChatId);
+    // A brand-new local chat has no Firestore parent yet, so nested history
+    // cannot be authorised until the first real message creates the chat.
+    if(!thread || (!thread.messageCount && thread.messages.length===0)) {
+      setChatMessagesOffline(false);
+      return;
+    }
     return subscribeChatMessages(openChatId, currentUser.id, messages => {
       setChatMessagesOffline(false);
-      setChatThreads(previous => previous.map(thread => thread.id === openChatId ? {...thread,messages} : thread));
+      setChatThreads(previous => previous.map(item => item.id === openChatId ? {...item,messages} : item));
     }, setChatMessagesOffline);
-  }, [currentUser?.id, openChatId]);
+  }, [currentUser?.id, openChatId, chatThreads.find(item=>item.id===openChatId)?.messageCount]);
 
   useEffect(() => {
     if (!openChatId) return;
