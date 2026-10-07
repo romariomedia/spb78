@@ -2337,13 +2337,27 @@ export default function App(): JSX.Element {
                           <MapPin className="w-3 h-3 shrink-0" /> {openChatCompanion.locationName}
                         </p>
                       </div>
-                      <span className="text-[10px] font-black bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded-lg border border-emerald-500/30 shrink-0">
-                        МЭТЧ 🤝
-                      </span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={() => { setComplaintContactId(openChatCompanion.id); setIsComplaintOpen(true); }}
+                          className="rounded-xl border border-rose-500/25 bg-rose-500/10 px-2.5 py-1.5 text-[9px] font-black text-rose-300 active:scale-95"
+                        >
+                          Пожаловаться
+                        </button>
+                        <span className="text-[10px] font-black bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded-lg border border-emerald-500/30">
+                          {chatCategory === 'friends' ? 'ДРУГ 👥' : 'МЭТЧ 🤝'}
+                        </span>
+                      </div>
                     </div>
 
+                    {chatMessagesOffline && (
+                      <div role="status" className="flex items-center gap-2 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[10px] font-bold text-amber-300">
+                        <WifiOff className="h-3.5 w-3.5"/> История чата временно офлайн. Показываем последние сохранённые сообщения.
+                      </div>
+                    )}
+
                     {/* Message list */}
-                    <div className="bg-slate-950 border border-slate-800 rounded-3xl p-4 space-y-3 min-h-[320px] max-h-[52vh] overflow-y-auto no-scrollbar">
+                    <div ref={chatScrollRef} className="bg-slate-950 border border-slate-800 rounded-3xl p-4 space-y-3 min-h-[320px] max-h-[52vh] overflow-y-auto no-scrollbar">
                       <p className="text-center text-[10px] text-slate-600 font-medium">
                         Начало переписки • {openChatCompanion.sports.join(' • ')}
                       </p>
@@ -2363,8 +2377,15 @@ export default function App(): JSX.Element {
                               }`}
                             >
                               <p>{m.text}</p>
-                              <span className={`block text-[9px] mt-1 ${mine ? 'text-emerald-900/70' : 'text-slate-500'}`}>
+                              <span className={`flex items-center gap-1 text-[9px] mt-1 ${mine ? 'text-emerald-900/70' : 'text-slate-500'}`}>
                                 {formatTimeLabel(m.timestamp)}
+                                {mine && m.id === lastMineMessageId && (
+                                  <>
+                                    <span>·</span>
+                                    <CheckCheck className="h-3 w-3"/>
+                                    <span>{Number(openChatThread.readAt?.[openChatCompanion.id] || 0) >= m.timestamp ? 'прочитано' : 'доставлено'}</span>
+                                  </>
+                                )}
                               </span>
                             </div>
                           </div>
@@ -2398,26 +2419,31 @@ export default function App(): JSX.Element {
                     </AnimatePresence>
 
                     {/* Composer */}
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={chatDraft}
-                        onChange={(e) => setChatDraft(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === 'Enter') handleSendChatMessage(); }}
-                        placeholder="Напишите сообщение..."
-                        className="flex-1 bg-slate-900 border border-slate-800 rounded-2xl px-4 py-3 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
-                      />
-                      <button
-                        onClick={handleSendChatMessage}
-                        disabled={!chatDraft.trim()}
-                        className={`px-4 rounded-2xl font-black transition shadow flex items-center justify-center shrink-0 ${
-                          chatDraft.trim()
-                            ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-[0_0_18px_rgba(16,185,129,0.5)] active:scale-95'
-                            : 'bg-slate-800 text-slate-600 cursor-not-allowed'
-                        }`}
-                      >
-                        <Send className="w-4 h-4" />
-                      </button>
+                    <div className="space-y-1.5">
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          maxLength={2000}
+                          value={chatDraft}
+                          onChange={(e) => setChatDraft(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter' && !e.repeat) handleSendChatMessage(); }}
+                          placeholder="Напишите сообщение..."
+                          className="flex-1 bg-slate-900 border border-slate-800 rounded-2xl px-4 py-3 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                        />
+                        <button
+                          onClick={handleSendChatMessage}
+                          disabled={chatSending || !chatDraft.trim()}
+                          className={`px-4 rounded-2xl font-black transition shadow flex items-center justify-center shrink-0 ${
+                            chatDraft.trim() && !chatSending
+                              ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-[0_0_18px_rgba(16,185,129,0.5)] active:scale-95'
+                              : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                          }`}
+                          aria-label="Отправить сообщение"
+                        >
+                          {chatSending ? <RefreshCw className="w-4 h-4 animate-spin"/> : <Send className="w-4 h-4" />}
+                        </button>
+                      </div>
+                      {chatDraft.length > 1500 && <p className="pr-1 text-right text-[9px] text-slate-500">{chatDraft.length}/2000</p>}
                     </div>
 
                     {/* Quick replies tailored to SPb */}
@@ -2478,6 +2504,16 @@ export default function App(): JSX.Element {
                       ))}
                     </div>
 
+                    <div className="relative">
+                      <Search className="absolute left-3 top-3 h-4 w-4 text-slate-500"/>
+                      <input
+                        value={chatSearch}
+                        onChange={e=>setChatSearch(e.target.value)}
+                        placeholder="Поиск по имени, спорту или сообщениям"
+                        className="w-full rounded-2xl border border-slate-800 bg-slate-900 py-2.5 pl-9 pr-3 text-xs text-slate-100 outline-none focus:border-emerald-500"
+                      />
+                    </div>
+
                     {chatCategory === 'friends' && friendRequestsCount > 0 && (
                       <button
                         onClick={() => { setProfileSection('overview'); handleTabChange('profile'); }}
@@ -2491,18 +2527,20 @@ export default function App(): JSX.Element {
                       </button>
                     )}
 
-                    {chatThreads.length === 0 ? (
+                    {visibleChatThreads.length === 0 ? (
                       <div className="text-center py-14 px-4 bg-slate-900/60 rounded-3xl border border-slate-800 space-y-3">
                         <div className="w-16 h-16 rounded-3xl bg-emerald-500/15 border border-emerald-500/40 mx-auto flex items-center justify-center text-3xl">
                           {chatCategory === 'matches' ? '💬' : '👥'}
                         </div>
                         <h3 className="text-base font-bold text-white">
-                          {chatCategory === 'matches' ? 'Пока нет взаимных симпатий' : 'Пока нет друзей'}
+                          {chatSearch.trim() ? 'Ничего не найдено' : chatCategory === 'matches' ? 'Пока нет взаимных симпатий' : 'Пока нет друзей'}
                         </h3>
                         <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
-                          {chatCategory === 'matches'
-                            ? 'Чат открывается автоматически, когда вы и другой спортсмен из Санкт-Петербурга ставите друг другу «Симпатию».'
-                            : 'Добавляйте спортсменов в друзья из анкет и таблицы лидеров — чат откроется после взаимного согласия.'}
+                          {chatSearch.trim()
+                            ? 'Попробуйте изменить запрос.'
+                            : chatCategory === 'matches'
+                              ? 'Чат открывается автоматически, когда вы и другой спортсмен из Санкт-Петербурга ставите друг другу «Симпатию».'
+                              : 'Добавляйте спортсменов в друзья из анкет и таблицы лидеров — чат откроется после взаимного согласия.'}
                         </p>
                         <button
                           onClick={() => handleTabChange('discover')}
@@ -2513,11 +2551,12 @@ export default function App(): JSX.Element {
                       </div>
                     ) : (
                       <div className="space-y-2.5">
-                        {chatThreads.map(thread => {
+                        {visibleChatThreads.map(thread => {
                           const companion = allUsers.find(u => u.id === thread.companionId);
                           if (!companion) return null;
                           const last = thread.messages[thread.messages.length - 1];
-                          const unread = thread.messages.filter(m => !m.read && m.senderId !== CURRENT_USER_ID).length;
+                          const metadataUnread = Number(thread.unreadCount?.[CURRENT_USER_ID]);
+                          const unread = Number.isFinite(metadataUnread) ? metadataUnread : thread.messages.filter(m => !m.read && m.senderId !== CURRENT_USER_ID).length;
 
                           return (
                             <button
@@ -2532,8 +2571,8 @@ export default function App(): JSX.Element {
                                   alt={companion.name}
                                   className="w-12 h-12 rounded-full object-cover border-2 border-emerald-500/70"
                                 />
-                                {companion.activeLooking && (
-                                  <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full" />
+                                {Date.now() - Number(companion.lastSeenAt || 0) < 5 * 60 * 1000 && (
+                                  <span title="Онлайн" className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full" />
                                 )}
                               </div>
 
@@ -3154,9 +3193,10 @@ export default function App(): JSX.Element {
       {/* Safety complaint: choose a real chat contact, then open a prefilled support email */}
       <ComplaintModal
         isOpen={isComplaintOpen}
-        onClose={() => setIsComplaintOpen(false)}
+        onClose={() => { setIsComplaintOpen(false); setComplaintContactId(undefined); }}
         reporter={currentUser}
         contacts={reportableChatContacts}
+        initialContactId={complaintContactId}
       />
 
       {/* Rate participants after a finished training */}
