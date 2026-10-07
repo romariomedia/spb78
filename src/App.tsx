@@ -3949,6 +3949,23 @@ export default function App(): JSX.Element {
               </p>
             </div>
 
+            {selectedTraining.participantIds.includes(CURRENT_USER_ID) && (
+              <button
+                onClick={()=>void openTrainingGroupChat(selectedTraining)}
+                className="w-full rounded-2xl border border-cyan-500/40 bg-cyan-500/10 px-4 py-3 text-left transition active:scale-[0.99] hover:bg-cyan-500/15"
+              >
+                <span className="flex items-center justify-between gap-3">
+                  <span>
+                    <span className="block text-xs font-black text-cyan-300">💬 Чат участников</span>
+                    <span className="mt-0.5 block text-[10px] text-slate-400">
+                      {selectedTraining.isCompleted ? 'Тренировка завершена — открыть архив переписки' : 'Договоритесь о встрече, месте сбора и деталях тренировки'}
+                    </span>
+                  </span>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-cyan-300"/>
+                </span>
+              </button>
+            )}
+
             <div>
               <div className="flex justify-between items-center mb-2">
                 <h5 className="font-bold text-slate-400">Участники группы ({selectedTraining.participantIds.length} / {selectedTraining.participantsMax})</h5>
