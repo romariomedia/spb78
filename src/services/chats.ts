@@ -55,18 +55,15 @@ export function formatTimeLabel(timestamp: number): string {
  * No pre-written conversations: every chat starts empty.
  * A thread is created only after a real mutual like or friendship.
  */
-function createEmptyThread(companion: UserProfile): ChatThread {
-  const chatId = buildChatId(CURRENT_USER_ID, companion.id);
+function createEmptyThread(currentUserId: string, companion: UserProfile): ChatThread {
+  const chatId = buildChatId(currentUserId, companion.id);
   const now = Date.now();
-  const messages: ChatMessage[] = [];
-  const last = undefined;
-
   return {
     id: chatId,
-    participantIds: [CURRENT_USER_ID, companion.id],
+    participantIds: [currentUserId, companion.id],
     companionId: companion.id,
-    messages,
-    lastMessageAt: last ? last.timestamp : now,
+    messages: [],
+    lastMessageAt: now,
     createdAt: new Date(now).toISOString()
   };
 }
@@ -100,7 +97,7 @@ export function loadChatThreads(
       existing.companionId = companion.id;
       return existing;
     }
-    const fresh = createEmptyThread(companion);
+    const fresh = createEmptyThread(currentUser.id, companion);
     stored[chatId] = fresh;
     changed = true;
     return fresh;
@@ -188,7 +185,13 @@ export function subscribeChatMessages(
           createdAt: formatTimeLabel(message.timestamp)
         });
       }
-      onChange([...merged.values()].sort((a,b)=>a.timestamp-b.timestamp).slice(-200));
+      const messages=[...merged.values()].sort((a,b)=>a.timestamp-b.timestamp).slice(-200);
+      const threads=readAllThreads(userId);
+      if(threads[chatId]){
+        threads[chatId]={...threads[chatId],messages};
+        writeAllThreads(threads,userId);
+      }
+      onChange(messages);
     },
     () => onError?.(true)
   );
@@ -212,6 +215,8 @@ export async function markThreadAsRead(chatId: string): Promise<void> {
   latest.messages=latest.messages.map(message=>({ ...message,
     read:message.senderId===uid || message.timestamp<=result.readAt
   }));
+  latest.readAt={...(latest.readAt||{}),[uid]:result.readAt};
+  latest.unreadCount={...(latest.unreadCount||{}),[uid]:0};
   writeAllThreads(threads,uid);
 }
 
