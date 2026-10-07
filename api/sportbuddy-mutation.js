@@ -244,6 +244,14 @@ async function chatMutation(db, uid, body) {
     const ts=nextChatTimestamp(current.lastMessageAt,now);
     const message={id:`msg_${randomUUID()}`,chatId,senderId:uid,text,timestamp:ts,createdAt:new Date(ts).toISOString(),read:false};
     const messageRef=chatRef.collection('messages').doc(message.id);
+    if(Number(current.messageStorageVersion||0)<2){
+      const legacy=Array.isArray(current.recentMessages)?current.recentMessages:(Array.isArray(current.messages)?current.messages:[]);
+      for(const oldMessage of legacy.slice(-60)){
+        if(oldMessage?.id&&oldMessage?.senderId&&Number.isFinite(Number(oldMessage?.timestamp))){
+          tx.set(chatRef.collection('messages').doc(String(oldMessage.id)),oldMessage,{merge:true});
+        }
+      }
+    }
     const recentMessages=buildRecentMessages(current,message);
     const unreadCount=nextUnreadCounts(current,uid,companionId);
     const thread={
@@ -251,6 +259,7 @@ async function chatMutation(db, uid, body) {
       messages:recentMessages,recentMessages,
       lastMessage:message,lastMessageAt:ts,
       messageCount:Number(current.messageCount||0)+1,
+      messageStorageVersion:2,
       unreadCount,
       lastSenderAt:{...(current.lastSenderAt||{}),[uid]:now}
     };
