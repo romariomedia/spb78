@@ -47,7 +47,7 @@ import {
 import { isNativeApp } from './services/media';
 
 import { AuthAccount } from './lib/types';
-import { getSessionAccount, logout as clearLocalAuthSession, removeLocalAccount } from './services/auth';
+import { getSessionAccount, logout as clearLocalAuthSession, removeLocalAccount, syncLocalAccountIdentity } from './services/auth';
 import { signOutTransport, ensureTransportSession } from './lib/firebase';
 import { authReady, getFirebaseUid, signOutFirebase } from './services/firebaseAuth';
 import { createFreshProfile } from './services/reset';
@@ -433,15 +433,23 @@ export default function App(): JSX.Element {
       }
 
       if (session) {
-        profile = { ...profile, name: session.name, email: session.email };
-        // VK ID accounts arrive fully verified with a real photo attached.
-        if (session.provider === 'vk') {
-          profile = {
-            ...profile,
-            hasRealPhoto: true,
-            isVerified: true,
-            verifiedAt: profile.verifiedAt || new Date().toISOString()
-          };
+        // Firestore is authoritative for an existing public profile. The local
+        // auth mirror must never overwrite its name (an older build derived
+        // that mirror from the e-mail local-part on a new device).
+        if (data.profileMissing) {
+          profile = { ...profile, name: session.name, email: session.email };
+        } else {
+          try {
+            const identity = await syncProfileIdentity(session.name);
+            if (identity.profile) {
+              profile = { ...profile, name: identity.profile.name, email: identity.profile.email ?? profile.email };
+              const synced = syncLocalAccountIdentity(identity.profile.name, identity.profile.email ?? session.email);
+              if (synced) setAccount(current => current?.id === synced.id ? synced : current);
+            }
+          } catch {
+            // Identity repair is self-healing but not allowed to block access.
+            // The already loaded Firestore profile remains authoritative.
+          }
         }
         if (isFreshAccount) {
           setWelcomeTrialShown(true);
