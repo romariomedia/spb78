@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  CHAT_RECENT_LIMIT,assertChatParticipants,assertChatRateLimit,assertChatRelationship,
-  buildRecentMessages,buildServerChatId,nextChatTimestamp,nextUnreadCounts,sanitizeChatText
+  CHAT_DELETE_WINDOW_MS,CHAT_RECENT_LIMIT,assertChatParticipants,assertChatRateLimit,assertChatRelationship,
+  assertMessageDeleteAllowed,buildRecentMessages,buildServerChatId,nextChatTimestamp,nextUnreadCounts,
+  replyPreview,sanitizeChatText,tombstoneMessage
 } from '../server/chat-policy.js';
 
 test('chat id is deterministic',()=>{
@@ -62,4 +63,30 @@ test('message timestamps stay monotonic and spam guard rejects bursts',()=>{
   assert.equal(nextChatTimestamp(2000,1000),2001);
   assert.doesNotThrow(()=>assertChatRateLimit({lastSenderAt:{u1:1000}},'u1',1400));
   assert.throws(()=>assertChatRateLimit({lastSenderAt:{u1:1000}},'u1',1200),error=>error.status===429);
+});
+
+
+test('reply preview is bounded and deleted messages cannot be replied to',()=>{
+  const preview=replyPreview({id:'m1',senderId:'u2',text:'x'.repeat(300)});
+  assert.equal(preview.messageId,'m1');
+  assert.equal(preview.senderId,'u2');
+  assert.equal(preview.text.length,180);
+  assert.throws(()=>replyPreview({id:'m2',senderId:'u2',text:'gone',deletedAt:1}),error=>error.status===409);
+});
+
+test('delete-for-everyone is sender-only and limited to fifteen minutes',()=>{
+  const now=10_000_000;
+  const message={id:'m1',senderId:'u1',text:'Hi',timestamp:now-1000};
+  assert.doesNotThrow(()=>assertMessageDeleteAllowed(message,'u1',now));
+  assert.throws(()=>assertMessageDeleteAllowed(message,'u2',now),error=>error.status===403);
+  assert.throws(()=>assertMessageDeleteAllowed({...message,timestamp:now-CHAT_DELETE_WINDOW_MS-1},'u1',now),error=>error.status===409);
+  assert.throws(()=>assertMessageDeleteAllowed({...message,deletedAt:now-10},'u1',now),error=>error.status===409);
+});
+
+test('tombstone hides user-visible text but keeps message identity',()=>{
+  const deleted=tombstoneMessage({id:'m1',senderId:'u1',text:'secret',timestamp:123},'u1',456);
+  assert.equal(deleted.id,'m1');
+  assert.equal(deleted.text,'Сообщение удалено');
+  assert.equal(deleted.deletedAt,456);
+  assert.equal(deleted.deletedBy,'u1');
 });
