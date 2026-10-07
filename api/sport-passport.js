@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { initializeApp,getApps,cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
-import { competitionStats,levelLabel,sanitizeSportPassportDraft } from '../server/sport-passport.js';
+import { officialCompetitionSummary,levelLabel,readSportPassport,sanitizeSportPassportDraft } from '../server/sport-passport.js';
 import { requireActiveUser } from '../server/user-status.js';
 import { applyVerifiedClaims,claimFingerprint,claimFromPassport } from '../server/sport-id-verification.js';
 
@@ -12,14 +12,14 @@ const clean=(value,max=300)=>typeof value==='string'?value.trim().slice(0,max):'
 
 async function buildSportIdSnapshot(db,uid,user){
   const [checkinsSnap,ownedSnap,resultsSnap,claimsSnap]=await Promise.all([
-    db.collection('checkins').where('userId','==',uid).get().catch(()=>null),
-    db.collection('trainings').where('createdBy','==',uid).get().catch(()=>null),
-    db.collection('sportPassportResults').where('userId','==',uid).get().catch(()=>null),
-    db.collection('sportVerifiedClaims').where('userId','==',uid).get().catch(()=>null)
+    db.collection('checkins').where('userId','==',uid).get(),
+    db.collection('trainings').where('createdBy','==',uid).get(),
+    db.collection('sportPassportResults').where('userId','==',uid).get(),
+    db.collection('sportVerifiedClaims').where('userId','==',uid).get()
   ]);
   const checkins=(checkinsSnap?.docs||[]).map(d=>d.data()||{}).sort((a,b)=>Number(b.timestamp||0)-Number(a.timestamp||0));
   const trainingIds=[...new Set(checkins.map(x=>String(x.trainingId||'')).filter(Boolean))].slice(0,30);
-  const trainingSnaps=await Promise.all(trainingIds.map(id=>db.collection('trainings').doc(id).get().catch(()=>null)));
+  const trainingSnaps=await Promise.all(trainingIds.map(id=>db.collection('trainings').doc(id).get()));
   const trainings=new Map(trainingSnaps.filter(Boolean).filter(s=>s.exists).map(s=>[s.id,s.data()||{}]));
   const history=checkins.slice(0,20).map(item=>{
     const training=trainings.get(String(item.trainingId||''))||{};
@@ -30,16 +30,14 @@ async function buildSportIdSnapshot(db,uid,user){
       locationName:clean(training.locationName,180),timestamp:Number(item.timestamp||0),verified:item.verified===true
     };
   });
-  const officialResults=(resultsSnap?.docs||[]).map(doc=>({id:doc.id,...doc.data()}))
-    .filter(x=>x.status==='verified')
-    .sort((a,b)=>Number(b.achievedAt||0)-Number(a.achievedAt||0))
-    .slice(0,50)
+  const summary=officialCompetitionSummary((resultsSnap?.docs||[]).map(doc=>({id:doc.id,...doc.data()})));
+  const officialResults=summary.results
     .map(x=>({
       id:String(x.id),title:clean(x.title,180),sport:clean(x.sport,80),placement:clean(x.placement,80),
       eventTitle:clean(x.eventTitle,180),achievedAt:Number(x.achievedAt||0),verification:'sportbuddy'
     }));
-  const comp=competitionStats(officialResults);
-  const draft=sanitizeSportPassportDraft(user.sportPassport||{},Array.isArray(user.sports)?user.sports:[]);
+  const comp=summary.stats;
+  const draft=readSportPassport(user.sportPassport||{},Array.isArray(user.sports)?user.sports:[]);
   const verified=applyVerifiedClaims(draft,(claimsSnap?.docs||[]).map(doc=>doc.data()||{}));
   return {
     identity:{
@@ -72,37 +70,32 @@ export default async function handler(req,res){
     if(action==='read')return res.json({sportId:await buildSportIdSnapshot(db,uid,user)});
 
     if(action==='update'){
-      const current=sanitizeSportPassportDraft(user.sportPassport||{},Array.isArray(user.sports)?user.sports:[]);
-      const next=sanitizeSportPassportDraft({...req.body?.sportId,publicEnabled:current.publicEnabled,publicSlug:current.publicSlug},Array.isArray(user.sports)?user.sports:[]);
-      await db.collection('users').doc(uid).update({sportPassport:{...next,updatedAt:new Date().toISOString()}});
-      const claims=await db.collection('sportVerifiedClaims').where('userId','==',uid).get().catch(()=>null);
-      const stale=[];
-      for(const doc of claims?.docs||[]){
-        const claim=doc.data()||{};
-        try{
-          const current=claimFromPassport(next,claim);
-          if(claimFingerprint(current)!==claim.fingerprint)stale.push({doc,claim});
-        }catch{stale.push({doc,claim});}
-      }
-      if(stale.length){
-        const batch=db.batch(),now=new Date().toISOString();
-        for(const item of stale){
-          batch.delete(item.doc.ref);
-          if(item.claim.sourceRequestId){
-            batch.set(db.collection('sportVerificationRequests').doc(String(item.claim.sourceRequestId)),{
-              status:'revoked',reviewNote:'Подтверждение автоматически отозвано: данные Спортивного ID были изменены пользователем.',
-              reviewedAt:now,reviewedBy:'system',updatedAt:now,updatedAtMs:Date.now()
-            },{merge:true});
-          }
+      await db.runTransaction(async tx=>{
+        const ref=db.collection('users').doc(uid);
+        const userSnap=await tx.get(ref);
+        const live=userSnap.data()||{};
+        const current=readSportPassport(live.sportPassport||{},Array.isArray(live.sports)?live.sports:[]);
+        const next=sanitizeSportPassportDraft({...req.body?.sportId,publicEnabled:current.publicEnabled,publicSlug:current.publicSlug},Array.isArray(live.sports)?live.sports:[]);
+        const claims=await tx.get(db.collection('sportVerifiedClaims').where('userId','==',uid));
+        tx.update(ref,{sportPassport:{...next,updatedAt:new Date().toISOString()}});
+        for(const doc of claims.docs){
+          const claim=doc.data()||{};
+          let unchanged=false;
+          try{unchanged=claimFingerprint(claimFromPassport(next,claim))===claim.fingerprint;}catch{}
+          if(unchanged)continue;
+          tx.delete(doc.ref);
+          if(claim.sourceRequestId)tx.set(db.collection('sportVerificationRequests').doc(String(claim.sourceRequestId)),{
+            status:'revoked',reviewNote:'Подтверждение автоматически отозвано: данные Спортивного ID были изменены пользователем.',
+            reviewedAt:new Date().toISOString(),reviewedBy:'system',updatedAt:new Date().toISOString(),updatedAtMs:Date.now()
+          },{merge:true});
         }
-        await batch.commit();
-      }
+      });
       const fresh=(await db.collection('users').doc(uid).get()).data()||{};
       return res.json({sportId:await buildSportIdSnapshot(db,uid,fresh)});
     }
 
     if(action==='setPublic'){
-      const current=sanitizeSportPassportDraft(user.sportPassport||{},Array.isArray(user.sports)?user.sports:[]);
+      const current=readSportPassport(user.sportPassport||{},Array.isArray(user.sports)?user.sports:[]);
       const enabled=req.body?.enabled===true;
       const publicSlug=current.publicSlug||randomBytes(12).toString('base64url');
       await db.collection('users').doc(uid).update({

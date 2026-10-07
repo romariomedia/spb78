@@ -19,6 +19,7 @@ export function evaluateDeletionSafety({email='',user={},counts={},authDisabled=
   if(Number(counts.feed||0)>0||Number(counts.trainingsOwned||0)>0||Number(counts.leisureOwned||0)>0||Number(counts.stories||0)>0)blockers.push('Есть созданный пользователем контент.');
   if(Number(counts.trainingsJoined||0)>0||Number(counts.leisureJoined||0)>0||Number(counts.checkins||0)>0)blockers.push('Есть участие в тренировках или активном отдыхе.');
   if(Number(counts.goals||0)>0||Number(counts.workoutCredits||0)>0||Number(counts.promoCodes||0)>0)blockers.push('Есть прогресс, цели или промокоды.');
+  if(Number(counts.sportEvidence||0)>0)blockers.push('Есть закрытые документы Спортивного ID — требуется отдельная очистка.');
   if(Number(counts.sportVerificationRequests||0)>0||Number(counts.sportVerifiedClaims||0)>0)blockers.push('Есть заявки или подтверждения Спортивного ID.');
   if(String(user.avatar||'').trim()||Array.isArray(user.photoPortfolio)&&user.photoPortfolio.length>0)blockers.push('Есть пользовательские фото — требуется отдельная очистка медиахранилища.');
   if(Number(user.totalWorkouts||0)>0)blockers.push('У профиля есть спортивная история.');
@@ -66,6 +67,7 @@ export async function buildUserDeletionPlan(db,auth,userId,{now=Date.now()}={}){
     paymentRequests:db.collection('paymentRequests').where('userId','==',userId),
     reportsSent:db.collection('reports').where('reporterId','==',userId),
     reportsReceived:db.collection('reports').where('targetUserId','==',userId),
+    sportEvidence:db.collection('sportVerificationEvidence').where('userId','==',userId),
     sportVerificationRequests:db.collection('sportVerificationRequests').where('userId','==',userId),
     sportVerifiedClaims:db.collection('sportVerifiedClaims').where('userId','==',userId)
   };

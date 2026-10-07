@@ -69,9 +69,9 @@ export async function loadPublicSportId(slug:string):Promise<SportPassportSnapsh
   return data.sportId as SportPassportSnapshot;
 }
 export function publicSportIdUrl(slug:string):string{
-  return `${window.location.origin}/#/id/${encodeURIComponent(slug)}`;
+  return `https://sportbuddy78.pro/#/id/${encodeURIComponent(slug)}`;
 }
-export function publicSportIdQrUrl(slug:string):string{
-  const value=publicSportIdUrl(slug);
-  return `https://api.qrserver.com/v1/create-qr-code/?size=320x320&margin=10&data=${encodeURIComponent(value)}`;
+export async function publicSportIdQrUrl(slug:string):Promise<string>{
+  const {toDataURL}=await import('qrcode');
+  return toDataURL(publicSportIdUrl(slug),{width:320,margin:4,errorCorrectionLevel:'M'});
 }

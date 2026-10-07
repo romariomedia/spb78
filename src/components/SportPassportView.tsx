@@ -14,6 +14,7 @@ const fmt=(v:string|number)=>{const d=new Date(v);return Number.isFinite(d.getTi
 export function SportPassportView({user,onBack,onUserUpdate}:Props){
   const [data,setData]=useState<SportPassportSnapshot|null>(null);
   const [loading,setLoading]=useState(false),[saving,setSaving]=useState(false),[editing,setEditing]=useState(false);
+  const [qrUrl,setQrUrl]=useState('');
   const [error,setError]=useState(''),[notice,setNotice]=useState('');
   const [mainSport,setMainSport]=useState(user.sportPassport?.mainSport||user.sports?.[0]||'');
   const [level,setLevel]=useState<SportPassportLevel>(user.sportPassport?.level||'beginner');
@@ -47,6 +48,12 @@ export function SportPassportView({user,onBack,onUserUpdate}:Props){
   const official=data?.officialResults||[],history=data?.history||[],stats=data?.stats;
   const displayedAchievements=data?.achievements||achievements;
   const publicUrl=data?.public.slug?publicSportIdUrl(data.public.slug):'';
+  useEffect(()=>{
+    let active=true;setQrUrl('');
+    if(data?.public.enabled&&data.public.slug)void publicSportIdQrUrl(data.public.slug).then(url=>{if(active)setQrUrl(url);}).catch(()=>{if(active)setError('Не удалось создать QR-код. Повторите попытку.');});
+    return()=>{active=false;};
+  },[data?.public.enabled,data?.public.slug]);
+
   return <section className="space-y-4">
     <div className="flex items-center justify-between gap-3"><button onClick={onBack} className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-[10px] font-black text-slate-300"><ArrowLeft className="h-3.5 w-3.5"/>Профиль</button><button onClick={()=>void refresh()} disabled={loading} className="rounded-xl border border-slate-800 bg-slate-950 p-2 text-slate-400"><RefreshCw className={'h-4 w-4 '+(loading?'animate-spin':'')}/></button></div>
     {error&&<p className="rounded-xl border border-rose-500/30 bg-rose-950/30 p-3 text-[11px] text-rose-200">{error}</p>}
@@ -67,8 +74,9 @@ export function SportPassportView({user,onBack,onUserUpdate}:Props){
 
     <div className="rounded-3xl border border-slate-800 bg-slate-950 p-4">
       <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-black text-white">Спортивная биография</p><p className="mt-1 text-[9px] text-slate-500">Личные данные помечаются как «Заявлено».</p></div><button onClick={()=>setEditing(v=>!v)} className="rounded-xl border border-lime-500/30 bg-lime-500/10 px-3 py-2 text-[10px] font-black text-lime-300">{editing?'Отмена':'Редактировать'}</button></div>
+      {data?.profile.mainSport&&!user.sports.includes(data.profile.mainSport)&&<p className="mt-2 text-[11px] text-amber-300">Основной спорт ID больше не выбран в профиле. Выберите актуальный при редактировании; прежняя история сохранена.</p>}
       {editing&&<div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <label className="text-[9px] font-bold text-slate-500">Основной вид спорта<select value={mainSport} onChange={e=>setMainSport(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2.5 text-xs text-white">{user.sports.map(s=><option key={s}>{s}</option>)}</select></label>
+        <label className="text-[9px] font-bold text-slate-500">Основной вид спорта<select value={mainSport} onChange={e=>setMainSport(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2.5 text-xs text-white">{!user.sports.includes(mainSport)&&<option value={mainSport}>{mainSport||'Выберите вид спорта'} — выберите актуальный</option>}{user.sports.map(s=><option key={s}>{s}</option>)}</select></label>
         <label className="text-[9px] font-bold text-slate-500">Уровень<select value={level} onChange={e=>setLevel(e.target.value as SportPassportLevel)} className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2.5 text-xs text-white">{LEVELS.map(([id,label])=><option key={id} value={id}>{label}</option>)}</select></label>
         <label className="text-[9px] font-bold text-slate-500">Разряд / статус<input value={rankTitle} onChange={e=>setRankTitle(e.target.value)} maxLength={120} className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2.5 text-xs text-white"/></label>
         <label className="text-[9px] font-bold text-slate-500">Опыт, лет<input type="number" min={0} max={80} value={yearsExperience} onChange={e=>setYearsExperience(Number(e.target.value))} className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2.5 text-xs text-white"/></label>
@@ -80,7 +88,7 @@ export function SportPassportView({user,onBack,onUserUpdate}:Props){
           <div className="mt-3 space-y-2">{achievements.map((a,i)=><div key={a.id} className="flex items-start gap-2 rounded-xl border border-slate-800 bg-slate-950 p-2.5"><div className="min-w-0 flex-1"><p className="text-[10px] font-black text-white">{a.title}</p><p className="mt-1 text-[8px] text-slate-500">{[a.sport,a.placement,a.date].filter(Boolean).join(' · ')}</p></div><button onClick={()=>setAchievements(prev=>prev.filter((_,idx)=>idx!==i))} className="rounded-lg p-2 text-rose-300"><Trash2 className="h-3.5 w-3.5"/></button></div>)}</div>
         </div>
 
-        <button onClick={()=>void save()} disabled={saving||!mainSport} className="sm:col-span-2 flex items-center justify-center gap-2 rounded-xl bg-lime-400 py-3 text-xs font-black text-slate-950 disabled:opacity-40"><Save className="h-4 w-4"/>{saving?'Сохранение…':'Сохранить Спортивный ID'}</button>
+        <button onClick={()=>void save()} disabled={saving||!mainSport||!user.sports.includes(mainSport)} className="sm:col-span-2 flex items-center justify-center gap-2 rounded-xl bg-lime-400 py-3 text-xs font-black text-slate-950 disabled:opacity-40"><Save className="h-4 w-4"/>{saving?'Сохранение…':'Сохранить Спортивный ID'}</button>
       </div>}
     </div>
 
@@ -95,7 +103,7 @@ export function SportPassportView({user,onBack,onUserUpdate}:Props){
 
     <div className="rounded-3xl border border-lime-500/25 bg-slate-950 p-4">
       <div className="flex items-start justify-between gap-3"><div><div className="flex items-center gap-2"><QrCode className="h-4 w-4 text-lime-300"/><p className="text-xs font-black text-white">Публичный Спортивный ID</p></div><p className="mt-1 text-[9px] leading-relaxed text-slate-500">QR открывает проверяемую read-only карточку без телефона, e-mail и других закрытых данных.</p></div><button onClick={()=>void togglePublic()} disabled={saving} className={'rounded-xl px-3 py-2 text-[9px] font-black '+(data?.public.enabled?'bg-lime-400 text-slate-950':'border border-slate-700 text-slate-300')}>{data?.public.enabled?'Опубликован':'Включить'}</button></div>
-      {data?.public.enabled&&data.public.slug&&<div className="mt-4 grid gap-4 sm:grid-cols-[180px_1fr] sm:items-center"><div className="rounded-2xl bg-white p-2"><img src={publicSportIdQrUrl(data.public.slug)} alt="QR-код Спортивного ID SportBuddy78" className="aspect-square w-full"/></div><div><img src="/sportbuddy78-logo.png" alt="SportBuddy78" className="h-14 w-14 object-contain"/><p className="mt-2 text-[10px] font-black text-white">Проверяемая цифровая спортивная репутация</p><p className="mt-1 break-all text-[9px] text-slate-500">{publicUrl}</p><div className="mt-3 flex gap-2"><button onClick={()=>void share()} className="flex items-center gap-1.5 rounded-xl bg-lime-400 px-3 py-2 text-[9px] font-black text-slate-950"><Share2 className="h-3.5 w-3.5"/>Поделиться</button><button onClick={()=>void navigator.clipboard.writeText(publicUrl).then(()=>setNotice('Ссылка скопирована.'))} className="flex items-center gap-1.5 rounded-xl border border-slate-700 px-3 py-2 text-[9px] font-black text-slate-300"><Copy className="h-3.5 w-3.5"/>Копировать</button></div></div></div>}
+      {data?.public.enabled&&data.public.slug&&<div className="mt-4 grid gap-4 sm:grid-cols-[180px_1fr] sm:items-center"><div className="rounded-2xl bg-white p-2"><img src={qrUrl||undefined} alt="QR-код Спортивного ID SportBuddy78" className="aspect-square w-full"/></div><div><img src="/sportbuddy78-logo.png" alt="SportBuddy78" className="h-14 w-14 object-contain"/><p className="mt-2 text-[10px] font-black text-white">Проверяемая цифровая спортивная репутация</p><p className="mt-1 break-all text-[9px] text-slate-500">{publicUrl}</p>{qrUrl&&<a href={qrUrl} download="SportBuddy78-QR.png" className="mt-2 inline-block text-xs text-lime-300">Скачать QR-код</a>}<div className="mt-3 flex gap-2"><button onClick={()=>void share()} className="flex items-center gap-1.5 rounded-xl bg-lime-400 px-3 py-2 text-[9px] font-black text-slate-950"><Share2 className="h-3.5 w-3.5"/>Поделиться</button><button onClick={()=>void navigator.clipboard.writeText(publicUrl).then(()=>setNotice('Ссылка скопирована.'))} className="flex items-center gap-1.5 rounded-xl border border-slate-700 px-3 py-2 text-[9px] font-black text-slate-300"><Copy className="h-3.5 w-3.5"/>Копировать</button></div></div></div>}
     </div>
 
     {history.length>0&&<div className="rounded-3xl border border-slate-800 bg-slate-950 p-4"><p className="text-xs font-black text-white">Подтверждённая история тренировок</p><div className="mt-3 space-y-2">{history.map(item=><div key={item.id||item.trainingId+String(item.timestamp)} className="rounded-xl bg-slate-900 p-3"><p className="text-[10px] font-black text-white">{item.title}</p><p className="mt-1 text-[8px] text-slate-500">{[item.sport,item.locationName,item.dateKey||fmt(item.timestamp)].filter(Boolean).join(' · ')}</p></div>)}</div></div>}

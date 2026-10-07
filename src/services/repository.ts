@@ -1,6 +1,6 @@
 import { hasPremiumAccess } from '../../shared/access-policy.js';
 import { 
-  collection, 
+  collection, query, where,
   doc, 
   getDocsFromServer,
   getDocFromServer 
@@ -593,7 +593,7 @@ export async function loadAppData(): Promise<AppData> {
   const hasPendingQueue = getOfflineQueue().length > 0;
   const online = typeof navigator === 'undefined' || navigator.onLine;
   if (!online) {
-    if (cached) return { ...cached, isOffline: true, hasPendingQueue, profileMissing: false };
+    if (cached) return { ...cached, feedPosts:cached.feedPosts.filter(post=>post.isHidden===false), isOffline: true, hasPendingQueue, profileMissing: false };
     throw new Error('Нет соединения. Подключитесь к интернету, чтобы загрузить профиль.');
   }
   const timeout = FIRESTORE_TIMEOUT_MS * 2;
@@ -619,12 +619,12 @@ export async function loadAppData(): Promise<AppData> {
     readSection(getDocsFromServer(collection(db, 'trainings')).then(snap => snap.docs.map(item =>
       ({ ...item.data(), id: item.id }) as Training
     )), () => cached?.trainings ?? INITIAL_TRAININGS, timeout),
-    readSection(getDocsFromServer(collection(db, 'feed')).then(snap => snap.docs.map(item =>
+    readSection(getDocsFromServer(query(collection(db, 'feed'),where('isHidden','==',false))).then(snap => snap.docs.map(item =>
       ({ ...item.data(), id: item.id }) as FeedPost
     // Свежие публикации — строго сверху: порядок задаёт дата, а не строковый id.
     // У старых документов id вида «post-1», у новых — «post_<время>_<random>»,
     // поэтому лексикографический порядок не совпадал с хронологией.
-    ).filter(post => post.isHidden !== true).sort((a, b) => timestampValue(b.createdAt) - timestampValue(a.createdAt))), () => (cached?.feedPosts ?? []).filter(post => post.isHidden !== true), timeout),
+    ).filter(post => post.isHidden === false).sort((a, b) => timestampValue(b.createdAt) - timestampValue(a.createdAt))), () => (cached?.feedPosts ?? []).filter(post => post.isHidden === false), timeout),
     readSection(getDocFromServer(doc(db, 'usersPrivate', uid)).then(snap =>
       snap.exists() ? snap.data() as Partial<UserProfile> : {}
     ), () => {
@@ -665,11 +665,11 @@ export async function loadAppData(): Promise<AppData> {
 export async function loadFeedPosts(): Promise<FeedPost[]> {
   const cached = getOfflineCache();
   const section = await readSection(
-    getDocsFromServer(collection(db, 'feed')).then((snap) => snap.docs
+    getDocsFromServer(query(collection(db, 'feed'),where('isHidden','==',false))).then((snap) => snap.docs
       .map((item) => ({ ...item.data(), id: item.id }) as FeedPost)
-      .filter(post => post.isHidden !== true)
+      .filter(post => post.isHidden === false)
       .sort((a, b) => timestampValue(b.createdAt) - timestampValue(a.createdAt))),
-    () => cached?.feedPosts ?? [],
+    () => (cached?.feedPosts ?? []).filter(post=>post.isHidden===false),
     FIRESTORE_TIMEOUT_MS * 2
   );
 

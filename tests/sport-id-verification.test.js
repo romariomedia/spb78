@@ -24,12 +24,15 @@ test('rank and achievement claims are built from current SportBuddy78 ID only',(
 
 test('verification evidence requires a document or official https link',()=>{
   assert.deepEqual(sanitizeVerificationEvidence({officialUrl:'https://example.org/result',note:'protocol'}),{
-    evidenceUrl:'',officialUrl:'https://example.org/result',note:'protocol'
+    evidenceId:'',officialUrl:'https://example.org/result',note:'protocol'
   });
   assert.throws(()=>sanitizeVerificationEvidence({}),error=>error.status===400);
   assert.throws(()=>sanitizeVerificationEvidence({officialUrl:'http://example.org'}),error=>error.status===400);
   assert.throws(()=>sanitizeVerificationEvidence({evidenceUrl:'https://example.org/file.pdf'}),error=>error.status===400);
-  assert.equal(sanitizeVerificationEvidence({evidenceUrl:'https://res.cloudinary.com/demo/raw/upload/file.pdf'}).evidenceUrl.includes('res.cloudinary.com'),true);
+  assert.throws(()=>sanitizeVerificationEvidence({evidenceUrl:'https://res.cloudinary.com/demo/raw/upload/file.pdf'}),e=>e.status===400);
+  assert.throws(()=>sanitizeVerificationEvidence({officialUrl:'https://'}),e=>e.status===400);
+  assert.throws(()=>sanitizeVerificationEvidence({officialUrl:'https://user:password@example.org'}),e=>e.status===400);
+  assert.equal(sanitizeVerificationEvidence({evidenceId:'ev_550e8400-e29b-41d4-a716-446655440000'}).evidenceId,'ev_550e8400-e29b-41d4-a716-446655440000');
 });
 
 test('verified claim is applied only while the underlying fact is unchanged',()=>{

@@ -1,6 +1,6 @@
-import { useEffect,useMemo,useState } from 'react';
+import { useEffect,useRef,useState } from 'react';
 import { CheckCircle2,ExternalLink,FileCheck2,RefreshCw,ShieldCheck,XCircle } from 'lucide-react';
-import { approveSportIdVerification,loadAdminSportIdVerification,rejectSportIdVerification,revokeSportIdVerification } from '../services/adminSportIdVerification';
+import { downloadAdminSportIdEvidence,approveSportIdVerification,loadAdminSportIdVerification,rejectSportIdVerification,revokeSportIdVerification } from '../services/adminSportIdVerification';
 import { SportIdVerificationRequest } from '../services/sportIdVerification';
 
 type Filter='pending'|'approved'|'rejected'|'all';
@@ -9,14 +9,26 @@ const tone:Record<string,string>={pending:'bg-amber-500/15 text-amber-300',appro
 
 export function AdminSportIdVerificationPanel(){
   const [items,setItems]=useState<SportIdVerificationRequest[]>([]);
+  const generation=useRef(0);
+  const [nextCursor,setNextCursor]=useState<string|null>(null);
   const [filter,setFilter]=useState<Filter>('pending');
   const [busy,setBusy]=useState('');
   const [error,setError]=useState('');
   const [notice,setNotice]=useState('');
 
-  const refresh=async()=>{setBusy('load');setError('');try{setItems(await loadAdminSportIdVerification());}catch(e){setError(e instanceof Error?e.message:'Не удалось загрузить заявки');}finally{setBusy('');}};
-  useEffect(()=>{void refresh();},[]);
-  const visible=useMemo(()=>filter==='all'?items:items.filter(x=>x.status===filter),[items,filter]);
+  const refresh=async(append=false)=>{
+    const request=++generation.current;setBusy('load');setError('');
+    if(!append){setItems([]);setNextCursor(null);}
+    try{
+      const page=await loadAdminSportIdVerification(filter,append?nextCursor||'':'');
+      if(request!==generation.current)return;
+      setItems(previous=>append?[...new Map([...previous,...page.requests].map(item=>[item.id,item])).values()]:page.requests);
+      setNextCursor(page.nextCursor);
+    }catch(e){if(request===generation.current)setError(e instanceof Error?e.message:'Не удалось загрузить заявки');}
+    finally{if(request===generation.current)setBusy('');}
+  };
+  useEffect(()=>{void refresh();return()=>{generation.current++;};},[filter]);
+  const visible=items;
 
   const approve=async(item:SportIdVerificationRequest)=>{
     const note=(prompt('Комментарий к подтверждению — необязательно:','Проверено по предоставленным материалам')||'').trim();
@@ -57,7 +69,8 @@ export function AdminSportIdVerificationPanel(){
 
         <div className="mt-3 rounded-xl border border-slate-800 bg-slate-900 p-3 space-y-2">
           <p className="text-[9px] font-black text-slate-400">Материалы</p>
-          {item.evidenceUrl&&<a href={item.evidenceUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-300"><FileCheck2 className="h-3.5 w-3.5"/>Документ / скриншот <ExternalLink className="h-3 w-3"/></a>}
+          {item.evidenceId&&<button type="button" onClick={()=>void downloadAdminSportIdEvidence(item.id).catch(e=>setError(e instanceof Error?e.message:'Не удалось скачать документ'))} className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-300"><FileCheck2 className="h-3.5 w-3.5"/>Скачать закрытый документ</button>}
+          {item.evidenceUrl&&<a href={item.evidenceUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-300"><FileCheck2 className="h-3.5 w-3.5"/>Документ из прежнего хранилища <ExternalLink className="h-3 w-3"/></a>}
           {item.officialUrl&&<a href={item.officialUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 break-all text-[10px] font-bold text-sky-300"><ExternalLink className="h-3.5 w-3.5"/>Официальная ссылка</a>}
           {item.note&&<p className="text-[9px] leading-relaxed text-slate-400">Комментарий спортсмена: {item.note}</p>}
         </div>
@@ -73,5 +86,6 @@ export function AdminSportIdVerificationPanel(){
       </article>)}
       {visible.length===0&&!busy&&<div className="rounded-2xl border border-dashed border-slate-800 bg-slate-950 p-8 text-center text-[11px] text-slate-500">Заявок в этой категории нет.</div>}
     </div>
+    {nextCursor&&<button onClick={()=>void refresh(true)} disabled={busy!==''} className="w-full rounded-xl border border-slate-700 py-3 text-xs text-emerald-300 disabled:opacity-40">Загрузить ещё</button>}
   </section>;
 }

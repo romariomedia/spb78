@@ -92,7 +92,7 @@ service cloud.firestore {
     /* ------------------------------ feed ------------------------------- */
 
     match /feed/{postId} {
-      allow read: if isSignedIn();
+      allow read: if isSignedIn() && resource.data.isHidden == false;
       allow create, update, delete: if false;
     }
 

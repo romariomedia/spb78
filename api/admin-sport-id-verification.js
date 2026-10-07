@@ -1,3 +1,5 @@
+import { listVerificationRequests } from '../server/verification-queue.js';
+import { downloadEvidence } from '../server/verification-evidence.js';
 import { initializeApp,getApps,cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { requireAdminSession,writeAdminAudit } from '../server/admin-control.js';
@@ -11,12 +13,11 @@ export default async function handler(req,res){
   const db=getFirestore(),body=req.body||{};
   try{
     const session=await requireAdminSession(db,body.sessionId);
+    res.setHeader('Cache-Control','no-store');
     const operation=String(body.operation||'list');
 
     if(operation==='list'){
-      const snap=await db.collection('sportVerificationRequests').orderBy('updatedAtMs','desc').limit(100).get().catch(()=>null);
-      const requests=(snap?.docs||[]).map(doc=>({id:doc.id,...doc.data()}));
-      return res.json({requests});
+      return res.json(await listVerificationRequests(db,{status:body.status||'pending',cursor:body.cursor||''}));
     }
 
     const requestId=clean(body.requestId,180);
@@ -25,6 +26,7 @@ export default async function handler(req,res){
     const requestSnap=await requestRef.get();
     if(!requestSnap.exists)return res.status(404).json({error:'Заявка не найдена.'});
     const request=requestSnap.data()||{};
+    if(operation==='downloadEvidence')return res.json({file:await downloadEvidence(db,request.evidenceId,request.userId)});
     if((operation==='approve'||operation==='reject')&&request.status!=='pending')return res.status(409).json({error:'Эта заявка уже обработана.'});
     if(operation==='revoke'&&request.status!=='approved')return res.status(409).json({error:'Отозвать можно только действующее подтверждение.'});
     const note=clean(body.note,800);
@@ -49,7 +51,10 @@ export default async function handler(req,res){
       };
       await db.runTransaction(async tx=>{
         const fresh=await tx.get(requestRef);
-        if(!fresh.exists||fresh.data()?.status!=='pending')throw Object.assign(new Error('Заявка уже обработана.'),{status:409});
+        const freshUser=await tx.get(db.collection('users').doc(request.userId));
+        const freshClaim=claimFromPassport(freshUser.data()?.sportPassport||{},request);
+        if(claimFingerprint(freshClaim)!==request.fingerprint)throw Object.assign(new Error('Данные Спортивного ID изменились. Нужна новая заявка.'),{status:409});
+        if(!fresh.exists||fresh.data()?.status!=='pending'||fresh.data()?.updatedAtMs!==request.updatedAtMs)throw Object.assign(new Error('Заявка уже обработана.'),{status:409});
         tx.set(claimRef,claim,{merge:false});
         tx.update(requestRef,{status:'approved',reviewNote:note,reviewedAt:claim.verifiedAt,reviewedBy:claim.verifiedBy,updatedAt:claim.verifiedAt,updatedAtMs:now});
       });
@@ -60,7 +65,11 @@ export default async function handler(req,res){
     if(operation==='reject'){
       if(note.length<3)return res.status(400).json({error:'Для отклонения укажите причину минимум из 3 символов.'});
       const reviewedAt=new Date(now).toISOString();
-      await requestRef.update({status:'rejected',reviewNote:note,reviewedAt,reviewedBy:String(session.email||'admin'),updatedAt:reviewedAt,updatedAtMs:now});
+      await db.runTransaction(async tx=>{
+        const fresh=await tx.get(requestRef);
+        if(fresh.data()?.status!=='pending'||fresh.data()?.updatedAtMs!==request.updatedAtMs)throw Object.assign(new Error('Заявка уже изменена. Обновите список.'),{status:409});
+        tx.update(requestRef,{status:'rejected',reviewNote:note,reviewedAt,reviewedBy:String(session.email||'admin'),updatedAt:reviewedAt,updatedAtMs:now});
+      });
       await writeAdminAudit(db,session,{action:'sportId.verification.reject',entityType:'sportVerificationRequest',entityId:requestId,before:{status:'pending'},after:{status:'rejected',note},requestId:String(body.auditRequestId||'')});
       return res.json({ok:true});
     }
@@ -72,8 +81,12 @@ export default async function handler(req,res){
       if(!claimSnap.exists)return res.status(404).json({error:'Подтверждение не найдено.'});
       const reason=note;
       if(reason.length<3)return res.status(400).json({error:'Укажите причину отзыва минимум из 3 символов.'});
-      await claimRef.delete();
-      await requestRef.update({status:'revoked',reviewNote:reason,reviewedAt:new Date(now).toISOString(),reviewedBy:String(session.email||'admin'),updatedAt:new Date(now).toISOString(),updatedAtMs:now});
+      await db.runTransaction(async tx=>{
+        const fresh=await tx.get(requestRef);
+        if(fresh.data()?.status!=='approved'||fresh.data()?.updatedAtMs!==request.updatedAtMs)throw Object.assign(new Error('Подтверждение уже изменено. Обновите список.'),{status:409});
+        tx.delete(claimRef);
+        tx.update(requestRef,{status:'revoked',reviewNote:reason,reviewedAt:new Date(now).toISOString(),reviewedBy:String(session.email||'admin'),updatedAt:new Date(now).toISOString(),updatedAtMs:now});
+      });
       await writeAdminAudit(db,session,{action:'sportId.verification.revoke',entityType:'sportVerifiedClaim',entityId:claimId,before:claimSnap.data(),after:{revoked:true,reason},requestId:String(body.auditRequestId||'')});
       return res.json({ok:true});
     }

@@ -3,9 +3,8 @@ import { CheckCircle2,ExternalLink,FileCheck2,ImagePlus,RefreshCw,Send,ShieldChe
 import { SportPassportSnapshot } from '../services/sportPassport';
 import {
   cancelSportIdVerification,loadSportIdVerificationRequests,SportIdClaimType,
-  SportIdVerificationRequest,submitSportIdVerification
+  SportIdVerificationRequest,submitSportIdVerification,uploadSportIdEvidence,downloadSportIdEvidence
 } from '../services/sportIdVerification';
-import { uploadMedia } from '../services/cloudinary';
 import { compressImage } from '../services/media';
 
 interface Props{data:SportPassportSnapshot|null;onVerifiedChanged:()=>void}
@@ -22,7 +21,7 @@ export function SportIdVerificationPanel({data,onVerifiedChanged}:Props){
   const [requests,setRequests]=useState<SportIdVerificationRequest[]>([]);
   const [claimType,setClaimType]=useState<SportIdClaimType>('rank');
   const [claimId,setClaimId]=useState('');
-  const [evidenceUrl,setEvidenceUrl]=useState('');
+  const [evidenceId,setEvidenceId]=useState('');
   const [officialUrl,setOfficialUrl]=useState('');
   const [note,setNote]=useState('');
   const [busy,setBusy]=useState('');
@@ -43,12 +42,11 @@ export function SportIdVerificationPanel({data,onVerifiedChanged}:Props){
   const relevant=useMemo(()=>requests.filter(r=>r.claimType===claimType&&(claimType==='rank'||r.claimId===claimId)).slice(0,3),[requests,claimType,claimId]);
 
   const upload=async(file?:File)=>{
-    if(!file)return;setBusy('upload');setError('');
+    if(!file)return;setBusy('upload');setError('');setEvidenceId('');
     try{
       let payload=file;
       if(file.type.startsWith('image/'))payload=await compressImage(file,1800,0.86);
-      const result=await uploadMedia(payload,{folder:'sportbuddy/sport-id-verification',resourceType:'auto',tags:['sport-id-verification']});
-      setEvidenceUrl(result.secureUrl);setNotice('Документ загружен.');
+      setEvidenceId(await uploadSportIdEvidence(payload));setNotice('Документ сохранён в закрытом хранилище.');
     }catch(e){setError(e instanceof Error?e.message:'Не удалось загрузить документ');}
     finally{setBusy('');}
   };
@@ -56,8 +54,8 @@ export function SportIdVerificationPanel({data,onVerifiedChanged}:Props){
   const submit=async()=>{
     setBusy('submit');setError('');setNotice('');
     try{
-      await submitSportIdVerification({claimType,claimId:claimType==='achievement'?claimId:undefined,evidenceUrl,officialUrl,note});
-      setEvidenceUrl('');setOfficialUrl('');setNote('');setNotice('Заявка отправлена в Verification Center.');
+      await submitSportIdVerification({claimType,claimId:claimType==='achievement'?claimId:undefined,evidenceId,officialUrl,note});
+      setEvidenceId('');setOfficialUrl('');setNote('');setNotice('Заявка отправлена в Verification Center.');
       await refresh();onVerifiedChanged();
     }catch(e){setError(e instanceof Error?e.message:'Не удалось отправить заявку');}
     finally{setBusy('');}
@@ -94,16 +92,16 @@ export function SportIdVerificationPanel({data,onVerifiedChanged}:Props){
     {!alreadyVerified&&currentClaim&&<>
       <div className="grid gap-2 sm:grid-cols-2">
         <div>
-          <input ref={inputRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={e=>void upload(e.target.files?.[0])}/>
-          <button onClick={()=>inputRef.current?.click()} disabled={busy==='upload'} className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-700 bg-slate-900 py-2.5 text-[10px] font-bold text-slate-300 disabled:opacity-50"><ImagePlus className="h-3.5 w-3.5"/>{busy==='upload'?'Загрузка…':evidenceUrl?'Документ загружен':'Фото / PDF документа'}</button>
+          <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="hidden" onChange={e=>{const file=e.target.files?.[0];e.target.value='';void upload(file);}}/>
+          <button onClick={()=>inputRef.current?.click()} disabled={busy!==''} className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-700 bg-slate-900 py-2.5 text-[10px] font-bold text-slate-300 disabled:opacity-50"><ImagePlus className="h-3.5 w-3.5"/>{busy==='upload'?'Загрузка…':evidenceId?'Документ загружен':'Фото / PDF · до 4 МБ'}</button>
         </div>
         <input value={officialUrl} onChange={e=>setOfficialUrl(e.target.value)} placeholder="https://официальный-сайт/результат" className="rounded-xl border border-slate-800 bg-slate-900 px-3 py-2.5 text-[10px] text-white outline-none focus:border-emerald-500"/>
       </div>
-      {evidenceUrl&&<a href={evidenceUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-[9px] font-bold text-emerald-300"><FileCheck2 className="h-3.5 w-3.5"/>Открыть загруженное подтверждение <ExternalLink className="h-3 w-3"/></a>}
+      {evidenceId&&<button type="button" onClick={()=>void downloadSportIdEvidence(evidenceId).catch(e=>setError(e instanceof Error?e.message:'Не удалось скачать документ'))} className="flex items-center gap-1 text-[9px] font-bold text-emerald-300"><FileCheck2 className="h-3.5 w-3.5"/>Скачать подтверждение <ExternalLink className="h-3 w-3"/></button>}
       <textarea value={note} onChange={e=>setNote(e.target.value)} maxLength={800} rows={2} placeholder="Комментарий проверяющему — например, федерация, турнир, номер протокола" className="w-full resize-none rounded-xl border border-slate-800 bg-slate-900 p-3 text-[10px] text-white outline-none focus:border-emerald-500"/>
-      <button onClick={()=>void submit()} disabled={busy!==''||(!evidenceUrl&&!officialUrl)} className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 py-3 text-[10px] font-black text-slate-950 disabled:opacity-40"><Send className="h-3.5 w-3.5"/>Отправить на подтверждение</button>
+      <button onClick={()=>void submit()} disabled={busy!==''||(!evidenceId&&!officialUrl)} className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 py-3 text-[10px] font-black text-slate-950 disabled:opacity-40"><Send className="h-3.5 w-3.5"/>Отправить на подтверждение</button>
     </>}
 
-    {relevant.length>0&&<div className="space-y-2 border-t border-slate-800 pt-3">{relevant.map(r=><div key={r.id} className="rounded-xl bg-slate-900 p-3"><div className="flex items-start justify-between gap-2"><div><p className="text-[10px] font-black text-white">{r.title}</p><p className="mt-1 text-[8px] text-slate-500">{new Date(r.updatedAt||r.createdAt).toLocaleString('ru-RU')}</p></div><span className={'rounded-full px-2 py-1 text-[8px] font-black '+(statusClass[r.status]||'bg-slate-800 text-slate-400')}>{statusLabel[r.status]||r.status}</span></div>{r.reviewNote&&<p className="mt-2 text-[9px] leading-relaxed text-slate-400">Комментарий: {r.reviewNote}</p>}{r.status==='pending'&&<button onClick={()=>void cancel(r.id)} disabled={busy===r.id} className="mt-2 flex items-center gap-1 text-[9px] font-bold text-rose-300"><XCircle className="h-3.5 w-3.5"/>Отменить заявку</button>}</div>)}</div>}
+    {relevant.length>0&&<div className="space-y-2 border-t border-slate-800 pt-3">{relevant.map(r=><div key={r.id} className="rounded-xl bg-slate-900 p-3"><div className="flex items-start justify-between gap-2"><div><p className="text-[10px] font-black text-white">{r.title}</p><p className="mt-1 text-[8px] text-slate-500">{new Date(r.updatedAt||r.createdAt).toLocaleString('ru-RU')}</p></div><span className={'rounded-full px-2 py-1 text-[8px] font-black '+(statusClass[r.status]||'bg-slate-800 text-slate-400')}>{statusLabel[r.status]||r.status}</span></div>{r.evidenceId&&<button type="button" onClick={()=>void downloadSportIdEvidence(r.evidenceId!).catch(e=>setError(e instanceof Error?e.message:'Не удалось скачать документ'))} className="mt-2 text-xs text-emerald-300">Скачать мой документ</button>}{r.reviewNote&&<p className="mt-2 text-[9px] leading-relaxed text-slate-400">Комментарий: {r.reviewNote}</p>}{r.status==='pending'&&<button onClick={()=>void cancel(r.id)} disabled={busy===r.id} className="mt-2 flex items-center gap-1 text-[9px] font-bold text-rose-300"><XCircle className="h-3.5 w-3.5"/>Отменить заявку</button>}</div>)}</div>}
   </section>;
 }

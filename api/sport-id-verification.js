@@ -1,3 +1,4 @@
+import { saveEvidence,downloadEvidence,requireOwnedEvidence } from '../server/verification-evidence.js';
 import { initializeApp,getApps,cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
@@ -18,11 +19,14 @@ export default async function handler(req,res){
     const {uid}=await getAuth().verifyIdToken(token,true);
     const db=getFirestore();
     const {profile:user}=await requireActiveUser(db,uid);
+    res.setHeader('Cache-Control','no-store');
     const action=String(req.body?.action||'list');
+    if(action==='uploadEvidence')return res.json({evidence:await saveEvidence(db,uid,req.body||{})});
+    if(action==='downloadEvidence')return res.json({file:await downloadEvidence(db,req.body?.evidenceId,uid)});
     const passport=user.sportPassport||{};
 
     if(action==='list'){
-      const snap=await db.collection('sportVerificationRequests').where('userId','==',uid).get().catch(()=>null);
+      const snap=await db.collection('sportVerificationRequests').where('userId','==',uid).get();
       const requests=(snap?.docs||[]).map(doc=>({id:doc.id,...doc.data()}))
         .sort((a,b)=>Number(b.updatedAtMs||0)-Number(a.updatedAtMs||0));
       return res.json({requests});
@@ -31,6 +35,7 @@ export default async function handler(req,res){
     if(action==='submit'){
       const claim=claimFromPassport(passport,req.body||{});
       const evidence=sanitizeVerificationEvidence(req.body||{});
+      if(evidence.evidenceId)await requireOwnedEvidence(db,evidence.evidenceId,uid);
       const fingerprint=claimFingerprint(claim);
       const activeClaim=await db.collection('sportVerifiedClaims').doc(verificationClaimId(uid,claim)).get();
       if(activeClaim.exists&&activeClaim.data()?.fingerprint===fingerprint)return res.status(409).json({error:'Этот факт уже подтверждён.'});
@@ -47,7 +52,15 @@ export default async function handler(req,res){
         updatedAt:new Date(now).toISOString(),updatedAtMs:now,
         reviewNote:'',reviewedAt:'',reviewedBy:''
       };
-      await ref.set(value,{merge:false});
+      await db.runTransaction(async tx=>{
+        const fresh=await tx.get(ref);
+        const active=await tx.get(db.collection('sportVerifiedClaims').doc(verificationClaimId(uid,claim)));
+        const liveUser=await tx.get(db.collection('users').doc(uid));
+        if(fresh.data()?.status==='pending')throw Object.assign(new Error('Заявка уже рассматривается.'),{status:409});
+        if(active.data()?.fingerprint===fingerprint)throw Object.assign(new Error('Факт уже подтверждён.'),{status:409});
+        if(claimFingerprint(claimFromPassport(liveUser.data()?.sportPassport||{},claim))!==fingerprint)throw Object.assign(new Error('Спортивный ID изменился. Обновите страницу.'),{status:409});
+        tx.set(ref,value,{merge:false});
+      });
       return res.json({ok:true,request:value});
     }
 
@@ -58,7 +71,11 @@ export default async function handler(req,res){
       const snap=await ref.get();
       if(!snap.exists||snap.data()?.userId!==uid)return res.status(404).json({error:'Заявка не найдена.'});
       if(snap.data()?.status!=='pending')return res.status(409).json({error:'Можно отменить только заявку, которая ещё рассматривается.'});
-      await ref.update({status:'cancelled',updatedAt:new Date().toISOString(),updatedAtMs:Date.now()});
+      await db.runTransaction(async tx=>{
+        const fresh=await tx.get(ref);
+        if(fresh.data()?.userId!==uid||fresh.data()?.status!=='pending')throw Object.assign(new Error('Заявка уже обработана.'),{status:409});
+        tx.update(ref,{status:'cancelled',updatedAt:new Date().toISOString(),updatedAtMs:Date.now()});
+      });
       return res.json({ok:true});
     }
 
