@@ -24,7 +24,7 @@ import {
 } from './lib/types';
 import {
   loadChatThreads, sendChatMessage, markThreadAsRead, countUnread,
-  buildChatId, formatTimeLabel, getReportableChatThreads, subscribeChatMessages, subscribeChatThreads
+  buildChatId, clearChatCache, formatTimeLabel, getReportableChatThreads, subscribeChatMessages, subscribeChatThreads
 } from './services/chats';
 import { 
   loadAppData, loadFeedPosts, createTraining, toggleJoinTraining, toggleLikeProfile, 
@@ -585,6 +585,7 @@ export default function App(): JSX.Element {
   const handleLogout = () => {
     // Full local reset: session, admin OTP session and app state.
     // Firebase identity (e-mail or transport) is dropped in the background.
+    if(currentUser?.id)clearChatCache(currentUser.id);
     clearAdminSession();
     clearLocalAuthSession();
     void signOutFirebase();
