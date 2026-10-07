@@ -1,4 +1,4 @@
-import { collection, limit, onSnapshot, orderBy, query, where, Unsubscribe } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, Unsubscribe } from 'firebase/firestore';
 import { callServer } from './serverApi';
 import { db } from '../lib/firebase';
 import { ChatMessage, ChatThread, UserProfile } from '../lib/types';
@@ -135,15 +135,19 @@ export function subscribeChatThreads(
         const companionId = data.participantIds.find((id) => id !== currentUser.id);
         if (!companionId) return;
         const sourceMessages = data.recentMessages || data.messages || [];
+        const merged=new Map<string,ChatMessage>();
+        for(const message of stored[chatDoc.id]?.messages||[])merged.set(message.id,message);
+        for(const message of sourceMessages)merged.set(message.id,{
+          ...message,
+          read: message.senderId === currentUser.id || message.timestamp <= (data.readAt?.[currentUser.id] ?? 0),
+          createdAt: formatTimeLabel(message.timestamp)
+        });
         stored[chatDoc.id] = {
+          ...stored[chatDoc.id],
           ...data,
           id: chatDoc.id,
           companionId,
-          messages: sourceMessages.map((message) => ({
-            ...message,
-            read: message.senderId === currentUser.id || message.timestamp <= (data.readAt?.[currentUser.id] ?? 0),
-            createdAt: formatTimeLabel(message.timestamp)
-          }))
+          messages:[...merged.values()].sort((a,b)=>a.timestamp-b.timestamp).slice(-200)
         };
       });
       writeAllThreads(stored,currentUser.id);
@@ -161,45 +165,21 @@ export function subscribeChatThreads(
 }
 
 
-/**
- * Subscribes to message history for one opened conversation.
- * New chat storage keeps messages in a subcollection so the chat metadata
- * document stays bounded. Legacy messages from the thread are merged in.
- */
-export function subscribeChatMessages(
-  chatId: string,
-  userId: string,
-  onChange: (messages: ChatMessage[]) => void,
-  onError?: (failed: boolean) => void
-): Unsubscribe {
-  const cached = readAllThreads(userId)[chatId];
-  const legacy = cached?.messages || [];
-  return onSnapshot(
-    query(collection(db, 'chats', chatId, 'messages'), orderBy('timestamp', 'desc'), limit(200)),
-    (snapshot) => {
-      onError?.(false);
-      const readAt = Number(readAllThreads(userId)[chatId]?.readAt?.[userId] || cached?.readAt?.[userId] || 0);
-      const merged = new Map<string, ChatMessage>();
-      for (const message of legacy) merged.set(message.id, message);
-      for (const doc of snapshot.docs) {
-        const message = doc.data() as ChatMessage;
-        merged.set(doc.id, {
-          ...message,
-          id: doc.id,
-          read: message.senderId === userId || message.timestamp <= readAt,
-          createdAt: formatTimeLabel(message.timestamp)
-        });
-      }
-      const messages=[...merged.values()].sort((a,b)=>a.timestamp-b.timestamp).slice(-200);
-      const threads=readAllThreads(userId);
-      if(threads[chatId]){
-        threads[chatId]={...threads[chatId],messages};
-        writeAllThreads(threads,userId);
-      }
-      onChange(messages);
-    },
-    () => onError?.(true)
-  );
+export async function loadChatHistory(chatId: string, userId: string): Promise<ChatMessage[]> {
+  const data=await callServer<{messages:ChatMessage[]}>('/api/sportbuddy-mutation',{action:'chat',operation:'history',chatId});
+  const threads=readAllThreads(userId);
+  const cached=threads[chatId];
+  const readAt=Number(cached?.readAt?.[userId]||0);
+  const messages=(Array.isArray(data.messages)?data.messages:[]).map(message=>({
+    ...message,
+    read:message.senderId===userId||message.timestamp<=readAt,
+    createdAt:formatTimeLabel(message.timestamp)
+  })).sort((a,b)=>a.timestamp-b.timestamp).slice(-200);
+  if(cached){
+    threads[chatId]={...cached,messages};
+    writeAllThreads(threads,userId);
+  }
+  return messages;
 }
 
 export async function sendChatMessage(chatId: string, companionId: string, text: string): Promise<ChatMessage> {
