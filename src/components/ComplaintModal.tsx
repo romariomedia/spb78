@@ -7,7 +7,7 @@ import { triggerHapticNotification } from '../services/native';
 import { Modal } from './Modal';
 
 interface ReportableContact{user:UserProfile;thread:ChatThread}
-interface ComplaintModalProps{isOpen:boolean;onClose:()=>void;reporter:UserProfile|null;contacts:ReportableContact[];initialContactId?:string}
+interface ComplaintModalProps{isOpen:boolean;onClose:()=>void;reporter:UserProfile|null;contacts:ReportableContact[];initialContactId?:string;initialChatId?:string}
 const REASONS=[
   ['unsafe','Небезопасное предложение'],
   ['harassment','Оскорбления / давление'],
@@ -16,7 +16,7 @@ const REASONS=[
   ['other','Другое']
 ] as const;
 
-export const ComplaintModal:React.FC<ComplaintModalProps>=({isOpen,onClose,reporter,contacts,initialContactId})=>{
+export const ComplaintModal:React.FC<ComplaintModalProps>=({isOpen,onClose,reporter,contacts,initialContactId,initialChatId})=>{
   const [sentTo,setSentTo]=useState<string|null>(null);
   const [selected,setSelected]=useState<ReportableContact|null>(null);
   const [reason,setReason]=useState<(typeof REASONS)[number][0]>('unsafe');
@@ -25,9 +25,9 @@ export const ComplaintModal:React.FC<ComplaintModalProps>=({isOpen,onClose,repor
   const [error,setError]=useState('');
   useEffect(()=>{
     if(!isOpen||!initialContactId)return;
-    const contact=contacts.find(item=>item.user.id===initialContactId);
+    const contact=contacts.find(item=>item.user.id===initialContactId&&(!initialChatId||item.thread.id===initialChatId));
     if(contact){setSelected(contact);setSentTo(null);setError('');}
-  },[isOpen,initialContactId,contacts]);
+  },[isOpen,initialContactId,initialChatId,contacts]);
 
   const close=()=>{setSentTo(null);setSelected(null);setReason('unsafe');setDetails('');setError('');onClose();};
   const send=async()=>{
@@ -51,7 +51,7 @@ export const ComplaintModal:React.FC<ComplaintModalProps>=({isOpen,onClose,repor
       {sentTo&&<p className="flex items-center justify-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-3 text-[11px] font-bold text-emerald-300"><CheckCircle2 className="h-4 w-4"/>Жалоба отправлена в службу модерации</p>}
       {!selected?<>
         {contacts.length===0?<div className="rounded-2xl border border-slate-800 bg-slate-950 p-6 text-center"><MessageSquareWarning className="mx-auto h-8 w-8 text-slate-600"/><p className="mt-2 text-xs font-bold text-slate-300">Нет диалогов для жалобы</p></div>:
-        <div className="space-y-2">{contacts.map(contact=><motion.button key={contact.thread.id} whileTap={{scale:.985}} onClick={()=>{setSelected(contact);setSentTo(null);setError('');}} className="flex w-full items-center gap-3 rounded-2xl border border-slate-800 bg-slate-950 p-3 text-left hover:border-rose-500/50">
+        <div className="space-y-2">{contacts.map(contact=><motion.button key={contact.thread.id+'__'+contact.user.id} whileTap={{scale:.985}} onClick={()=>{setSelected(contact);setSentTo(null);setError('');}} className="flex w-full items-center gap-3 rounded-2xl border border-slate-800 bg-slate-950 p-3 text-left hover:border-rose-500/50">
           <img src={contact.user.avatar} alt="" className="h-11 w-11 rounded-full border border-slate-700 object-cover"/>
           <div className="min-w-0 flex-1"><p className="truncate text-xs font-black text-white">{contact.user.name}</p><p className="mt-0.5 truncate text-[10px] text-slate-500">{contact.thread.messages.at(-1)?.text||'Диалог'}</p></div>
           <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-rose-500/15 text-rose-400"><AlertTriangle className="h-4 w-4"/></span>
