@@ -2702,10 +2702,12 @@ export default function App(): JSX.Element {
                                 : 'Запишитесь на тренировку или создайте свою — общий чат появится автоматически для участников.'}
                         </p>
                         <button
-                          onClick={() => handleTabChange('discover')}
+                          onClick={() => handleTabChange(chatCategory==='trainings'?'trainings':'discover')}
                           className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold px-5 py-2.5 rounded-2xl text-xs transition shadow-[0_0_18px_rgba(16,185,129,0.4)] active:scale-95 inline-flex items-center gap-2"
                         >
-                          <Heart className="w-4 h-4 fill-slate-950 stroke-none" /> Найти напарника
+                          {chatCategory==='trainings'
+                            ? <><Dumbbell className="w-4 h-4" /> Открыть тренировки</>
+                            : <><Heart className="w-4 h-4 fill-slate-950 stroke-none" /> Найти напарника</>}
                         </button>
                       </div>
                     ) : (
