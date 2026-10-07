@@ -133,10 +133,10 @@ test('bootstrap never persists an e-mail address as the public athlete name',asy
 });
 
 test('welcome bootstrap gives 30 days once',async()=>{
-  const f=fixture({});const first=await f.request('a',{action:'bootstrapProfile',profile:{name:'Athlete'}});
+  const f=fixture({});const first=await f.request('a',{action:'bootstrapProfile',profile:{name:'Alex Athlete'}});
   assert.equal(first.statusCode,200);const expiry=first.body.profile.premiumUntil;
   assert.equal((await f.request('a',{action:'bootstrapProfile',profile:{name:'Other'}})).body.profile.premiumUntil,expiry);
-  assert.equal(f.records.get('users/a').name,'Athlete');
+  assert.equal(f.records.get('users/a').name,'Alex Athlete');
 });
 
 test('chat requires active Premium and mutual relationship',async()=>{
