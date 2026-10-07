@@ -33,7 +33,7 @@ export default async function handler(req,res){
       senderId:String(m.senderId||''),
       text:String(m.moderationText||m.text||'').slice(0,1000),
       timestamp:Number(m.timestamp||0),
-      deletedAt:Number(m.deletedAt||0)||undefined
+      ...(Number.isFinite(Number(m.deletedAt)) && Number(m.deletedAt)>0 ? {deletedAt:Number(m.deletedAt)} : {})
     }));
     const [reporterSnap,targetSnap]=await Promise.all([db.collection('users').doc(uid).get(),db.collection('users').doc(input.targetUserId).get()]);
     const report={
@@ -42,7 +42,15 @@ export default async function handler(req,res){
       chatId:input.chatId,reason:input.reason,details:input.details,excerpt,status:'new',
       createdAt:new Date(now).toISOString(),createdAtMs:now,updatedAt:new Date(now).toISOString(),updatedAtMs:now
     };
-    await ref.create(report);
+    try {
+      await ref.create(report);
+    } catch (error) {
+      // Concurrent submissions of the same daily complaint are still one report.
+      if (error?.code === 6 || error?.code === 'already-exists') {
+        return res.status(409).json({error:'Жалоба на этот диалог уже отправлена сегодня.'});
+      }
+      throw error;
+    }
     return res.json({ok:true,reportId:id});
   }catch(error){
     const status=Number(error?.status||(error?.code?.startsWith?.('auth/')?401:500));

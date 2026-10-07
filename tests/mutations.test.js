@@ -496,3 +496,24 @@ test('training district belongs to meeting place, rejects forged values and perm
   const legacy=await f.request('a',{action:'training',operation:'createTraining',training:training()});
   assert.equal(legacy.statusCode,200);assert.equal(legacy.body.training.districtId,'');
 });
+
+test('VK bootstrap merges a pre-existing private document and preserves trusted provider data',async()=>{
+  const f=fixture({'usersPrivate/a':{uid:'a',email:'trusted-vk@example.com',phone:'+70000000000',hidePhone:true,birthDate:'1990-01-01'}},
+    {a:{displayName:'Роман Тест'}});
+  const first=await f.request('a',{action:'bootstrapProfile',profile:{name:'Роман Тест',email:'forged@example.com'}});
+  assert.equal(first.statusCode,200);assert.equal(first.body.created,true);
+  assert.equal(first.body.profile.email,'trusted-vk@example.com');assert.equal(first.body.profile.hidePhone,true);
+  assert.equal(first.body.profile.phone,'+70000000000');assert.equal(first.body.profile.birthDate,'1990-01-01');
+  assert.equal(f.records.get('users/a').email,undefined);
+  const again=await f.request('a',{action:'bootstrapProfile',profile:{name:'Another Name',email:'another@example.com'}});
+  assert.equal(again.statusCode,200);assert.equal(again.body.created,false);assert.equal(again.body.premiumGranted,false);
+  assert.equal(again.body.profile.premiumUntil,first.body.profile.premiumUntil);
+  assert.equal(again.body.profile.email,'trusted-vk@example.com');
+});
+test('bootstrap uses Firebase email over a stale private email and never trusts submitted email',async()=>{
+  const f=fixture({'usersPrivate/a':{email:'stale@example.com'}},{a:{email:'firebase@example.com',displayName:'Анна Тест'}});
+  assert.equal((await f.request('a',{action:'bootstrapProfile',profile:{email:'forged@example.com'}})).body.profile.email,'firebase@example.com');
+  const noEmail=fixture({});
+  const result=await noEmail.request('a',{action:'bootstrapProfile',profile:{name:'Анна Тест',email:'forged@example.com'}});
+  assert.equal(result.statusCode,200);assert.equal(result.body.profile.email,undefined);
+});

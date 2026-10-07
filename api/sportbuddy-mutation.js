@@ -76,9 +76,20 @@ async function bootstrapProfile(db, uid, incoming, claims = {}) {
       isVerified:isVk, hasRealPhoto:isVk || body.hasRealPhoto===true, verifiedAt:isVk?now.toISOString():undefined, provider:isVk?'vk':'email'
     };
     Object.keys(profile).forEach(k=>profile[k]===undefined&&delete profile[k]);
-    const privateData={ uid, email:String(authUser.email||body.email||'').trim().toLowerCase()||undefined, phone:typeof body.phone==='string'?body.phone.trim():undefined, birthDate:typeof body.birthDate==='string'?body.birthDate:undefined, hideBirthDate:body.hideBirthDate===true, hidePhone:body.hidePhone===true, deviceId:typeof body.deviceId==='string'?body.deviceId:undefined };
+    // VK may have already persisted trusted provider data before bootstrap.
+    // Preserve it and atomically merge instead of creating an existing document.
+    const existingPrivate = privateSnap.exists ? privateSnap.data() || {} : {};
+    const privateData = {
+      ...existingPrivate, uid,
+      email: String(authUser.email || existingPrivate.email || '').trim().toLowerCase() || undefined,
+      phone: typeof body.phone === 'string' ? body.phone.trim() : existingPrivate.phone,
+      birthDate: typeof body.birthDate === 'string' ? body.birthDate : existingPrivate.birthDate,
+      hideBirthDate: typeof body.hideBirthDate === 'boolean' ? body.hideBirthDate : existingPrivate.hideBirthDate === true,
+      hidePhone: typeof body.hidePhone === 'boolean' ? body.hidePhone : existingPrivate.hidePhone === true,
+      deviceId: typeof body.deviceId === 'string' ? body.deviceId : existingPrivate.deviceId
+    };
     Object.keys(privateData).forEach(k=>privateData[k]===undefined&&delete privateData[k]);
-    tx.create(ref,profile); tx.create(privateRef,privateData);
+    tx.create(ref,profile); tx.set(privateRef,privateData,{merge:true});
     return {created:true,premiumGranted:true,profile:{...profile,...privateData,premiumUntil:trialEnd.toISOString()}};
   });
 }
