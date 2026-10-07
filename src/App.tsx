@@ -269,6 +269,7 @@ export default function App(): JSX.Element {
 
   // Chats State (Premium only)
   const [chatThreads, setChatThreads] = useState<ChatThread[]>([]);
+  const [allChatThreads, setAllChatThreads] = useState<ChatThread[]>([]);
   const [chatCategory, setChatCategory] = useState<ChatCategory>('matches');
   const [openChatId, setOpenChatId] = useState<string | null>(null);
   const [chatDraft, setChatDraft] = useState('');
@@ -596,6 +597,7 @@ export default function App(): JSX.Element {
     setTrainings([]);
     setFeedPosts([]);
     setChatThreads([]);
+    setAllChatThreads([]);
     setLocalNotifications(import.meta.env.DEV ? generateDemoNotifications() : []);
     setActiveTab('discover');
     setProfileSection('overview');
@@ -732,12 +734,15 @@ export default function App(): JSX.Element {
   // Refresh chat threads whenever matches, friends or category change
   useEffect(() => {
     if (!currentUser) return;
-    setChatThreads(loadChatThreads(currentUser, allUsers, chatCategory));
+    const selected=loadChatThreads(currentUser, allUsers, chatCategory);
+    setChatThreads(selected);
+    const combined=[...loadChatThreads(currentUser,allUsers,'matches'),...loadChatThreads(currentUser,allUsers,'friends')];
+    setAllChatThreads([...new Map(combined.map(thread=>[thread.id,thread])).values()].sort((a,b)=>b.lastMessageAt-a.lastMessageAt));
   }, [currentUser, allUsers, chatCategory]);
 
   useEffect(() => {
     if (!currentUser) return;
-    return subscribeChatThreads(currentUser, chatCategory, setChatThreads);
+    return subscribeChatThreads(currentUser, chatCategory, setChatThreads, setAllChatThreads);
   }, [currentUser, chatCategory]);
 
   useEffect(() => {
@@ -808,7 +813,7 @@ export default function App(): JSX.Element {
   const friendsCount = (currentUser?.friendIds || []).length;
   const friendRequestsCount = (currentUser?.friendRequestsReceived || []).length;
 
-  const chatUnreadCount = useMemo(() => (isPremium ? countUnread(chatThreads) : 0), [chatThreads, isPremium]);
+  const chatUnreadCount = useMemo(() => (isPremium ? countUnread(allChatThreads) : 0), [allChatThreads, isPremium]);
   const visibleChatThreads = useMemo(() => {
     const needle=chatSearch.trim().toLowerCase();
     if(!needle)return chatThreads;
