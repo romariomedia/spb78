@@ -2455,11 +2455,14 @@ export default function App(): JSX.Element {
 
                       {openChatThread.messages.map((m: ChatMessage) => {
                         const mine = m.senderId === CURRENT_USER_ID;
-                        const canDelete=mine&&!m.deletedAt&&Date.now()-m.timestamp<=15*60*1000;
+                        const sender=openChatIsTraining?allUsers.find(user=>user.id===m.senderId):openChatCompanion;
+                        const canDelete=mine&&!m.deletedAt&&!openChatThread.archivedAt&&Date.now()-m.timestamp<=15*60*1000;
+                        const groupRecipients=openChatIsTraining?openChatThread.participantIds.filter(id=>id!==CURRENT_USER_ID):[];
+                        const groupReadCount=openChatIsTraining?groupRecipients.filter(id=>Number(openChatThread.readAt?.[id]||0)>=m.timestamp).length:0;
                         return (
                           <div key={m.id} className={`group flex ${mine ? 'justify-end' : 'justify-start'} gap-2`}>
                             {!mine && (
-                              <AvatarImage src={avatarUrl(openChatCompanion.avatar, 28) || AVATAR_FALLBACK} alt="" width={28} height={28} loading="lazy" decoding="async" className="w-7 h-7 rounded-full object-cover border border-slate-700 shrink-0 mt-auto" />
+                              <AvatarImage src={avatarUrl(sender?.avatar, 28) || AVATAR_FALLBACK} alt="" width={28} height={28} loading="lazy" decoding="async" className="w-7 h-7 rounded-full object-cover border border-slate-700 shrink-0 mt-auto" />
                             )}
                             <div className="max-w-[78%]">
                               <div
@@ -2471,7 +2474,7 @@ export default function App(): JSX.Element {
                               >
                                 {m.replyTo && (
                                   <div className={`mb-2 rounded-xl border-l-2 px-2.5 py-1.5 text-[10px] ${mine?'border-slate-900/40 bg-slate-950/10':'border-emerald-500/60 bg-slate-950/70 text-slate-400'}`}>
-                                    <p className="font-black">{m.replyTo.senderId===CURRENT_USER_ID?'Вы':openChatCompanion.name}</p>
+                                    <p className="font-black">{messageAuthor(m.replyTo.senderId)}</p>
                                     <p className="truncate opacity-80">{m.replyTo.text||'Сообщение'}</p>
                                   </div>
                                 )}
@@ -2482,7 +2485,7 @@ export default function App(): JSX.Element {
                                     <>
                                       <span>·</span>
                                       <CheckCheck className="h-3 w-3"/>
-                                      <span>{Number(openChatThread.readAt?.[openChatCompanion.id] || 0) >= m.timestamp ? 'прочитано' : 'доставлено'}</span>
+                                      <span>{openChatIsTraining ? (groupRecipients.length ? `прочитали ${groupReadCount}/${groupRecipients.length}` : 'отправлено') : Number(openChatThread.readAt?.[openChatCompanion!.id] || 0) >= m.timestamp ? 'прочитано' : 'доставлено'}</span>
                                     </>
                                   )}
                                 </span>
@@ -2511,10 +2514,10 @@ export default function App(): JSX.Element {
                         );
                       })}
 
-                      {companionTyping && (
+                      {typingNames.length > 0 && (
                         <div className="flex items-center gap-2 text-[10px] font-semibold text-slate-500">
                           <span className="flex gap-1"><i className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400"/><i className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400"/><i className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400"/></span>
-                          {openChatCompanion.name.split(' ')[0]} печатает…
+                          {typingNames.slice(0,2).join(', ')}{typingNames.length>2?' и другие':''} печатает…
                         </div>
                       )}
 
@@ -2544,6 +2547,12 @@ export default function App(): JSX.Element {
                       )}
                     </AnimatePresence>
 
+                    {openChatThread.archivedAt ? (
+                      <div className="rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-center text-[11px] font-bold text-slate-400">
+                        🏁 Тренировка завершена. Чат сохранён в архиве только для чтения.
+                      </div>
+                    ) : (
+                    <>
                     {/* Composer */}
                     <div className="space-y-1.5">
                       {chatReplyTarget && (
@@ -2584,12 +2593,10 @@ export default function App(): JSX.Element {
 
                     {/* Quick replies tailored to SPb */}
                     <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
-                      {[
-                        'Побегаем на Елагином? 🏃',
-                        'Падел на Крестовском в субботу? 🎾',
-                        'Велопрогулка от Севкабеля? 🚴',
-                        'Во сколько встречаемся?'
-                      ].map(q => (
+                      {(openChatIsTraining
+                        ? ['Я на месте 📍','Буду через 5 минут','Где встречаемся?','Начинаем по плану?']
+                        : ['Побегаем на Елагином? 🏃','Падел на Крестовском в субботу? 🎾','Велопрогулка от Севкабеля? 🚴','Во сколько встречаемся?']
+                      ).map(q => (
                         <button
                           key={q}
                           onClick={() => setChatDraft(q)}
@@ -2599,6 +2606,8 @@ export default function App(): JSX.Element {
                         </button>
                       ))}
                     </div>
+                    </>
+                    )}
                   </div>
                 ) : (
                   /* THREAD LIST */
