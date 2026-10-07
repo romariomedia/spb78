@@ -8,7 +8,7 @@ import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { randomUUID } from 'node:crypto';
 import { readUserStatus } from '../server/user-status.js';
-import { chooseCanonicalPersonName, isUsablePersonName, normalizePersonName } from '../shared/identity-policy.js';
+import { chooseCanonicalPersonName } from '../shared/identity-policy.js';
 import {
   assertChatParticipants,assertChatRateLimit,assertChatRelationship,assertMessageDeleteAllowed,
   buildRecentMessages,nextChatTimestamp,nextUnreadCounts,replyPreview,sanitizeChatText,tombstoneMessage
