@@ -277,7 +277,7 @@ export interface LeaderboardEntry {
   isCurrentUser: boolean;
 }
 
-export type ChatCategory = 'matches' | 'friends';
+export type ChatCategory = 'matches' | 'friends' | 'trainings';
 
 export const MAX_PORTFOLIO_PHOTOS = 5;
 export const AVATAR_GRACE_PERIOD_HOURS = 24;
@@ -476,9 +476,16 @@ export interface ChatMessage {
 }
 
 export interface ChatThread {
-  id: string;              // deterministic: chat_<idA>__<idB>
+  id: string;
   participantIds: string[];
-  companionId: string;     // the matched partner (not me)
+  companionId: string;     // empty for group chats
+  kind?: 'direct' | 'training';
+  trainingId?: string;
+  trainingTitle?: string;
+  trainingSport?: string;
+  organizerId?: string;
+  archivedAt?: string;
+  updatedAt?: string;
   messages: ChatMessage[];
   /** Bounded preview cache. Full v2 history is stored under chats/{id}/messages. */
   recentMessages?: ChatMessage[];
