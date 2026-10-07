@@ -23,7 +23,7 @@ import {
   UserProfile, Training, FeedPost, TabType, AppNotification, ChatThread, ChatMessage 
 } from './lib/types';
 import {
-  loadChatThreads, sendChatMessage, markThreadAsRead, countUnread, deleteChatMessage, setChatTyping,
+  loadChatThreads, sendChatMessage, sendTrainingGroupMessage, ensureTrainingGroupChat, markThreadAsRead, countUnread, deleteChatMessage, setChatTyping,
   buildChatId, clearChatCache, formatTimeLabel, getReportableChatThreads, loadChatHistory, subscribeChatThreads
 } from './services/chats';
 import { 
@@ -841,7 +841,7 @@ export default function App(): JSX.Element {
     return chatThreads.filter(thread=>{
       const companion=allUsers.find(user=>user.id===thread.companionId);
       const last=thread.messages[thread.messages.length-1];
-      return [companion?.name,companion?.sports?.join(' '),last?.text].filter(Boolean).join(' ').toLowerCase().includes(needle);
+      return [thread.trainingTitle,thread.trainingSport,companion?.name,companion?.sports?.join(' '),last?.text].filter(Boolean).join(' ').toLowerCase().includes(needle);
     });
   },[chatThreads,chatSearch,allUsers]);
 
@@ -869,7 +869,7 @@ export default function App(): JSX.Element {
     if(link.startsWith('#chat=')){
       let id;try{id=decodeURIComponent(link.slice(6));}catch{return;}
       setActiveTab('chats');
-      const category=(currentUser.friendIds||[]).some(friend=>buildChatId(currentUser.id,friend)===id)?'friends':'matches';
+      const category:ChatCategory=id.startsWith('training_')?'trainings':(currentUser.friendIds||[]).some(friend=>buildChatId(currentUser.id,friend)===id)?'friends':'matches';
       if(chatCategory!==category){setChatCategory(category);return;}
       if(!chatThreads.some(t=>t.id===id))return;
       setOpenChatId(id);
@@ -893,16 +893,18 @@ export default function App(): JSX.Element {
   },[openChatId]);
 
   const openChatThread = chatThreads.find(t => t.id === openChatId) || null;
-  const openChatCompanion = openChatThread
+  const openChatIsTraining = openChatThread?.kind === 'training';
+  const openChatCompanion = openChatThread && !openChatIsTraining
     ? allUsers.find(u => u.id === openChatThread.companionId) || null
     : null;
   const lastMineMessageId = openChatThread
     ? [...openChatThread.messages].reverse().find(message=>message.senderId===CURRENT_USER_ID)?.id
     : undefined;
-  const companionTyping = Boolean(
-    openChatThread && openChatCompanion &&
-    Date.now() - Number(openChatThread.typingAt?.[openChatCompanion.id] || 0) < 5000
-  );
+  const typingUserIds = openChatThread
+    ? openChatThread.participantIds.filter(id=>id!==CURRENT_USER_ID && Date.now()-Number(openChatThread.typingAt?.[id]||0)<5000)
+    : [];
+  const typingNames=typingUserIds.map(id=>allUsers.find(user=>user.id===id)?.name?.split(' ')[0]).filter(Boolean) as string[];
+  const messageAuthor=(senderId:string)=>senderId===CURRENT_USER_ID?'Вы':allUsers.find(user=>user.id===senderId)?.name||'Участник';
 
   const handleOpenChat = (chatId: string) => {
     triggerHapticImpact('light');
@@ -912,7 +914,9 @@ export default function App(): JSX.Element {
   };
 
   const handleSendChatMessage = () => {
-    if (chatSending || !chatDraft.trim() || !openChatThread || !openChatCompanion || !currentUser) return;
+    if (chatSending || !chatDraft.trim() || !openChatThread || !currentUser) return;
+    if(!openChatIsTraining && !openChatCompanion)return;
+    if(openChatThread.archivedAt){notify('Чат завершённой тренировки доступен только для чтения','err');return;}
     triggerHapticImpact('light');
     const text = chatDraft.trim();
     const replyTarget=chatReplyTarget;
@@ -920,7 +924,10 @@ export default function App(): JSX.Element {
     setChatReplyTarget(null);
     setChatSending(true);
     void setChatTyping(openChatThread.id,false).catch(()=>undefined);
-    void sendChatMessage(openChatThread.id, openChatCompanion.id, text, replyTarget?.id)
+    const sending=openChatIsTraining
+      ? sendTrainingGroupMessage(openChatThread.id,text,replyTarget?.id)
+      : sendChatMessage(openChatThread.id,openChatCompanion!.id,text,replyTarget?.id);
+    void sending
       .then(() => setChatThreads(loadChatThreads(currentUser, allUsers, chatCategory)))
       .catch((error) => {
         setChatDraft(text);
@@ -928,6 +935,21 @@ export default function App(): JSX.Element {
         notify(error instanceof Error ? error.message : 'Не удалось отправить сообщение', 'err');
       })
       .finally(()=>setChatSending(false));
+  };
+
+  const openTrainingGroupChat=async(training:Training)=>{
+    if(!currentUser||!training.participantIds.includes(currentUser.id)){
+      notify('Чат доступен только участникам тренировки','err');return;
+    }
+    try{
+      const result=await ensureTrainingGroupChat(training.id);
+      setSelectedTraining(null);
+      setChatCategory('trainings');
+      handleTabChange('chats');
+      setPendingNotificationLink('#chat='+encodeURIComponent(result.chatId));
+    }catch(error){
+      notify(error instanceof Error?error.message:'Не удалось открыть чат тренировки','err');
+    }
   };
 
   const handleDeleteMessage = (message:ChatMessage) => {
