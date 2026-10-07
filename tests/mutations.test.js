@@ -30,7 +30,7 @@ function fixture(initial) {
   };
   const db={collection(name){
     const query=(filters=[])=>({
-      where:(field,op,value)=>query([...filters,[field,op,value]]),limit:()=>query(filters),
+      where:(field,op,value)=>query([...filters,[field,op,value]]),orderBy:()=>query(filters),limit:()=>query(filters),
       async get(){const docs=[...records.keys()].filter(path=>path.startsWith(name+'/')).filter(path=>filters.every(([field,op,value])=>op==='=='?records.get(path)[field]===value:records.get(path)[field]?.includes(value))).map(path=>snap(db.collection(name).doc(path.slice(name.length+1))));return {docs,empty:docs.length===0};}
     });
     return {...query(),doc(id){const ref={id,path:name+'/'+id};ref.get=async()=>snap(ref);ref.create=async value=>write('create',ref,value);ref.set=async(value,options)=>write('set',ref,value,options?.merge);ref.collection=sub=>db.collection(ref.path+'/'+sub);return ref;}};
