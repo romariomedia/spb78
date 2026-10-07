@@ -24,7 +24,7 @@ import {
 } from './lib/types';
 import {
   loadChatThreads, sendChatMessage, markThreadAsRead, countUnread,
-  buildChatId, clearChatCache, formatTimeLabel, getReportableChatThreads, subscribeChatMessages, subscribeChatThreads
+  buildChatId, clearChatCache, formatTimeLabel, getReportableChatThreads, loadChatHistory, subscribeChatThreads
 } from './services/chats';
 import { 
   loadAppData, loadFeedPosts, createTraining, toggleJoinTraining, toggleLikeProfile, 
@@ -751,17 +751,20 @@ export default function App(): JSX.Element {
       return;
     }
     const thread=chatThreads.find(item=>item.id===openChatId);
-    // A brand-new local chat has no Firestore parent yet, so nested history
-    // cannot be authorised until the first real message creates the chat.
     if(!thread || (!thread.messageCount && thread.messages.length===0)) {
       setChatMessagesOffline(false);
       return;
     }
-    return subscribeChatMessages(openChatId, currentUser.id, messages => {
-      setChatMessagesOffline(false);
-      setChatThreads(previous => previous.map(item => item.id === openChatId ? {...item,messages} : item));
-    }, setChatMessagesOffline);
-  }, [currentUser?.id, openChatId, chatThreads.find(item=>item.id===openChatId)?.messageCount]);
+    let cancelled=false;
+    void loadChatHistory(openChatId,currentUser.id)
+      .then(messages=>{
+        if(cancelled)return;
+        setChatMessagesOffline(false);
+        setChatThreads(previous=>previous.map(item=>item.id===openChatId?{...item,messages}:item));
+      })
+      .catch(()=>{if(!cancelled)setChatMessagesOffline(true);});
+    return ()=>{cancelled=true;};
+  }, [currentUser?.id, openChatId]);
 
   useEffect(() => {
     if (!openChatId) return;
