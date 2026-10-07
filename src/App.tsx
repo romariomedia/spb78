@@ -2390,7 +2390,7 @@ export default function App(): JSX.Element {
                       </div>
                     )}
                   </div>
-                ) : openChatThread && openChatCompanion ? (
+                ) : openChatThread && (openChatCompanion || openChatIsTraining) ? (
                   /* ACTIVE CONVERSATION */
                   <div className="space-y-3">
                     <div className="flex items-center gap-3 bg-slate-900 border border-slate-800 rounded-3xl p-3 shadow-lg">
@@ -2401,32 +2401,40 @@ export default function App(): JSX.Element {
                       >
                         <ChevronRight className="w-4 h-4 rotate-180" />
                       </button>
-                      <AvatarImage
-                        src={avatarUrl(openChatCompanion.avatar, 88) || AVATAR_FALLBACK}
-                        width={44} height={44} decoding="async"
-                        alt={openChatCompanion.name}
-                        className="w-11 h-11 rounded-full object-cover border-2 border-emerald-500 shadow"
-                      />
+                      {openChatIsTraining ? (
+                        <div className="w-11 h-11 rounded-2xl border-2 border-cyan-500/60 bg-cyan-500/10 flex items-center justify-center text-xl shadow">🏃</div>
+                      ) : (
+                        <AvatarImage
+                          src={avatarUrl(openChatCompanion!.avatar, 88) || AVATAR_FALLBACK}
+                          width={44} height={44} decoding="async"
+                          alt={openChatCompanion!.name}
+                          className="w-11 h-11 rounded-full object-cover border-2 border-emerald-500 shadow"
+                        />
+                      )}
                       <div className="flex-1 min-w-0">
                         <h3 className="text-sm font-black text-white truncate flex items-center gap-1.5">
-                          {openChatCompanion.name}
-                          {openChatCompanion.subscriptionPlan === 'premium' && (
+                          {openChatIsTraining ? openChatThread.trainingTitle : openChatCompanion!.name}
+                          {!openChatIsTraining && openChatCompanion!.subscriptionPlan === 'premium' && (
                             <Crown className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
                           )}
                         </h3>
                         <p className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1 truncate">
-                          <MapPin className="w-3 h-3 shrink-0" /> {openChatCompanion.locationName}
+                          {openChatIsTraining
+                            ? <><Users className="w-3 h-3 shrink-0"/>{openChatThread.participantIds.length} участников • {openChatThread.trainingSport}</>
+                            : <><MapPin className="w-3 h-3 shrink-0"/>{openChatCompanion!.locationName}</>}
                         </p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <button
-                          onClick={() => { setComplaintContactId(openChatCompanion.id); setIsComplaintOpen(true); }}
-                          className="rounded-xl border border-rose-500/25 bg-rose-500/10 px-2.5 py-1.5 text-[9px] font-black text-rose-300 active:scale-95"
-                        >
-                          Пожаловаться
-                        </button>
-                        <span className="text-[10px] font-black bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded-lg border border-emerald-500/30">
-                          {chatCategory === 'friends' ? 'ДРУГ 👥' : 'МЭТЧ 🤝'}
+                        {!openChatIsTraining && (
+                          <button
+                            onClick={() => { setComplaintContactId(openChatCompanion!.id); setIsComplaintOpen(true); }}
+                            className="rounded-xl border border-rose-500/25 bg-rose-500/10 px-2.5 py-1.5 text-[9px] font-black text-rose-300 active:scale-95"
+                          >
+                            Пожаловаться
+                          </button>
+                        )}
+                        <span className={`text-[10px] font-black px-2 py-1 rounded-lg border ${openChatIsTraining?'bg-cyan-500/15 text-cyan-300 border-cyan-500/30':'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'}`}>
+                          {openChatIsTraining ? (openChatThread.archivedAt?'АРХИВ 🏁':'ГРУППА 👥') : chatCategory === 'friends' ? 'ДРУГ 👥' : 'МЭТЧ 🤝'}
                         </span>
                       </div>
                     </div>
@@ -2440,7 +2448,9 @@ export default function App(): JSX.Element {
                     {/* Message list */}
                     <div ref={chatScrollRef} className="bg-slate-950 border border-slate-800 rounded-3xl p-4 space-y-3 min-h-[320px] max-h-[52vh] overflow-y-auto no-scrollbar">
                       <p className="text-center text-[10px] text-slate-600 font-medium">
-                        Начало переписки • {openChatCompanion.sports.join(' • ')}
+                        {openChatIsTraining
+                          ? `Чат участников • ${openChatThread.trainingSport || 'тренировка'}`
+                          : `Начало переписки • ${openChatCompanion!.sports.join(' • ')}`}
                       </p>
 
                       {openChatThread.messages.map((m: ChatMessage) => {
