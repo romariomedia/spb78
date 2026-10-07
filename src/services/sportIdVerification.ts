@@ -1,3 +1,4 @@
+import { downloadPrivateEvidence,evidenceBase64,EvidenceDownload } from './privateEvidence';
 import { auth } from './firebaseAuth';
 
 export type SportIdClaimType='rank'|'achievement';
@@ -5,7 +6,7 @@ export type SportIdVerificationStatus='pending'|'approved'|'rejected'|'revoked'|
 export interface SportIdVerificationRequest{
   id:string;userId:string;userName:string;userAvatar:string;claimType:SportIdClaimType;claimId:string;
   title:string;sport:string;date?:string;placement?:string;rankTitle?:string;level?:string;
-  evidenceUrl:string;officialUrl:string;note:string;status:SportIdVerificationStatus;
+  evidenceId?:string;evidenceUrl?:string;officialUrl:string;note:string;status:SportIdVerificationStatus;
   reviewNote:string;createdAt:string;updatedAt:string;reviewedAt:string;reviewedBy:string;
 }
 async function call<T>(body:Record<string,unknown>):Promise<T>{
@@ -16,7 +17,16 @@ async function call<T>(body:Record<string,unknown>):Promise<T>{
 export async function loadSportIdVerificationRequests():Promise<SportIdVerificationRequest[]>{
   const data=await call<{requests:SportIdVerificationRequest[]}>({action:'list'});return Array.isArray(data.requests)?data.requests:[];
 }
-export async function submitSportIdVerification(input:{claimType:SportIdClaimType;claimId?:string;evidenceUrl?:string;officialUrl?:string;note?:string}):Promise<SportIdVerificationRequest>{
+export async function submitSportIdVerification(input:{claimType:SportIdClaimType;claimId?:string;evidenceId?:string;officialUrl?:string;note?:string}):Promise<SportIdVerificationRequest>{
   const data=await call<{request:SportIdVerificationRequest}>({action:'submit',...input});return data.request;
 }
 export async function cancelSportIdVerification(requestId:string):Promise<void>{await call({action:'cancel',requestId});}
+
+export async function uploadSportIdEvidence(file:File):Promise<string>{
+  const result=await call<{evidence:{id:string}}>({action:'uploadEvidence',base64:await evidenceBase64(file)});
+  return result.evidence.id;
+}
+export async function downloadSportIdEvidence(evidenceId:string):Promise<void>{
+  const result=await call<{file:EvidenceDownload}>({action:'downloadEvidence',evidenceId});
+  downloadPrivateEvidence(result.file);
+}

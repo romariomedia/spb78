@@ -39,16 +39,17 @@ export function claimFromPassport(passport={},input={}){
 }
 
 export function sanitizeVerificationEvidence(input={}){
-  const evidenceUrl=clean(input.evidenceUrl,1500);
+  const evidenceId=clean(input.evidenceId,80);
   const officialUrl=clean(input.officialUrl,1500);
   const note=clean(input.note,800);
-  if(!evidenceUrl&&!officialUrl)throw Object.assign(new Error('Добавьте документ/скриншот или официальную ссылку.'),{status:400});
-  if(evidenceUrl){
-    let parsed;try{parsed=new URL(evidenceUrl);}catch{}
-    if(!parsed||parsed.protocol!=='https:'||parsed.hostname!=='res.cloudinary.com')throw Object.assign(new Error('Документ должен быть загружен через защищённое медиахранилище SportBuddy78.'),{status:400});
+  if(input.evidenceUrl)throw Object.assign(new Error('Загрузите документ заново в закрытое хранилище.'),{status:400});
+  if(!evidenceId&&!officialUrl)throw Object.assign(new Error('Добавьте документ/скриншот или официальную ссылку.'),{status:400});
+  if(evidenceId&&!/^ev_[0-9a-f-]{36}$/.test(evidenceId))throw Object.assign(new Error('Некорректный документ.'),{status:400});
+  if(officialUrl){
+    let url;try{url=new URL(officialUrl);}catch{}
+    if(!url||url.protocol!=='https:'||url.username||url.password)throw Object.assign(new Error('Укажите корректную официальную ссылку https://'),{status:400});
   }
-  if(officialUrl&&!/^https:\/\//i.test(officialUrl))throw Object.assign(new Error('Официальная ссылка должна начинаться с https://'),{status:400});
-  return {evidenceUrl,officialUrl,note};
+  return {evidenceId,officialUrl,note};
 }
 
 export function verificationRequestId(uid,claim){

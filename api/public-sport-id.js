@@ -1,6 +1,6 @@
 import { initializeApp,getApps,cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import { competitionStats,levelLabel,sanitizeSportPassportDraft } from '../server/sport-passport.js';
+import { officialCompetitionSummary,levelLabel,readSportPassport } from '../server/sport-passport.js';
 import { applyVerifiedClaims } from '../server/sport-id-verification.js';
 
 if(!getApps().length)initializeApp({credential:cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY||'{}'))});
@@ -19,22 +19,20 @@ export default async function handler(req,res){
     if(user.isSuspended===true||user.sportPassport?.publicEnabled!==true)return res.status(404).json({error:'SportBuddy78 ID не найден.'});
 
     const [resultSnap,claimsSnap]=await Promise.all([
-      db.collection('sportPassportResults').where('userId','==',doc.id).get().catch(()=>null),
-      db.collection('sportVerifiedClaims').where('userId','==',doc.id).get().catch(()=>null)
+      db.collection('sportPassportResults').where('userId','==',doc.id).get(),
+      db.collection('sportVerifiedClaims').where('userId','==',doc.id).get()
     ]);
-    const officialResults=(resultSnap?.docs||[]).map(item=>({id:item.id,...item.data()}))
-      .filter(x=>x.status==='verified')
-      .sort((a,b)=>Number(b.achievedAt||0)-Number(a.achievedAt||0))
-      .slice(0,50)
+    const summary=officialCompetitionSummary((resultSnap?.docs||[]).map(doc=>({id:doc.id,...doc.data()})));
+    const officialResults=summary.results
       .map(x=>({
         id:String(x.id),title:clean(x.title,180),sport:clean(x.sport,80),placement:clean(x.placement,80),
         eventTitle:clean(x.eventTitle,180),achievedAt:Number(x.achievedAt||0),verification:'sportbuddy'
       }));
-    const comp=competitionStats(officialResults);
-    const profile=sanitizeSportPassportDraft(user.sportPassport||{},Array.isArray(user.sports)?user.sports:[]);
+    const comp=summary.stats;
+    const profile=readSportPassport(user.sportPassport||{},Array.isArray(user.sports)?user.sports:[]);
     const verified=applyVerifiedClaims(profile,(claimsSnap?.docs||[]).map(item=>item.data()||{}));
 
-    res.setHeader('Cache-Control','public, max-age=60, stale-while-revalidate=300');
+    res.setHeader('Cache-Control','no-store');
     return res.json({sportId:{
       identity:{
         name:clean(user.name,120)||'Спортсмен',avatar:clean(user.avatar,2000),

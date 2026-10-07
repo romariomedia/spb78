@@ -1,4 +1,4 @@
-import { collection, onSnapshot, Unsubscribe } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, Unsubscribe } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
 /** Коллекции, изменения в которых делают локальное зеркало устаревшим. */
@@ -32,7 +32,7 @@ export function subscribeAppInvalidation(
   const stops = [
     onSnapshot(collection(db, 'users'), () => schedule('users'), () => undefined),
     onSnapshot(collection(db, 'trainings'), () => schedule('trainings'), () => undefined),
-    onSnapshot(collection(db, 'feed'), () => schedule('feed'), () => undefined)
+    onSnapshot(query(collection(db, 'feed'),where('isHidden','==',false)), () => schedule('feed'), () => undefined)
   ];
 
   return () => {

@@ -33,3 +33,16 @@ export function competitionStats(results=[]){
   }
   return {wins,podiums};
 }
+
+// Existing biography remains readable when the profile's sports selection changes.
+// New edits still use strict validation against the current sports selection.
+export function readSportPassport(input={},sports=[]){
+  const mainSport=clean(input.mainSport,80);
+  return sanitizeSportPassportDraft(input,[...sports,...(mainSport?[mainSport]:[])]);
+}
+
+export function officialCompetitionSummary(results=[]){
+  const verified=results.filter(item=>item.status==='verified');
+  return {stats:competitionStats(verified),results:verified
+    .sort((a,b)=>Number(b.achievedAt||0)-Number(a.achievedAt||0)).slice(0,50)};
+}

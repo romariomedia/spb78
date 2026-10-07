@@ -19,6 +19,7 @@ const bundled = await build({
           ? 'export const db = { name: "fake" };'
           : [
             'export const collection = (_db, name) => ({ name });',
+            'export const where=(...args)=>args; export const query=(ref,...filters)=>({...ref,filters});',
             'export const onSnapshot = (ref, next) => {',
             '  globalThis.__listeners.push({ ref, next });',
             '  return () => { globalThis.__stopped += 1; };',
@@ -73,3 +74,5 @@ test('после отписки изменения больше не прихо�
 
   assert.deepEqual(calls, [], 'вызов после отписки недопустим');
 });
+
+test('feed subscription asks only for server-readable visible posts',()=>{globalThis.__listeners=[];globalThis.__stopped=0;const stop=subscribeAppInvalidation(()=>{});assert.deepEqual(listenerFor('feed').ref.filters,[['isHidden','==',false]]);stop();});

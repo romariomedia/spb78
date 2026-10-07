@@ -93,3 +93,11 @@ test('winter rink catalog has contact-first data without pretending old prices a
  }
  assert.equal(LEISURE_CATALOG.length,16);
 });
+
+test('hidden or archived built-in destinations cannot create outings through fallback',async()=>{
+ for(const patch of [{isPublished:false},{isPublished:true,archived:true}]){
+  const f=fixture();f.records.set('leisureDestinations/ruskeala',{id:'ruskeala',region:'karelia',...patch});
+  await assert.rejects(createLeisure(f.db,'a',draft(),now),e=>e.status===400);
+  assert.equal([...f.records.keys()].some(k=>k.startsWith('leisureEvents/')),false);
+ }
+});

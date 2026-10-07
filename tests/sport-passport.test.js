@@ -39,3 +39,22 @@ test('SportBuddy78 ID level labels are stable',()=>{
   assert.equal(levelLabel('pro'),'Профессионал');
   assert.equal(levelLabel('unknown'),'Начинающий');
 });
+
+test('existing biography remains readable after removing its sport, but new edits must use selected sports',async()=>{
+ const {readSportPassport}=await import('../server/sport-passport.js');
+ const original={mainSport:'Бег',rankTitle:'КМС',declaredAchievements:[{id:'a1',title:'Победа в забеге',sport:'Бег'}],publicSlug:'stable-slug-123',publicEnabled:true};
+ const snapshot=readSportPassport(original,['Теннис']);
+ assert.equal(snapshot.mainSport,'Бег');assert.equal(snapshot.rankTitle,'КМС');
+ assert.equal(snapshot.declaredAchievements.length,1);assert.equal(snapshot.publicSlug,original.publicSlug);
+ assert.throws(()=>sanitizeSportPassportDraft(original,['Теннис']),e=>e.status===400);
+ assert.equal(sanitizeSportPassportDraft({...original,mainSport:'Теннис'},['Теннис']).mainSport,'Теннис');
+});
+
+test('lifetime medals are counted before limiting the displayed result history',async()=>{
+ const {officialCompetitionSummary}=await import('../server/sport-passport.js');
+ const results=Array.from({length:65},(_,i)=>({status:'verified',placement:'1 место',achievedAt:i}));
+ results.push({status:'revoked',placement:'1 место',achievedAt:999});
+ const summary=officialCompetitionSummary(results);
+ assert.deepEqual(summary.stats,{wins:65,podiums:65});assert.equal(summary.results.length,50);
+ assert.equal(summary.results[0].achievedAt,64);
+});

@@ -10,7 +10,7 @@ const bundled = await build({
     b.onResolve({ filter: /^(firebase\/firestore|\.\.\/lib\/firebase|\.\/native|\.\/schedule|\.\/reset|\.\/serverApi)$/ }, args => ({ path: args.path, namespace: 'fake' }));
     b.onLoad({ filter: /.*/, namespace: 'fake' }, args => {
       const sources = {
-        'firebase/firestore': `export const collection=(_db,name)=>name; export const doc=(_db,name,id)=>name+'/'+id;
+        'firebase/firestore': `export const collection=(_db,name)=>name; export const query=(ref)=>ref,where=(...args)=>args; export const doc=(_db,name,id)=>name+'/'+id;
           const read=async path=>{const value=globalThis.__sbReads[path];if(value instanceof Error)throw value;return value;};
           export const getDocsFromServer=read,getDocFromServer=read;`,
         '../lib/firebase': 'export const db={};',

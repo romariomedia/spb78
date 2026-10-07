@@ -43,6 +43,7 @@ export default defineConfig({
           if (/framer-motion|motion-dom|motion-utils/.test(id)) return "anim";
           if (/react-virtuoso/.test(id)) return "virtuoso";
           if (/lucide-react/.test(id)) return "icons";
+          if (/qrcode|dijkstrajs|pngjs/.test(id)) return "qr";
           if (/canvas-confetti/.test(id)) return "confetti";
           if (/@vkid/.test(id)) return "vkid";
           return "vendor";

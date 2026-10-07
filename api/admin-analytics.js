@@ -19,7 +19,7 @@ export default async function handler(req,res){
     const last7=days14.slice(-7),prev7=days14.slice(0,7);
     const [usersSnap,activitySnap,adminAuth]=await Promise.all([
       db.collection('users').get(),
-      db.collection('analyticsDaily').where('day','in',days14).get().catch(()=>null),
+      db.collection('analyticsDaily').where('day','in',days14).get(),
       getAuth().getUserByEmail(ADMIN_EMAIL).catch(()=>null)
     ]);
 
@@ -57,9 +57,10 @@ export default async function handler(req,res){
     const yesterdayActive=new Set(activity.filter(row=>row.day===yesterday).map(row=>row.userId));
     const wauUsers=new Set(activity.filter(row=>last7.includes(row.day)).map(row=>row.userId));
 
-    const cohortDay=shiftAnalyticsDay(today,-7);
+    const retentionDay=yesterday;
+    const cohortDay=shiftAnalyticsDay(retentionDay,-7);
     const cohort=users.filter(user=>user.registeredDay===cohortDay);
-    const retained=cohort.filter(user=>todayActive.has(user.id)).length;
+    const retained=cohort.filter(user=>yesterdayActive.has(user.id)).length;
 
     const rows7=activity.filter(row=>last7.includes(row.day));
     const userDays=rows7.length;
@@ -70,7 +71,7 @@ export default async function handler(req,res){
     return res.json({
       generatedAt:new Date().toISOString(),
       timezone:'Europe/Moscow',
-      trackingStartedAt:trackingTimes[0]?new Date(trackingTimes[0]).toISOString():'',
+      observedWindowStartedAt:trackingTimes[0]?new Date(trackingTimes[0]).toISOString():'',
       coverageDays:new Set(activity.map(row=>row.day)).size,
       metrics:{
         registrations7d,
@@ -81,7 +82,8 @@ export default async function handler(req,res){
         dauYesterday:yesterdayActive.size,
         dauDelta:todayActive.size-yesterdayActive.size,
         wau:wauUsers.size,
-        retentionD7:percent(retained,cohort.length),
+        retentionD7:activity.some(row=>row.day===retentionDay)?percent(retained,cohort.length):null,
+        retentionDay,
         retentionCohort:cohort.length,
         retentionReturned:retained,
         avgActiveMinutes7d:userDays?Math.round(seconds7/userDays/6)/10:0,

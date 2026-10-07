@@ -5,8 +5,8 @@ import { enqueueNotification } from './notification-policy.js';
 const fail=(message,status=400)=>Object.assign(new Error(message),{status});
 const text=(value,max)=>typeof value==='string'?value.trim().slice(0,max):'';
 const validId=id=>typeof id==='string'&&/^[a-zA-Z0-9_-]{8,100}$/.test(id);
-export function leisureInput(body,now=Date.now(),resolvedPlace=null) {
- const place=resolvedPlace||getLeisureDestination(body.destinationId);
+export function leisureInput(body,now=Date.now(),resolvedPlace=undefined) {
+ const place=resolvedPlace===undefined?getLeisureDestination(body.destinationId):resolvedPlace;
  if(!place)throw fail('Выберите направление из каталога');
  const date=text(body.date,10),time=text(body.time,5);
  const startsAt=Date.parse(`${date}T${time}:00+03:00`);
@@ -30,7 +30,7 @@ export async function createLeisure(db,uid,body,now=Date.now()) {
   const destinationRef=db.collection('leisureDestinations').doc(text(body.destinationId,100));
   const userSnap=await tx.get(userRef),q=await tx.get(quota),managedPlace=await tx.get(destinationRef);if(!userSnap.exists)throw fail('Сначала заполните профиль',403);
   const user=userSnap.data();if(!hasPremiumAccess(user,now))throw fail('Создание встреч доступно с Premium',403);
-  const place=managedPlace.exists?(managedPlace.data().isPublished===false?null:{id:managedPlace.id,...managedPlace.data()}):getLeisureDestination(body.destinationId);
+  const place=managedPlace.exists?((managedPlace.data().isPublished===false||managedPlace.data().archived===true)?null:{id:managedPlace.id,...managedPlace.data()}):getLeisureDestination(body.destinationId);
   const data=leisureInput(body,now,place),day=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Moscow',year:'numeric',month:'2-digit',day:'2-digit'}).format(now);
   const count=q.data()?.day===day?Number(q.data().count||0):0;if(count>=5)throw fail('Можно создать до 5 встреч в день',429);
   const event={id,...data,createdBy:uid,organizerName:text(user.name,120)||'Участник',participantIds:[uid],status:'open',createdAt:now,updatedAt:now};
