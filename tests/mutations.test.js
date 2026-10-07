@@ -124,6 +124,37 @@ test('chat message starts unread and read markers belong to participants',async(
   assert.equal(f.records.get('chats/chat_a__b').readAt.b,time);
   assert.equal((await f.request('a',{action:'chat',chatId:'arbitrary',companionId:'b',text:'Hi'})).statusCode,400);
 });
+test('chat v3 supports reply typing and sender-only delete while retaining moderation evidence',async()=>{
+  const f=fixture({'users/a':{...premium(),friendIds:['b']},'users/b':{...premium(),friendIds:['a']}});
+  const first=await f.request('a',{action:'chat',chatId:'chat_a__b',companionId:'b',text:'Исходный текст'});
+  assert.equal(first.statusCode,200);
+  const firstId=first.body.message.id;
+
+  const typing=await f.request('b',{action:'chat',operation:'typing',chatId:'chat_a__b',active:true});
+  assert.equal(typing.statusCode,200);
+  assert.ok(typing.body.typingAt>0);
+  assert.equal(f.records.get('chats/chat_a__b').typingAt.b,typing.body.typingAt);
+
+  const reply=await f.request('b',{action:'chat',chatId:'chat_a__b',companionId:'a',text:'Ответ',replyToMessageId:firstId});
+  assert.equal(reply.statusCode,200);
+  assert.equal(reply.body.message.replyTo.messageId,firstId);
+  assert.equal(reply.body.message.replyTo.text,'Исходный текст');
+  assert.equal(reply.body.thread.typingAt.b,0);
+
+  assert.equal((await f.request('b',{action:'chat',operation:'deleteMessage',chatId:'chat_a__b',messageId:firstId})).statusCode,403);
+  const deleted=await f.request('a',{action:'chat',operation:'deleteMessage',chatId:'chat_a__b',messageId:firstId});
+  assert.equal(deleted.statusCode,200);
+  assert.equal(deleted.body.message.text,'Сообщение удалено');
+  const stored=f.records.get('chats/chat_a__b/messages/'+firstId);
+  assert.equal(stored.text,'Сообщение удалено');
+  assert.equal(stored.moderationText,'Исходный текст');
+  assert.equal(f.records.get('chats/chat_a__b').recentMessages.find(m=>m.id===firstId).text,'Сообщение удалено');
+
+  const late=fixture({'users/a':{...premium(),friendIds:['b']},'users/b':{...premium(),friendIds:['a']},
+    'chats/chat_a__b':{id:'chat_a__b',participantIds:['a','b'],messages:[{id:'old',chatId:'chat_a__b',senderId:'a',text:'old',timestamp:Date.now()-16*60*1000}],recentMessages:[{id:'old',chatId:'chat_a__b',senderId:'a',text:'old',timestamp:Date.now()-16*60*1000}],lastMessageAt:Date.now()-16*60*1000}});
+  assert.equal((await late.request('a',{action:'chat',operation:'deleteMessage',chatId:'chat_a__b',messageId:'old'})).statusCode,409);
+});
+
 test('event registration accepts only published events with space',async()=>{
   for(const status of ['draft','finished']) {
     const f=fixture({'users/a':premium(),'events/e':{status,participantIds:[],participantsMax:2}});
