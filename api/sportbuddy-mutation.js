@@ -244,21 +244,28 @@ async function chatMutation(db, uid, body) {
     const ts=nextChatTimestamp(current.lastMessageAt,now);
     const message={id:`msg_${randomUUID()}`,chatId,senderId:uid,text,timestamp:ts,createdAt:new Date(ts).toISOString(),read:false};
     const messageRef=chatRef.collection('messages').doc(message.id);
+    const legacy=Array.isArray(current.recentMessages)?current.recentMessages:(Array.isArray(current.messages)?current.messages:[]);
     if(Number(current.messageStorageVersion||0)<2){
-      const legacy=Array.isArray(current.recentMessages)?current.recentMessages:(Array.isArray(current.messages)?current.messages:[]);
       for(const oldMessage of legacy.slice(-60)){
         if(oldMessage?.id&&oldMessage?.senderId&&Number.isFinite(Number(oldMessage?.timestamp))){
           tx.set(chatRef.collection('messages').doc(String(oldMessage.id)),oldMessage,{merge:true});
         }
       }
     }
+    const baseUnread=current.unreadCount&&typeof current.unreadCount==='object'
+      ? current.unreadCount
+      : Object.fromEntries(participants.map(participantId=>[
+          participantId,
+          legacy.filter(item=>item?.senderId!==participantId&&Number(item?.timestamp||0)>Number(current.readAt?.[participantId]||0)).length
+        ]));
     const recentMessages=buildRecentMessages(current,message);
-    const unreadCount=nextUnreadCounts(current,uid,companionId);
+    const unreadCount=nextUnreadCounts({...current,unreadCount:baseUnread},uid,companionId);
+    const baseMessageCount=Number.isFinite(Number(current.messageCount))?Number(current.messageCount):legacy.length;
     const thread={
       ...current,id:chatId,participantIds:[uid,companionId],
       messages:recentMessages,recentMessages,
       lastMessage:message,lastMessageAt:ts,
-      messageCount:Number(current.messageCount||0)+1,
+      messageCount:baseMessageCount+1,
       messageStorageVersion:2,
       unreadCount,
       lastSenderAt:{...(current.lastSenderAt||{}),[uid]:now}
