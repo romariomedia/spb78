@@ -119,7 +119,8 @@ export function loadChatThreads(
 export function subscribeChatThreads(
   currentUser: UserProfile,
   category: 'matches' | 'friends',
-  onChange: (threads: ChatThread[]) => void
+  onChange: (threads: ChatThread[]) => void,
+  onAllChange?: (threads: ChatThread[]) => void
 ): Unsubscribe {
   const companionIds = new Set(
     category === 'friends' ? (currentUser.friendIds || []) : currentUser.matchIds
@@ -147,11 +148,11 @@ export function subscribeChatThreads(
       });
       writeAllThreads(stored,currentUser.id);
 
-      const threads = Object.values(stored)
+      const allThreads = Object.values(stored)
         .filter((thread) => thread.participantIds.includes(currentUser.id))
-        .filter((thread) => companionIds.has(thread.companionId))
         .sort((a, b) => b.lastMessageAt - a.lastMessageAt);
-      onChange(threads);
+      onAllChange?.(allThreads);
+      onChange(allThreads.filter((thread) => companionIds.has(thread.companionId)));
     },
     () => {
       // Offline cache remains active; no UI error needed.
