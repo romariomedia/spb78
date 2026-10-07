@@ -27,6 +27,7 @@ import { AdminAuditPanel } from './AdminAuditPanel';
 import { AdminManagementPanel } from './AdminManagementPanel';
 import { AdminPushPanel } from './AdminPushPanel';
 import { AdminAnnouncementsPanel } from './AdminAnnouncementsPanel';
+import { AdminPartnersPanel } from './AdminPartnersPanel';
 import { AdminModerationPanel } from './AdminModerationPanel';
 import { AdminAnalyticsPanel } from './AdminAnalyticsPanel';
 import { AdminSportIdVerificationPanel } from './AdminSportIdVerificationPanel';
@@ -47,7 +48,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 }) => {
   const admin = authorized;
 
-  const [adminView, setAdminView] = useState<'overview'|'analytics'|'manage'|'verification'|'moderation'|'push'|'announcements'|'venues'|'leisure'|'events'|'audit'>('overview');
+  const [adminView, setAdminView] = useState<'overview'|'analytics'|'manage'|'verification'|'moderation'|'push'|'announcements'|'partners'|'venues'|'leisure'|'events'|'audit'>('overview');
   const [creating, setCreating] = useState(false);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -213,7 +214,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         maxWidth="admin"
       >
         <div className="space-y-4" key={refresh}>
-          <div className="flex gap-1 overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950 p-1 lg:grid lg:grid-cols-11 lg:gap-2 lg:p-2">
+          <div className="flex gap-1 overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950 p-1 lg:grid lg:grid-cols-12 lg:gap-2 lg:p-2">
             {([
               ['overview','Обзор'],
               ['analytics','Аналитика'],
@@ -222,6 +223,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               ['moderation','Модерация'],
               ['push','Push'],
               ['announcements','Объявления'],
+              ['partners','Партнёры'],
               ['venues','Площадки'],
               ['leisure','Отдых'],
               ['events','События'],
@@ -245,6 +247,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           {adminView === 'moderation' && <AdminModerationPanel />}
           {adminView === 'push' && <AdminPushPanel />}
           {adminView === 'announcements' && <AdminAnnouncementsPanel />}
+          {adminView === 'partners' && <AdminPartnersPanel />}
           {adminView === 'venues' && <PlacesAdminPanel />}
           {adminView === 'leisure' && <LeisureAdminPanel />}
           {adminView === 'audit' && <AdminAuditPanel />}
