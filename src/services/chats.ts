@@ -39,6 +39,10 @@ function writeAllThreads(threads: Record<string, ChatThread>, userId = CURRENT_U
   }
 }
 
+export function clearChatCache(userId: string): void {
+  try { localStorage.removeItem(storageKey(userId)); } catch { /* storage unavailable */ }
+}
+
 export function formatTimeLabel(timestamp: number): string {
   const diffMs = Date.now() - timestamp;
   const minutes = Math.floor(diffMs / 60000);
