@@ -76,6 +76,7 @@ import { SportPassportView } from './components/SportPassportView';
 import { Virtuoso } from 'react-virtuoso';
 import { TrainingCard } from './components/TrainingCard';
 import { PostCard } from './components/PostCard';
+import { PartnerFeedSection } from './components/PartnerFeedSection';
 import { ProfileStatsSection } from './components/ProfileStatsSection';
 import { TrainingCalendar } from './components/TrainingCalendar';
 import { UpcomingTrainings } from './components/UpcomingTrainings';
@@ -2874,6 +2875,8 @@ export default function App(): JSX.Element {
                   onChange={handleGalleryUpload}
                   className="hidden"
                 />
+
+                <PartnerFeedSection />
 
                 {/* Feed — virtualised: only visible posts stay mounted */}
                 <Virtuoso
