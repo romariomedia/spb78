@@ -72,8 +72,9 @@ export function AuthScreen({ onAuthenticated, initialNotice = '' }: Props) {
   const [vkBusy, setVkBusy] = useState(false);
 
   // E-mail + password flow (Firebase Auth) alongside VK ID.
-  const [showEmail, setShowEmail] = useState(false);
-  const [isRegister, setIsRegister] = useState(false);
+  const [showEmail] = useState(true);
+  const [isRegister, setIsRegister] = useState(true);
+  const [showSocial, setShowSocial] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -423,15 +424,25 @@ export function AuthScreen({ onAuthenticated, initialNotice = '' }: Props) {
         >
           <div className="mb-5 flex items-start justify-between gap-3">
             <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-400">Вход в сообщество</p>
-              <h2 className="mt-1 text-xl font-black tracking-tight text-white">Встречаемся в городе</h2>
-              <p className="mt-1 text-[11px] leading-relaxed text-slate-400">Войди, чтобы найти напарников и тренировки рядом.</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-400">
+                {isRegister ? 'Новый аккаунт' : 'Вход в SportBuddy78'}
+              </p>
+              <h2 className="mt-1 text-xl font-black tracking-tight text-white">
+                {isRegister ? 'Начните со спорта' : 'С возвращением'}
+              </h2>
+              <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+                {isRegister
+                  ? 'Регистрация по e-mail — основной и самый стабильный способ создать профиль.'
+                  : 'Войдите по e-mail и продолжайте с того места, где остановились.'}
+              </p>
             </div>
             <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-amber-400/40 bg-amber-400/10 text-sm">78</span>
           </div>
 
           <div className="mb-4 rounded-2xl border border-amber-400/30 bg-amber-400/[0.07] px-3.5 py-2.5">
-            <p className="text-[11px] font-bold leading-relaxed text-amber-200">{isBetaActive() ? 'Premium бесплатно всем до 31 декабря 2026' : `${TRIAL_DAYS} дней Premium в подарок новым участникам`}</p>
+            <p className="text-[11px] font-bold leading-relaxed text-amber-200">
+              {isBetaActive() ? 'Premium бесплатно всем до 31 декабря 2026' : `${TRIAL_DAYS} дней Premium в подарок новым участникам`}
+            </p>
           </div>
 
           {error && (
@@ -445,80 +456,64 @@ export function AuthScreen({ onAuthenticated, initialNotice = '' }: Props) {
             </p>
           )}
 
-          {/* Виджет VK ID OAuthList «3 в 1»: VK ID + Mail.ru + OK */}
-          <div className="relative">
-            <div ref={oAuthContainerRef} className="w-full" />
-            {vkBusy && (
-              <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-slate-950/70 backdrop-blur-sm">
-                <span className="text-xs font-bold text-slate-200">Открываем VK ID…</span>
-              </div>
-            )}
-          </div>
-
-          {!isNativeApp && (
-            <button type="button" disabled={vkBusy} onClick={handleVkRedirect}
-              className="mt-3 w-full rounded-2xl border border-sky-400/30 bg-sky-400/10 px-4 py-3 text-sm font-semibold text-sky-200 disabled:opacity-50">
-              Войти через ВК в этой вкладке
-              <span className="mt-1 block text-xs font-normal text-slate-400">Если обычный вход не открывается или выдаёт ошибку</span>
-            </button>
-          )}
-
-          {biometricAvailable && (
+          <div className="mb-4 grid grid-cols-2 gap-1 rounded-2xl border border-slate-800 bg-slate-950/70 p-1">
             <button
-              onClick={handleBiometric}
-              className="mt-2.5 flex w-full items-center justify-center gap-2.5 rounded-2xl border border-emerald-400/45 bg-emerald-400/[0.07] py-3.5 text-sm font-bold text-emerald-300 transition active:scale-[0.98]"
+              type="button"
+              onClick={() => { setIsRegister(true); setError(''); setRecoverySent(false); }}
+              className={`rounded-xl px-3 py-2.5 text-[11px] font-black transition ${isRegister
+                ? 'bg-emerald-500 text-slate-950 shadow-[0_0_16px_rgba(16,185,129,0.32)]'
+                : 'text-slate-500 hover:text-slate-300'}`}
             >
-              <Fingerprint className="h-5 w-5" /> Войти по отпечатку
+              Создать аккаунт
             </button>
-          )}
-
-          <div className="my-4 flex items-center gap-3">
-            <span className="h-px flex-1 bg-slate-800" />
-            <span className="text-[10px] font-bold text-slate-600">или</span>
-            <span className="h-px flex-1 bg-slate-800" />
+            <button
+              type="button"
+              onClick={() => { setIsRegister(false); setError(''); setRecoverySent(false); }}
+              className={`rounded-xl px-3 py-2.5 text-[11px] font-black transition ${!isRegister
+                ? 'bg-slate-800 text-white'
+                : 'text-slate-500 hover:text-slate-300'}`}
+            >
+              Уже есть аккаунт
+            </button>
           </div>
-
-          <button
-            onClick={() => { triggerHapticImpact('light'); setShowEmail(!showEmail); setError(''); }}
-            className="flex w-full items-center justify-center gap-1.5 py-1 text-[11px] font-bold text-slate-500 transition hover:text-slate-300"
-          >
-            {isRegister ? 'Регистрация по e-mail' : 'Войти по e-mail'}
-            <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showEmail ? 'rotate-180' : ''}`} />
-          </button>
 
           {showEmail && (
-            <form onSubmit={handleEmailSubmit} className="mt-4 space-y-2.5 border-t border-slate-800 pt-4">
+            <form onSubmit={handleEmailSubmit} className="space-y-2.5">
               {isRegister && (
                 <div className="relative">
                   <UserIcon className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-                  <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Имя и фамилия" autoComplete="name" className="w-full rounded-2xl border border-slate-800 bg-slate-950 pl-10 pr-4 py-3 text-sm text-slate-100 placeholder-slate-600 focus:border-emerald-500 focus:outline-none" />
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Имя и фамилия"
+                    autoComplete="name"
+                    className="w-full rounded-2xl border border-slate-800 bg-slate-950 pl-10 pr-4 py-3 text-sm text-slate-100 placeholder-slate-600 focus:border-emerald-500 focus:outline-none"
+                  />
                 </div>
               )}
+
               {isRegister && (
-                <div>
-                  <p className="mb-1.5 text-[11px] font-bold text-slate-400">
-                    Я — <span className="text-slate-200">это важно для подбора напарников</span>
+                <div className="rounded-2xl border border-slate-800 bg-slate-950/55 p-3">
+                  <p className="mb-2 text-[11px] font-bold text-slate-400">
+                    Я — <span className="text-slate-200">для корректного подбора напарников</span>
                   </p>
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
                       onClick={() => setRegGender('male')}
-                      className={`flex items-center justify-center gap-2 rounded-2xl border py-3 text-sm font-bold transition active:scale-[0.97] ${
-                        regGender === 'male'
-                          ? 'border-emerald-400 bg-emerald-500/15 text-emerald-300'
-                          : 'border-slate-800 bg-slate-950 text-slate-400'
-                      }`}
+                      className={`flex items-center justify-center gap-2 rounded-2xl border py-3 text-sm font-bold transition active:scale-[0.97] ${regGender === 'male'
+                        ? 'border-emerald-400 bg-emerald-500/15 text-emerald-300'
+                        : 'border-slate-800 bg-slate-950 text-slate-400'}`}
                     >
                       🙋‍♂️ Мужчина
                     </button>
                     <button
                       type="button"
                       onClick={() => setRegGender('female')}
-                      className={`flex items-center justify-center gap-2 rounded-2xl border py-3 text-sm font-bold transition active:scale-[0.97] ${
-                        regGender === 'female'
-                          ? 'border-emerald-400 bg-emerald-500/15 text-emerald-300'
-                          : 'border-slate-800 bg-slate-950 text-slate-400'
-                      }`}
+                      className={`flex items-center justify-center gap-2 rounded-2xl border py-3 text-sm font-bold transition active:scale-[0.97] ${regGender === 'female'
+                        ? 'border-emerald-400 bg-emerald-500/15 text-emerald-300'
+                        : 'border-slate-800 bg-slate-950 text-slate-400'}`}
                     >
                       🙋‍♀️ Женщина
                     </button>
@@ -528,20 +523,53 @@ export function AuthScreen({ onAuthenticated, initialNotice = '' }: Props) {
                   </p>
                 </div>
               )}
+
               <div className="relative">
                 <Mail className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="E-mail" autoComplete="email" className="w-full rounded-2xl border border-slate-800 bg-slate-950 pl-10 pr-4 py-3 text-sm text-slate-100 placeholder-slate-600 focus:border-emerald-500 focus:outline-none" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="E-mail"
+                  autoComplete="email"
+                  className="w-full rounded-2xl border border-slate-800 bg-slate-950 pl-10 pr-4 py-3 text-sm text-slate-100 placeholder-slate-600 focus:border-emerald-500 focus:outline-none"
+                />
               </div>
+
               <div className="relative">
                 <Lock className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-                <input type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Пароль" autoComplete={isRegister ? 'new-password' : 'current-password'} className="w-full rounded-2xl border border-slate-800 bg-slate-950 pl-10 pr-11 py-3 text-sm text-slate-100 placeholder-slate-600 focus:border-emerald-500 focus:outline-none" />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-500" aria-label="Показать пароль">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder={isRegister ? 'Придумайте пароль' : 'Пароль'}
+                  autoComplete={isRegister ? 'new-password' : 'current-password'}
+                  className="w-full rounded-2xl border border-slate-800 bg-slate-950 pl-10 pr-11 py-3 text-sm text-slate-100 placeholder-slate-600 focus:border-emerald-500 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-500"
+                  aria-label="Показать пароль"
+                >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
-              <button type="submit" disabled={emailBusy} className="w-full rounded-2xl bg-emerald-500 py-3 text-sm font-black text-slate-950 transition active:scale-[0.98] disabled:opacity-60">
-                {emailBusy ? 'Подождите…' : isRegister ? 'Создать аккаунт' : 'Войти'}
+
+              {isRegister && (
+                <p className="px-1 text-[10px] leading-relaxed text-slate-500">
+                  Минимум 6 символов, хотя бы одна буква и одна цифра.
+                </p>
+              )}
+
+              <button
+                type="submit"
+                disabled={emailBusy}
+                className="w-full rounded-2xl bg-gradient-to-r from-emerald-400 to-emerald-500 py-3.5 text-sm font-black text-slate-950 shadow-[0_0_24px_rgba(16,185,129,0.32)] transition active:scale-[0.98] disabled:opacity-60"
+              >
+                {emailBusy ? 'Подождите…' : isRegister ? 'Создать профиль SportBuddy78' : 'Войти по e-mail'}
               </button>
+
               {!isRegister && (
                 <button
                   type="button"
@@ -552,9 +580,7 @@ export function AuthScreen({ onAuthenticated, initialNotice = '' }: Props) {
                   Забыли пароль? Восстановить по e-mail
                 </button>
               )}
-              <button type="button" onClick={() => { setIsRegister(!isRegister); setError(''); setRecoverySent(false); }} className="w-full py-1 text-[11px] font-bold text-slate-500 hover:text-slate-300">
-                {isRegister ? 'У меня уже есть аккаунт' : 'Зарегистрироваться по e-mail'}
-              </button>
+
               {recoverySent && (
                 <p className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-2.5 text-center text-[11px] font-bold text-emerald-300">
                   Если аккаунт существует, письмо для восстановления уже отправлено.
@@ -562,6 +588,66 @@ export function AuthScreen({ onAuthenticated, initialNotice = '' }: Props) {
               )}
             </form>
           )}
+
+          {biometricAvailable && !isRegister && (
+            <button
+              onClick={handleBiometric}
+              className="mt-3 flex w-full items-center justify-center gap-2.5 rounded-2xl border border-emerald-400/35 bg-emerald-400/[0.06] py-3 text-xs font-bold text-emerald-300 transition active:scale-[0.98]"
+            >
+              <Fingerprint className="h-4 w-4" /> Быстрый вход по отпечатку
+            </button>
+          )}
+
+          <div className="my-4 flex items-center gap-3">
+            <span className="h-px flex-1 bg-slate-800" />
+            <span className="text-[10px] font-bold text-slate-600">другие способы</span>
+            <span className="h-px flex-1 bg-slate-800" />
+          </div>
+
+          <button
+            type="button"
+            onClick={() => { triggerHapticImpact('light'); setShowSocial(!showSocial); setError(''); }}
+            className="flex w-full items-center justify-between rounded-2xl border border-slate-800 bg-slate-950/55 px-4 py-3 text-left transition hover:border-slate-700"
+          >
+            <span>
+              <span className="block text-xs font-black text-slate-300">Войти через VK ID</span>
+              <span className="mt-0.5 block text-[10px] text-slate-600">VK, Mail.ru или Одноклассники</span>
+            </span>
+            <ChevronDown className={`h-4 w-4 text-slate-500 transition-transform ${showSocial ? 'rotate-180' : ''}`} />
+          </button>
+
+          <div
+            className={`overflow-hidden transition-all duration-300 ${showSocial
+              ? 'mt-3 max-h-[280px] opacity-100'
+              : 'max-h-0 opacity-0 pointer-events-none'}`}
+            aria-hidden={!showSocial}
+          >
+            <div className="rounded-2xl border border-slate-800 bg-slate-950/45 p-3">
+              <div className="relative">
+                <div ref={oAuthContainerRef} className="w-full" />
+                {vkBusy && (
+                  <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-slate-950/70 backdrop-blur-sm">
+                    <span className="text-xs font-bold text-slate-200">Открываем VK ID…</span>
+                  </div>
+                )}
+              </div>
+
+              {!isNativeApp && (
+                <button
+                  type="button"
+                  disabled={vkBusy}
+                  onClick={handleVkRedirect}
+                  className="mt-2.5 w-full rounded-xl border border-sky-400/20 bg-sky-400/[0.06] px-3 py-2.5 text-[11px] font-semibold text-sky-200 disabled:opacity-50"
+                >
+                  Открыть VK ID в этой вкладке
+                </button>
+              )}
+
+              <p className="mt-2 text-center text-[9px] leading-relaxed text-slate-600">
+                Если VK ID работает нестабильно, используйте регистрацию или вход по e-mail выше.
+              </p>
+            </div>
+          </div>
 
           <p className="mt-5 text-center text-[10px] leading-relaxed text-slate-600">
             Входя в приложение, вы соглашаетесь с условиями SportBuddy78
