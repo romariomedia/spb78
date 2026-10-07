@@ -2700,55 +2700,62 @@ export default function App(): JSX.Element {
                     ) : (
                       <div className="space-y-2.5">
                         {visibleChatThreads.map(thread => {
-                          const companion = allUsers.find(u => u.id === thread.companionId);
-                          if (!companion) return null;
-                          const last = thread.messages[thread.messages.length - 1];
-                          const metadataUnread = Number(thread.unreadCount?.[CURRENT_USER_ID]);
-                          const unread = Number.isFinite(metadataUnread) ? metadataUnread : thread.messages.filter(m => !m.read && m.senderId !== CURRENT_USER_ID).length;
+                          const isTraining=thread.kind==='training';
+                          const companion=isTraining?null:allUsers.find(u=>u.id===thread.companionId);
+                          if(!isTraining&&!companion)return null;
+                          const last=thread.messages[thread.messages.length-1];
+                          const metadataUnread=Number(thread.unreadCount?.[CURRENT_USER_ID]);
+                          const unread=Number.isFinite(metadataUnread)
+                            ? metadataUnread
+                            : thread.messages.filter(m=>!m.deletedAt&&!m.read&&m.senderId!==CURRENT_USER_ID).length;
+                          const subtitle=isTraining
+                            ? `${thread.trainingSport||'Тренировка'} • ${thread.participantIds.length} участников`
+                            : companion!.sports.slice(0,3).join(' • ');
+                          const preview=last
+                            ? `${last.senderId===CURRENT_USER_ID?'Вы: ':isTraining?messageAuthor(last.senderId)+': ':''}${last.text}`
+                            : isTraining?'Группа создана для участников тренировки':'Начните диалог первым!';
 
                           return (
                             <button
                               key={thread.id}
-                              onClick={() => handleOpenChat(thread.id)}
-                              className="w-full text-left bg-slate-900 border border-slate-800 hover:border-emerald-500/50 rounded-3xl p-3.5 transition active:scale-[0.99] shadow-lg flex items-center gap-3"
+                              onClick={()=>handleOpenChat(thread.id)}
+                              className={`w-full text-left bg-slate-900 border hover:border-emerald-500/50 rounded-3xl p-3.5 transition active:scale-[0.99] shadow-lg flex items-center gap-3 ${thread.archivedAt?'border-slate-800/70 opacity-80':'border-slate-800'}`}
                             >
                               <div className="relative shrink-0">
-                                <AvatarImage
-                                  src={avatarUrl(companion.avatar, 96) || AVATAR_FALLBACK}
-                                  width={48} height={48} loading="lazy" decoding="async"
-                                  alt={companion.name}
-                                  className="w-12 h-12 rounded-full object-cover border-2 border-emerald-500/70"
-                                />
-                                {Date.now() - Number(companion.lastSeenAt || 0) < 5 * 60 * 1000 && (
-                                  <span title="Онлайн" className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full" />
+                                {isTraining ? (
+                                  <div className="w-12 h-12 rounded-2xl border-2 border-cyan-500/60 bg-cyan-500/10 flex items-center justify-center text-xl">🏃</div>
+                                ) : (
+                                  <>
+                                    <AvatarImage
+                                      src={avatarUrl(companion!.avatar,96)||AVATAR_FALLBACK}
+                                      width={48} height={48} loading="lazy" decoding="async"
+                                      alt={companion!.name}
+                                      className="w-12 h-12 rounded-full object-cover border-2 border-emerald-500/70"
+                                    />
+                                    {Date.now()-Number(companion!.lastSeenAt||0)<5*60*1000&&(
+                                      <span title="Онлайн" className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full"/>
+                                    )}
+                                  </>
                                 )}
                               </div>
-
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center justify-between gap-2">
                                   <h4 className="text-sm font-extrabold text-white truncate flex items-center gap-1">
-                                    {companion.name}
-                                    {companion.subscriptionPlan === 'premium' && (
-                                      <Crown className="w-3 h-3 fill-amber-400 text-amber-400 shrink-0" />
+                                    {isTraining?thread.trainingTitle:companion!.name}
+                                    {isTraining ? (
+                                      <span className={`text-[8px] font-black ${thread.archivedAt?'text-slate-500':'text-cyan-300'}`}>{thread.archivedAt?'АРХИВ':'ГРУППА'}</span>
+                                    ) : companion!.subscriptionPlan==='premium'&&(
+                                      <Crown className="w-3 h-3 fill-amber-400 text-amber-400 shrink-0"/>
                                     )}
                                   </h4>
-                                  <span className="text-[10px] text-slate-500 shrink-0">
-                                    {last ? formatTimeLabel(last.timestamp) : ''}
-                                  </span>
+                                  <span className="text-[10px] text-slate-500 shrink-0">{last?formatTimeLabel(last.timestamp):''}</span>
                                 </div>
-                                <p className={`text-xs truncate mt-0.5 ${unread > 0 ? 'text-slate-100 font-semibold' : 'text-slate-400'}`}>
-                                  {last
-                                    ? `${last.senderId === CURRENT_USER_ID ? 'Вы: ' : ''}${last.text}`
-                                    : 'Начните диалог первым!'}
-                                </p>
-                                <p className="text-[10px] text-emerald-400/80 truncate mt-0.5">
-                                  {companion.sports.slice(0, 3).join(' • ')}
-                                </p>
+                                <p className={`text-xs truncate mt-0.5 ${unread>0?'text-slate-100 font-semibold':'text-slate-400'}`}>{preview}</p>
+                                <p className="text-[10px] text-emerald-400/80 truncate mt-0.5">{subtitle}</p>
                               </div>
-
-                              {unread > 0 && (
-                                <span className="bg-emerald-500 text-slate-950 text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center shrink-0 shadow">
-                                  {unread}
+                              {unread>0&&(
+                                <span className="bg-emerald-500 text-slate-950 text-[10px] font-black min-w-5 h-5 px-1 rounded-full flex items-center justify-center shrink-0 shadow">
+                                  {unread>99?'99+':unread}
                                 </span>
                               )}
                             </button>
