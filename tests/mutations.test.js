@@ -178,7 +178,8 @@ test('training group chat follows training membership and archives on completion
   assert.equal(f.records.get('chats/'+chatId).unreadCount.b,0);
 
   const jobs=[...f.records].filter(([key])=>key.startsWith('notificationOutbox/')).map(([,value])=>value);
-  const groupNotice=jobs.find(item=>item.id===sent.body.message.id);
+  const groupNotice=jobs.find(item=>item.kind==='message');
+  assert.ok(groupNotice);
   assert.deepEqual(groupNotice.recipients,['a']);
   assert.equal(groupNotice.link,'#chat='+encodeURIComponent(chatId));
 
