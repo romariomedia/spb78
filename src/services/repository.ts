@@ -751,6 +751,23 @@ export async function incrementWorkout(): Promise<number> {
   throw new Error('Прямое начисление тренировки отключено. Тренировка должна быть подтверждена сервером.');
 }
 
+export async function syncProfileIdentity(candidateName?: string): Promise<{ profile: UserProfile | null; repaired: boolean }> {
+  const uid = CURRENT_USER_ID;
+  const result = await callServer<{ profile: UserProfile | null; repaired: boolean }>('/api/sportbuddy-mutation', {
+    action: 'syncIdentity',
+    ...(candidateName ? { candidateName } : {})
+  });
+  if (CURRENT_USER_ID !== uid) throw new Error('Аккаунт изменился во время синхронизации.');
+  const profile = result.profile ? normalizeUserProfile({ ...result.profile, id: uid }) : null;
+  const cached = getOfflineCache();
+  if (profile && cached?.currentUser.id === uid) {
+    cached.currentUser = profile;
+    cached.allUsers = cached.allUsers.map(user => user.id === uid ? profile : user);
+    saveOfflineCache(cached);
+  }
+  return { profile, repaired: Boolean(result.repaired) };
+}
+
 export async function updateProfile(updates: Partial<UserProfile>): Promise<UserProfile | null> {
   const uid = CURRENT_USER_ID;
   const result = await callServer<{ profile: UserProfile | null }>('/api/sportbuddy-mutation', { action: 'profile', updates });
