@@ -14,7 +14,7 @@ import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-mo
 import { 
   Users, Dumbbell, Newspaper, MapPin, Heart, X as CloseIcon, 
   Filter, Plus, Share2, MessageCircle, Send, Zap, Crown, 
-  ChevronRight, Bell, WifiOff, RefreshCw, Sparkles,
+  ChevronRight, Bell, WifiOff, RefreshCw, Sparkles, Search, CheckCheck,
   Map as MapIcon, SlidersHorizontal, CheckCircle2,
   Calendar, ShieldAlert, Clock, Lock, UserPlus
 } from 'lucide-react';
@@ -24,7 +24,7 @@ import {
 } from './lib/types';
 import {
   loadChatThreads, sendChatMessage, markThreadAsRead, countUnread,
-  buildChatId, formatTimeLabel, getReportableChatThreads, subscribeChatThreads
+  buildChatId, formatTimeLabel, getReportableChatThreads, subscribeChatMessages, subscribeChatThreads
 } from './services/chats';
 import { 
   loadAppData, loadFeedPosts, createTraining, toggleJoinTraining, toggleLikeProfile, 
@@ -272,6 +272,11 @@ export default function App(): JSX.Element {
   const [chatCategory, setChatCategory] = useState<ChatCategory>('matches');
   const [openChatId, setOpenChatId] = useState<string | null>(null);
   const [chatDraft, setChatDraft] = useState('');
+  const [chatSearch, setChatSearch] = useState('');
+  const [chatSending, setChatSending] = useState(false);
+  const [chatMessagesOffline, setChatMessagesOffline] = useState(false);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
+  const [complaintContactId, setComplaintContactId] = useState<string | undefined>();
   // Safety banner shown when a companion suggests a non-sport meeting
   const [safetyWarning, setSafetyWarning] = useState<string | null>(null);
 
@@ -734,6 +739,23 @@ export default function App(): JSX.Element {
     return subscribeChatThreads(currentUser, chatCategory, setChatThreads);
   }, [currentUser, chatCategory]);
 
+  useEffect(() => {
+    if (!currentUser || !openChatId) {
+      setChatMessagesOffline(false);
+      return;
+    }
+    return subscribeChatMessages(openChatId, currentUser.id, messages => {
+      setChatMessagesOffline(false);
+      setChatThreads(previous => previous.map(thread => thread.id === openChatId ? {...thread,messages} : thread));
+    }, setChatMessagesOffline);
+  }, [currentUser?.id, openChatId]);
+
+  useEffect(() => {
+    if (!openChatId) return;
+    const frame=requestAnimationFrame(()=>chatScrollRef.current?.scrollTo({top:chatScrollRef.current.scrollHeight,behavior:'smooth'}));
+    return ()=>cancelAnimationFrame(frame);
+  }, [openChatId, chatThreads.find(thread=>thread.id===openChatId)?.messages.length]);
+
   const [friendSyncErrors, setFriendSyncErrors] = useState<Record<string, boolean>>({});
   useEffect(() => {
     if (!currentUser) return;
@@ -779,6 +801,15 @@ export default function App(): JSX.Element {
   const friendRequestsCount = (currentUser?.friendRequestsReceived || []).length;
 
   const chatUnreadCount = useMemo(() => (isPremium ? countUnread(chatThreads) : 0), [chatThreads, isPremium]);
+  const visibleChatThreads = useMemo(() => {
+    const needle=chatSearch.trim().toLowerCase();
+    if(!needle)return chatThreads;
+    return chatThreads.filter(thread=>{
+      const companion=allUsers.find(user=>user.id===thread.companionId);
+      const last=thread.messages[thread.messages.length-1];
+      return [companion?.name,companion?.sports?.join(' '),last?.text].filter(Boolean).join(' ').toLowerCase().includes(needle);
+    });
+  },[chatThreads,chatSearch,allUsers]);
 
   /** Contacts eligible for a safety report: only real chats with messages. */
   const reportableChatContacts = useMemo(() => {
@@ -831,6 +862,9 @@ export default function App(): JSX.Element {
   const openChatCompanion = openChatThread
     ? allUsers.find(u => u.id === openChatThread.companionId) || null
     : null;
+  const lastMineMessageId = openChatThread
+    ? [...openChatThread.messages].reverse().find(message=>message.senderId===CURRENT_USER_ID)?.id
+    : undefined;
 
   const handleOpenChat = (chatId: string) => {
     triggerHapticImpact('light');
@@ -840,13 +874,15 @@ export default function App(): JSX.Element {
   };
 
   const handleSendChatMessage = () => {
-    if (!chatDraft.trim() || !openChatThread || !openChatCompanion || !currentUser) return;
+    if (chatSending || !chatDraft.trim() || !openChatThread || !openChatCompanion || !currentUser) return;
     triggerHapticImpact('light');
-    const text = chatDraft;
+    const text = chatDraft.trim();
     setChatDraft('');
+    setChatSending(true);
     void sendChatMessage(openChatThread.id, openChatCompanion.id, text)
       .then(() => setChatThreads(loadChatThreads(currentUser, allUsers, chatCategory)))
-      .catch((error) => { setChatDraft(text); notify(error instanceof Error ? error.message : 'Не удалось отправить сообщение', 'err'); });
+      .catch((error) => { setChatDraft(text); notify(error instanceof Error ? error.message : 'Не удалось отправить сообщение', 'err'); })
+      .finally(()=>setChatSending(false));
   };
 
   // Open a chat with a matched partner (used from the match celebration modal)
