@@ -4,6 +4,7 @@ import { triggerHapticNotification } from './native';
 import { authReady, getFirebaseUid, signInWithCustomTokenFirebase, signOutFirebase } from './firebaseAuth';
 import { vkFallbackEmail } from './vkid';
 import { resetLocalProgress } from './reset';
+import { isUsablePersonName, normalizePersonName } from '../../shared/identity-policy.js';
 
 /**
  * Authentication v2: Firebase is the identity source of truth.
@@ -164,17 +165,23 @@ export async function registerAccount(
   gender?: 'male' | 'female'
 ): Promise<AuthResult> {
   const cleanEmail = email.trim().toLowerCase();
-  if (name.trim().length < 2) return { ok: false, error: 'Введите имя и фамилию' };
+  const cleanName = normalizePersonName(name);
+  if (!isUsablePersonName(cleanName, cleanEmail)) return { ok: false, error: 'Введите настоящее имя без e-mail и специальных обозначений' };
   if (!validateEmail(cleanEmail)) return { ok: false, error: 'Некорректный e-mail адрес' };
   const pwdError = validatePassword(password);
   if (pwdError) return { ok: false, error: pwdError };
   if (gender !== 'male' && gender !== 'female') return { ok: false, error: 'Выберите пол — он определяет подбор напарников' };
 
   const { registerFirebaseAccount } = await import('./firebaseAuth');
-  const firebase = await registerFirebaseAccount(cleanEmail, password, name.trim());
+  const firebase = await registerFirebaseAccount(cleanEmail, password, cleanName);
   if (!firebase.ok || !firebase.uid) return { ok: false, error: firebase.error || 'Не удалось создать аккаунт' };
 
-  const account = makeAccount(firebase.uid, cleanEmail, name, { gender, firebaseUid: firebase.uid });
+  const account = makeAccount(firebase.uid, firebase.email || cleanEmail, cleanName, {
+    gender,
+    provider: 'email',
+    firebaseUid: firebase.uid,
+    createdAt: firebase.createdAt || new Date().toISOString()
+  });
   saveSession(account);
   resetLocalProgress();
   triggerHapticNotification('success');
@@ -191,10 +198,18 @@ export async function loginWithPassword(email: string, password: string): Promis
   }
 
   const old = readAccount();
-  const account = makeAccount(firebase.uid, cleanEmail, old?.email === cleanEmail ? old.name : cleanEmail.split('@')[0] || 'Спортсмен', {
+  const oldName = old?.id === firebase.uid && isUsablePersonName(old.name, cleanEmail) ? old.name : '';
+  const firebaseName = isUsablePersonName(firebase.displayName, cleanEmail) ? normalizePersonName(firebase.displayName) : '';
+  // Never manufacture a public name from the e-mail local-part. The canonical
+  // profile name is loaded from Firestore after authentication; this mirror is
+  // only a bootstrap fallback for a genuinely missing profile.
+  const account = makeAccount(firebase.uid, firebase.email || cleanEmail, firebaseName || oldName || 'Новый спортсмен', {
     ...(old && old.id === firebase.uid ? old : {}),
     id: firebase.uid,
-    email: cleanEmail,
+    name: firebaseName || oldName || 'Новый спортсмен',
+    email: (firebase.email || cleanEmail).toLowerCase(),
+    provider: old?.id === firebase.uid ? old.provider ?? 'email' : 'email',
+    createdAt: firebase.createdAt || (old?.id === firebase.uid ? old.createdAt : new Date().toISOString()),
     firebaseUid: firebase.uid
   });
   saveSession(account);
@@ -208,6 +223,21 @@ export async function requestPasswordRecovery(email: string): Promise<{ ok: bool
   const { requestFirebasePasswordReset } = await import('./firebaseAuth');
   const result = await requestFirebasePasswordReset(cleanEmail);
   return result.ok ? { ok: true } : { ok: false, error: result.error || 'Не удалось отправить письмо' };
+}
+
+export function syncLocalAccountIdentity(name: string, email?: string): AuthAccount | null {
+  const account = readAccount();
+  if (!account) return null;
+  const nextName = isUsablePersonName(name, email || account.email)
+    ? normalizePersonName(name)
+    : account.name;
+  const next: AuthAccount = {
+    ...account,
+    name: nextName,
+    email: (email || account.email).trim().toLowerCase()
+  };
+  writeAccount(next);
+  return next;
 }
 
 export function setSession(accountId: string): void {

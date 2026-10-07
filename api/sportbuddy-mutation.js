@@ -8,6 +8,7 @@ import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { randomUUID } from 'node:crypto';
 import { readUserStatus } from '../server/user-status.js';
+import { chooseCanonicalPersonName } from '../shared/identity-policy.js';
 import {
   assertChatParticipants,assertChatRateLimit,assertChatRelationship,assertMessageDeleteAllowed,
   buildRecentMessages,nextChatTimestamp,nextUnreadCounts,replyPreview,sanitizeChatText,tombstoneMessage
@@ -57,8 +58,14 @@ async function bootstrapProfile(db, uid, incoming, claims = {}) {
     const isVk = claims.vkVerified === true;
     // Точные координаты не храним: в публичный профиль идёт только защищённая точка.
     const startCoords = protectedCoords(Number(body.lat), Number(body.lng), uid) ?? { lat: 59.9386, lng: 30.3141 };
+    const canonicalName = chooseCanonicalPersonName({
+      currentName: '',
+      firebaseName: authUser.displayName,
+      candidateName: body.name,
+      email: authUser.email || body.email || ''
+    });
     const profile = {
-      id:uid, name:cleanString(body.name,120)||'Новый спортсмен', age:Number.isFinite(Number(body.age))?Math.max(18,Math.min(100,Number(body.age))):25,
+      id:uid, name:canonicalName, age:Number.isFinite(Number(body.age))?Math.max(18,Math.min(100,Number(body.age))):25,
       gender, genderSet:body.genderSet===true, avatar:cleanString(body.avatar,2000), bio:cleanString(body.bio,1000), sports:cleanArray(body.sports,10),
       ...(body.districtId !== undefined ? {districtId:validateDistrictId(body.districtId)} : {}),
       locationName:cleanString(body.locationName,200)||'Санкт-Петербург', lat:startCoords.lat, lng:startCoords.lng,
@@ -73,6 +80,36 @@ async function bootstrapProfile(db, uid, incoming, claims = {}) {
     Object.keys(privateData).forEach(k=>privateData[k]===undefined&&delete privateData[k]);
     tx.create(ref,profile); tx.create(privateRef,privateData);
     return {created:true,premiumGranted:true,profile:{...profile,...privateData,premiumUntil:trialEnd.toISOString()}};
+  });
+}
+
+async function syncIdentity(db, uid, candidateName) {
+  const ref=db.collection('users').doc(uid),privateRef=db.collection('usersPrivate').doc(uid);
+  const authUser=await getAuth().getUser(uid);
+  return db.runTransaction(async tx=>{
+    const [snap,privateSnap]=await Promise.all([tx.get(ref),tx.get(privateRef)]);
+    if(!snap.exists)return {profile:null,repaired:false};
+    const user=snap.data()||{};
+    const email=String(authUser.email||privateSnap.data()?.email||'').trim().toLowerCase();
+    const canonicalName=chooseCanonicalPersonName({
+      currentName:user.name,
+      firebaseName:authUser.displayName,
+      candidateName,
+      email
+    });
+    const patch={};
+    let repaired=false;
+    if(canonicalName!==String(user.name||'')){
+      patch.name=canonicalName;
+      repaired=true;
+      tx.update(ref,{name:canonicalName});
+    }
+    const privateData=privateSnap.exists?privateSnap.data()||{}:{};
+    if(email && email!==String(privateData.email||'').trim().toLowerCase()){
+      tx.set(privateRef,{uid,...privateData,email},{merge:true});
+      repaired=true;
+    }
+    return {profile:{id:uid,...user,...patch,...privateData,...(email?{email}:{})},repaired};
   });
 }
 
@@ -752,6 +789,7 @@ export default async function handler(req,res) {
     await readUserStatus(db, decoded.uid);
     switch(body.action) {
       case 'bootstrapProfile': result = await bootstrapProfile(db, decoded.uid, body.profile, decoded); break;
+      case 'syncIdentity': result = await syncIdentity(db, decoded.uid, body.candidateName); break;
       case 'match': result = await matchMutation(db, decoded.uid, String(body.targetUserId || '')); break;
       case 'training': result = await trainingMutation(db, decoded.uid, body); break;
       case 'workoutCredit': result = await workoutCredit(db, decoded.uid, body); break;

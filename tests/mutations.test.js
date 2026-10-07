@@ -9,13 +9,14 @@ const bundled = await build({entryPoints:['api/sportbuddy-mutation.js'],bundle:t
     b.onResolve({filter:/^firebase-admin\//},args=>({path:args.path,namespace:'fake'}));
     b.onLoad({filter:/.*/,namespace:'fake'},args=>({contents:{
       'firebase-admin/app':'export const getApps=()=>[{}],cert=x=>x,initializeApp=()=>{};',
-      'firebase-admin/auth':'export const getAuth=()=>({verifyIdToken:async()=>({uid:globalThis.__uid}),getUser:async uid=>({uid,metadata:{creationTime:new Date().toISOString()}})});',
+      'firebase-admin/auth':'export const getAuth=()=>({verifyIdToken:async()=>({uid:globalThis.__uid}),getUser:async uid=>({uid,email:globalThis.__authUsers?.[uid]?.email,displayName:globalThis.__authUsers?.[uid]?.displayName,metadata:{creationTime:globalThis.__authUsers?.[uid]?.creationTime||new Date().toISOString()}})});',
       'firebase-admin/firestore':'export const getFirestore=()=>globalThis.__mutationDb; export const Timestamp={fromDate:date=>date.toISOString()};'
     }[args.path],loader:'js'}));
   }}]});
 const {default:handler}=await import(`data:text/javascript;base64,${Buffer.from(bundled.outputFiles[0].text+'\n//# sourceURL=mutation-test-fixture.js').toString('base64')}`);
-function fixture(initial) {
+function fixture(initial,authUsers={}) {
   const records=new Map(Object.entries(initial));
+  globalThis.__authUsers=authUsers;
   function valid(value) {
     if(value===undefined)throw new Error('Firestore rejects undefined');
     if(value && typeof value==='object')Object.values(value).forEach(valid);
@@ -99,11 +100,43 @@ test('profile save verifies second photo and returns server authority',async()=>
   const result=await f.request('a',{action:'profile',updates:{photoPortfolio:['https://example.com/photo.jpg'],isVerified:false}});
   assert.equal(result.statusCode,200);assert.equal(result.body.profile.isVerified,true);assert.equal(f.records.get('users/a').isVerified,true);
 });
+test('email identity sync repairs leaked e-mail names and preserves valid names',async()=>{
+  const authUsers={a:{email:'roman@example.com',displayName:'Роман Сайдашев'}};
+  const broken=fixture({
+    'users/a':{...premium(),name:'roman@example.com'},
+    'usersPrivate/a':{email:'old@example.com'}
+  },authUsers);
+  const repaired=await broken.request('a',{action:'syncIdentity',candidateName:'roman'});
+  assert.equal(repaired.statusCode,200);
+  assert.equal(repaired.body.profile.name,'Роман Сайдашев');
+  assert.equal(repaired.body.profile.email,'roman@example.com');
+  assert.equal(broken.records.get('users/a').name,'Роман Сайдашев');
+  assert.equal(broken.records.get('usersPrivate/a').email,'roman@example.com');
+
+  const valid=fixture({
+    'users/a':{...premium(),name:'Роман Настоящий'},
+    'usersPrivate/a':{email:'roman@example.com'}
+  },authUsers);
+  const unchanged=await valid.request('a',{action:'syncIdentity',candidateName:'Другое Имя'});
+  assert.equal(unchanged.statusCode,200);
+  assert.equal(unchanged.body.profile.name,'Роман Настоящий');
+  assert.equal(unchanged.body.repaired,false);
+});
+
+test('bootstrap never persists an e-mail address as the public athlete name',async()=>{
+  const f=fixture({}, {a:{email:'roman@example.com',displayName:'Роман Сайдашев',creationTime:'2026-09-01T10:00:00.000Z'}});
+  const result=await f.request('a',{action:'bootstrapProfile',profile:{name:'roman@example.com',email:'roman@example.com',gender:'male',genderSet:true}});
+  assert.equal(result.statusCode,200);
+  assert.equal(result.body.profile.name,'Роман Сайдашев');
+  assert.equal(f.records.get('users/a').name,'Роман Сайдашев');
+  assert.equal(f.records.get('usersPrivate/a').email,'roman@example.com');
+});
+
 test('welcome bootstrap gives 30 days once',async()=>{
-  const f=fixture({});const first=await f.request('a',{action:'bootstrapProfile',profile:{name:'Athlete'}});
+  const f=fixture({});const first=await f.request('a',{action:'bootstrapProfile',profile:{name:'Alex Athlete'}});
   assert.equal(first.statusCode,200);const expiry=first.body.profile.premiumUntil;
   assert.equal((await f.request('a',{action:'bootstrapProfile',profile:{name:'Other'}})).body.profile.premiumUntil,expiry);
-  assert.equal(f.records.get('users/a').name,'Athlete');
+  assert.equal(f.records.get('users/a').name,'Alex Athlete');
 });
 
 test('chat requires active Premium and mutual relationship',async()=>{

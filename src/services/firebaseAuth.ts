@@ -50,6 +50,9 @@ export function isAuthenticated(): boolean {
 export interface FirebaseAuthResult {
   ok: boolean;
   uid?: string;
+  email?: string;
+  displayName?: string;
+  createdAt?: string;
   error?: string;
 }
 
@@ -61,9 +64,19 @@ export async function registerFirebaseAccount(
 ): Promise<FirebaseAuthResult> {
   try {
     const cred = await createUserWithEmailAndPassword(auth, email, password);
-    await updateFirebaseProfile(cred.user, { displayName });
+    // The account itself is already created at this point. A transient profile
+    // metadata failure must not turn the successful registration into a false
+    // "registration failed" state that would make the next retry report
+    // "e-mail already in use".
+    try { await updateFirebaseProfile(cred.user, { displayName }); } catch { /* bootstrap still receives the submitted name */ }
     currentUser = cred.user;
-    return { ok: true, uid: cred.user.uid };
+    return {
+      ok: true,
+      uid: cred.user.uid,
+      email: cred.user.email || email,
+      displayName: cred.user.displayName || displayName,
+      createdAt: cred.user.metadata.creationTime || new Date().toISOString()
+    };
   } catch (err: unknown) {
     return { ok: false, error: mapAuthError((err as { code?: string })?.code) };
   }
@@ -73,7 +86,7 @@ export async function signInWithCustomTokenFirebase(customToken: string): Promis
   try {
     const cred = await signInWithCustomToken(auth, customToken);
     currentUser = cred.user;
-    return { ok: true, uid: cred.user.uid };
+    return { ok: true, uid: cred.user.uid, email: cred.user.email || undefined, displayName: cred.user.displayName || undefined, createdAt: cred.user.metadata.creationTime || undefined };
   } catch (err: unknown) {
     return { ok: false, error: mapAuthError((err as { code?: string })?.code) };
   }
@@ -86,7 +99,13 @@ export async function loginFirebaseAccount(
   try {
     const cred = await signInWithEmailAndPassword(auth, email, password);
     currentUser = cred.user;
-    return { ok: true, uid: cred.user.uid };
+    return {
+      ok: true,
+      uid: cred.user.uid,
+      email: cred.user.email || email,
+      displayName: cred.user.displayName || undefined,
+      createdAt: cred.user.metadata.creationTime || undefined
+    };
   } catch (err: unknown) {
     const code = (err as { code?: string })?.code;
     return { ok: false, error: mapAuthError(code), uid: undefined };
