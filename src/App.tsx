@@ -2616,7 +2616,7 @@ export default function App(): JSX.Element {
                       <div>
                         <h2 className="text-lg font-black text-white tracking-tight">Чаты</h2>
                         <p className="text-xs text-slate-400">
-                          {chatCategory === 'matches' ? 'Общение с взаимными симпатиями' : 'Общение с друзьями'}
+                          {chatCategory === 'matches' ? 'Общение с взаимными симпатиями' : chatCategory === 'friends' ? 'Общение с друзьями' : 'Группы ваших тренировок'}
                         </p>
                       </div>
                       <span className="text-[10px] font-black bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 px-2.5 py-1 rounded-xl flex items-center gap-1 shadow">
@@ -2628,7 +2628,8 @@ export default function App(): JSX.Element {
                     <div className="bg-slate-900 border border-slate-800 p-1 rounded-2xl flex gap-1">
                       {([
                         { id: 'matches' as ChatCategory, label: 'Мэтчи', icon: '💚', count: currentUser.matchIds.length },
-                        { id: 'friends' as ChatCategory, label: 'Друзья', icon: '👥', count: friendsCount }
+                        { id: 'friends' as ChatCategory, label: 'Друзья', icon: '👥', count: friendsCount },
+                        { id: 'trainings' as ChatCategory, label: 'Группы', icon: '🏃', count: allChatThreads.filter(thread=>thread.kind==='training').length }
                       ]).map((c) => (
                         <button
                           key={c.id}
@@ -2675,17 +2676,19 @@ export default function App(): JSX.Element {
                     {visibleChatThreads.length === 0 ? (
                       <div className="text-center py-14 px-4 bg-slate-900/60 rounded-3xl border border-slate-800 space-y-3">
                         <div className="w-16 h-16 rounded-3xl bg-emerald-500/15 border border-emerald-500/40 mx-auto flex items-center justify-center text-3xl">
-                          {chatCategory === 'matches' ? '💬' : '👥'}
+                          {chatCategory === 'matches' ? '💬' : chatCategory === 'friends' ? '👥' : '🏃'}
                         </div>
                         <h3 className="text-base font-bold text-white">
-                          {chatSearch.trim() ? 'Ничего не найдено' : chatCategory === 'matches' ? 'Пока нет взаимных симпатий' : 'Пока нет друзей'}
+                          {chatSearch.trim() ? 'Ничего не найдено' : chatCategory === 'matches' ? 'Пока нет взаимных симпатий' : chatCategory === 'friends' ? 'Пока нет друзей' : 'Пока нет групп тренировок'}
                         </h3>
                         <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
                           {chatSearch.trim()
                             ? 'Попробуйте изменить запрос.'
                             : chatCategory === 'matches'
                               ? 'Чат открывается автоматически, когда вы и другой спортсмен из Санкт-Петербурга ставите друг другу «Симпатию».'
-                              : 'Добавляйте спортсменов в друзья из анкет и таблицы лидеров — чат откроется после взаимного согласия.'}
+                              : chatCategory === 'friends'
+                                ? 'Добавляйте спортсменов в друзья из анкет и таблицы лидеров — чат откроется после взаимного согласия.'
+                                : 'Запишитесь на тренировку или создайте свою — общий чат появится автоматически для участников.'}
                         </p>
                         <button
                           onClick={() => handleTabChange('discover')}
