@@ -13,7 +13,8 @@ import {
   PORTFOLIO_QUALITY_NOTE
 } from '../services/profile';
 import { takeAvatarPhoto, pickPhotoFromGallery, triggerHapticImpact, triggerHapticNotification } from '../services/native';
-import { updateProfile } from '../services/repository';
+import { syncProfileIdentity, updateProfile } from '../services/repository';
+import { isUsablePersonName, normalizePersonName } from '../../shared/identity-policy.js';
 import { syncVerification, getVerificationState } from '../services/verification';
 import { uploadToCloudinary, photoUrl } from '../services/cloudinary';
 import { ProgressBar } from './ProgressBar';
@@ -28,6 +29,7 @@ interface ProfileEditorProps {
 
 export const ProfileEditor: React.FC<ProfileEditorProps> = ({ user, onUpdateUser }) => {
   const [bio, setBio] = useState(user.bio);
+  const [repairName, setRepairName] = useState(() => isUsablePersonName(user.name, user.email) ? user.name : '');
   const [birthDate, setBirthDate] = useState(user.birthDate || '');
   const [hideBirthDate, setHideBirthDate] = useState(!!user.hideBirthDate);
   const [districtId, setDistrictId] = useState(getDistrict(user.districtId)?.id || '');
@@ -44,6 +46,7 @@ export const ProfileEditor: React.FC<ProfileEditorProps> = ({ user, onUpdateUser
   const verification = getVerificationState(user);
   const completeness = profileCompleteness(user);
   const age = calculateAge(birthDate);
+  const nameNeedsRepair = !isUsablePersonName(user.name, user.email);
 
   const toggleSport = (sport: string) => {
     triggerHapticImpact('light');
@@ -70,7 +73,22 @@ export const ProfileEditor: React.FC<ProfileEditorProps> = ({ user, onUpdateUser
     };
 
     try {
-      const next = await updateProfile(updates) ?? { ...user, ...updates };
+      let identityBase = user;
+      if (nameNeedsRepair) {
+        const cleanName = normalizePersonName(repairName);
+        if (!isUsablePersonName(cleanName, user.email)) {
+          setError('Введите настоящее имя без e-mail и специальных обозначений.');
+          return;
+        }
+        const identity = await syncProfileIdentity(cleanName);
+        if (!identity.profile || !isUsablePersonName(identity.profile.name, identity.profile.email)) {
+          setError('Не удалось восстановить имя профиля. Повторите попытку.');
+          return;
+        }
+        identityBase = identity.profile;
+        onUpdateUser(identityBase);
+      }
+      const next = await updateProfile(updates) ?? { ...identityBase, ...updates };
       onUpdateUser(next);
       const verified = await syncVerification(next);
       onUpdateUser(verified);
@@ -229,11 +247,32 @@ export const ProfileEditor: React.FC<ProfileEditorProps> = ({ user, onUpdateUser
 
         <div>
           <label className="block text-xs font-bold text-slate-300 mb-1.5">Имя</label>
-          <div className="w-full bg-slate-950/70 border border-slate-800 rounded-2xl px-4 py-3 text-sm text-slate-300 flex items-center justify-between gap-3">
-            <span className="truncate">{user.name}</span>
-            <span className="shrink-0 text-[10px] font-bold text-slate-600">🔒 задано при регистрации</span>
-          </div>
-          <p className="mt-1 text-[10px] text-slate-500">Имя нельзя менять после регистрации — это защита доверия в спортивном сообществе.</p>
+          {nameNeedsRepair ? (
+            <div className="space-y-2">
+              <div className="relative">
+                <input
+                  type="text"
+                  value={repairName}
+                  onChange={(e) => { setRepairName(e.target.value); setError(null); }}
+                  placeholder="Введите имя и фамилию"
+                  maxLength={80}
+                  autoComplete="name"
+                  className="w-full rounded-2xl border border-amber-500/50 bg-slate-950 px-4 py-3 text-sm text-slate-100 placeholder-slate-600 outline-none focus:border-emerald-500"
+                />
+              </div>
+              <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[10px] leading-relaxed text-amber-200">
+                Имя не было корректно сохранено при старой регистрации. Укажите его один раз — после сохранения оно снова будет защищено от изменения.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="w-full bg-slate-950/70 border border-slate-800 rounded-2xl px-4 py-3 text-sm text-slate-300 flex items-center justify-between gap-3">
+                <span className="truncate">{user.name}</span>
+                <span className="shrink-0 text-[10px] font-bold text-slate-600">🔒 задано при регистрации</span>
+              </div>
+              <p className="mt-1 text-[10px] text-slate-500">Имя нельзя менять после регистрации — это защита доверия в спортивном сообществе.</p>
+            </>
+          )}
         </div>
 
         <div>
