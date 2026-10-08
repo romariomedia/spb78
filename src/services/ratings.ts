@@ -87,6 +87,7 @@ export function pendingRatings(training: Training): string[] {
 
 /** Checked-in attendees who still need to answer "Как прошла тренировка?" */
 export function pendingOrganizerRatings(training: Training): string[] {
+  if (training.isOfficial) return [];
   const rated = training.organizerRatedByParticipantIds || [];
   const checkedIn = training.checkedInUserIds || [];
   return checkedIn.filter((id) => id !== training.createdBy && !rated.includes(id));
