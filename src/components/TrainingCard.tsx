@@ -1,7 +1,7 @@
 import { districtLabel } from '../../shared/districts.js';
 import { trainingGenderError, trainingGenderLabel } from '../lib/trainingEligibility';
 import React from 'react';
-import { Calendar, MapPin } from 'lucide-react';
+import { Calendar, MapPin, BadgeCheck } from 'lucide-react';
 import { Training, UserProfile } from '../lib/types';
 import { ProgressBar } from './ProgressBar';
 import { getCheckInsFor } from '../services/checkin';
@@ -46,6 +46,11 @@ const TrainingCardInner: React.FC<TrainingCardProps> = ({
         </div>
       )}
 
+      {tr.isOfficial && (
+        <div className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-emerald-400/35 bg-emerald-500/10 px-2.5 py-1 text-[9px] font-black uppercase tracking-wide text-emerald-300">
+          <BadgeCheck className="h-3.5 w-3.5" /> Официальная тренировка SportBuddy78
+        </div>
+      )}
       <p className="text-xs text-slate-300 mb-2">{trainingGenderLabel(tr.participantGender)}</p>
       <div className="flex items-center gap-2 mb-2">
         <span className="text-[11px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">
@@ -99,20 +104,24 @@ const TrainingCardInner: React.FC<TrainingCardProps> = ({
 
         <div className="flex items-center justify-between pt-2 border-t border-slate-800/80">
           <div className="flex items-center gap-2">
-            <img
-              src={creator?.avatar || '/avatar-placeholder.svg'}
-              alt=""
-              loading="lazy"
-              className="w-6 h-6 rounded-full object-cover border border-slate-600"
-            />
+            {tr.isOfficial ? (
+              <div className="flex h-6 w-6 items-center justify-center rounded-full border border-emerald-500/40 bg-emerald-500/15 text-[10px] font-black text-emerald-300">S78</div>
+            ) : (
+              <img
+                src={creator?.avatar || '/avatar-placeholder.svg'}
+                alt=""
+                loading="lazy"
+                className="w-6 h-6 rounded-full object-cover border border-slate-600"
+              />
+            )}
             <span className="text-xs text-slate-400">
-              Организатор: <b className="text-slate-200">{creator?.name.split(' ')[0] || 'Атлет'}</b>
+              Организатор: <b className={tr.isOfficial ? 'text-emerald-300' : 'text-slate-200'}>{tr.isOfficial ? (tr.officialOrganizerName || 'SportBuddy78') : (creator?.name.split(' ')[0] || 'Атлет')}</b>
             </span>
           </div>
 
           <button
             title={genderError || undefined}
-            disabled={Boolean(genderError) || tr.isCompleted || (isFull && !isJoined) || tr.createdBy === currentUserId}
+            disabled={Boolean(genderError) || tr.isCompleted || (isFull && !isJoined) || (!tr.isOfficial && tr.createdBy === currentUserId)}
             onClick={(e) => { e.stopPropagation(); onJoin(tr); }}
             className={`text-xs font-black px-3 py-1.5 rounded-xl transition ${
               isJoined
@@ -122,7 +131,7 @@ const TrainingCardInner: React.FC<TrainingCardProps> = ({
                 : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow'
             }`}
           >
-            {tr.isCompleted ? 'Завершена' : tr.createdBy === currentUserId ? 'Вы организатор' : isJoined ? 'Отменить' : genderError ? 'Запись недоступна' : isFull ? 'Заполнено' : 'Участвовать ↗'}
+            {tr.isCompleted ? 'Завершена' : (!tr.isOfficial && tr.createdBy === currentUserId) ? 'Вы организатор' : isJoined ? 'Отменить' : genderError ? 'Запись недоступна' : isFull ? 'Заполнено' : 'Участвовать ↗'}
           </button>
         </div>
       </div>
