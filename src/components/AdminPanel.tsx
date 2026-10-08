@@ -215,7 +215,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         maxWidth="admin"
       >
         <div className="space-y-4" key={refresh}>
-          <div className="flex gap-1 overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950 p-1 lg:grid lg:grid-cols-13 lg:gap-2 lg:p-2">
+          <div className="flex gap-1 overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950 p-1 lg:grid lg:grid-cols-12 lg:gap-2 lg:p-2">
             {([
               ['overview','Обзор'],
               ['analytics','Аналитика'],
