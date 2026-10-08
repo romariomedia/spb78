@@ -19,6 +19,7 @@ function fixture(initial={}){
   const snap=ref=>({id:ref.id,exists:rows.has(ref.path),data:()=>rows.get(ref.path)});
   const ref=path=>({id:path.split('/').at(-1),path,get:async()=>snap({id:path.split('/').at(-1),path}),create:async v=>rows.set(path,structuredClone(v)),set:async(v)=>rows.set(path,structuredClone(v)),delete:async()=>rows.delete(path)});
   const db={
+    doc:path=>ref(path),
     collection(name){
       const query=(filters=[])=>({
         where:(field,op,value)=>{assert.equal(op,'==');return query([...filters,[field,value]])},
