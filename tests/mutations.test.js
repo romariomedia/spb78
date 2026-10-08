@@ -66,6 +66,36 @@ test('training requires Premium, valid coordinates and valid date',async()=>{
   assert.equal((await f.request('free',{action:'training',operation:'createTraining',training:training()})).statusCode,403);
   for(const extra of [{lat:100},{dateKey:'2026-02-31'},{time:'27:00'}])assert.equal((await f.request('a',{action:'training',operation:'createTraining',training:{...training(),...extra}})).statusCode,400);
 });
+test('official SportBuddy training can be joined without a fake organizer account',async()=>{
+  const f=fixture({
+    'users/b':premium(),
+    'trainings/official':{
+      ...training(),id:'official',isOfficial:true,officialOrganizerName:'SportBuddy78',officialStatus:'published',
+      createdBy:'sportbuddy78-official',participantIds:[],isCompleted:false
+    }
+  });
+  const joined=await f.request('b',{action:'training',operation:'toggleJoinTraining',trainingId:'official'});
+  assert.equal(joined.statusCode,200);
+  assert.equal(joined.body.joined,true);
+  assert.deepEqual(f.records.get('trainings/official').participantIds,['b']);
+  assert.deepEqual(f.records.get('chats/training_official').participantIds,['b']);
+  const outbox=[...f.records.keys()].filter(key=>key.startsWith('notificationOutbox/'));
+  assert.equal(outbox.length,0);
+});
+
+test('draft and cancelled official trainings cannot accept new participants',async()=>{
+  for(const officialStatus of ['draft','cancelled']){
+    const f=fixture({
+      'users/b':premium(),
+      'trainings/official':{
+        ...training(),id:'official',isOfficial:true,officialStatus,
+        createdBy:'sportbuddy78-official',participantIds:[],isCompleted:false
+      }
+    });
+    assert.equal((await f.request('b',{action:'training',operation:'toggleJoinTraining',trainingId:'official'})).statusCode,409);
+  }
+});
+
 test('capacity and completed training membership are protected',async()=>{
   const f=fixture({'users/a':premium(),'users/b':premium(),'trainings/t':{...training(),createdBy:'a',participantIds:['a','c']}});
   assert.equal((await f.request('b',{action:'training',operation:'toggleJoinTraining',trainingId:'t'})).statusCode,409);
