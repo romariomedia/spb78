@@ -1,14 +1,15 @@
-import { useEffect,useMemo,useState } from 'react';
+import { lazy,Suspense,useEffect,useMemo,useState } from 'react';
 import { CheckCircle2,Dumbbell,Flag,MapPin,Pencil,Plus,RefreshCw,Save,Trash2,Users,XCircle } from 'lucide-react';
 import { DISTRICTS,districtLabel } from '../../shared/districts.js';
 import { SPORTS } from '../lib/types';
-import { refreshVenues } from '../services/venues';
+import { loadOfficialTrainingVenues } from '../services/venues';
 import { SportVenue } from '../lib/venues';
 import {
   OfficialTraining,OfficialTrainingDraft,cancelOfficialTraining,completeOfficialTraining,
   createOfficialTraining,deleteOfficialTraining,loadOfficialTrainings,updateOfficialTraining
 } from '../services/adminOfficialTrainings';
 
+const TrainingLocationMap = lazy(() => import('./TrainingLocationMap'));
 const field='w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-xs text-white outline-none focus:border-emerald-400';
 
 const STARTER_TEMPLATES=[
@@ -54,12 +55,17 @@ export function AdminOfficialTrainingsPanel(){
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
   const [notice,setNotice]=useState('');
+  const [venueError,setVenueError]=useState('');
+  const [venueSearch,setVenueSearch]=useState('');
 
   const refresh=async()=>{
     setBusy(true);setError('');
     try{
-      const [trainings,venueItems]=await Promise.all([loadOfficialTrainings(),refreshVenues(false)]);
-      setItems(trainings);setVenues(venueItems.filter(v=>v.coordinates));
+      const [trainings,venueResult]=await Promise.allSettled([loadOfficialTrainings(),loadOfficialTrainingVenues()]);
+      if(trainings.status==='fulfilled')setItems(trainings.value);
+      else setError('Не удалось загрузить тренировки. Повторите обновление.');
+      if(venueResult.status==='fulfilled'){setVenues(venueResult.value);setVenueError('');}
+      else setVenueError('Каталог площадок не обновился. Повторите обновление или укажите свою точку на карте.');
     }catch(e){setError(e instanceof Error?e.message:'Не удалось загрузить официальные тренировки');}
     finally{setBusy(false);}
   };
@@ -70,8 +76,8 @@ export function AdminOfficialTrainingsPanel(){
   const chooseVenue=(venueId:string)=>{
     if(!draft)return;
     const venue=venues.find(v=>v.id===venueId);
-    if(!venue?.coordinates){setDraft({...draft,venueId:'',venueName:'',locationName:'',address:'',lat:NaN,lng:NaN});return;}
-    setDraft({...draft,venueId:venue.id,venueName:venue.name,locationName:venue.name,address:venue.address,lat:venue.coordinates.lat,lng:venue.coordinates.lng});
+    if(!venue){setDraft({...draft,venueId:'',venueName:'',locationName:'',address:'',lat:NaN,lng:NaN});return;}
+    setDraft({...draft,venueId:venue.id,venueName:venue.name,locationName:venue.name,address:venue.address,lat:venue.coordinates?.lat??NaN,lng:venue.coordinates?.lng??NaN});
   };
   const applyTemplate=(template:(typeof STARTER_TEMPLATES)[number])=>{
     const base=draft||emptyDraft();
@@ -88,7 +94,8 @@ export function AdminOfficialTrainingsPanel(){
   };
   const save=async()=>{
     if(!draft||busy)return;
-    if(!Number.isFinite(draft.lat)||!Number.isFinite(draft.lng)){setError('Выберите площадку из базы SportBuddy Places.');return;}
+    if(!Number.isFinite(draft.lat)||!Number.isFinite(draft.lng)||Math.abs(draft.lat)>90||Math.abs(draft.lng)>180){setError('Укажите место старта на карте или выберите площадку с координатами.');return;}
+    if(!draft.locationName.trim()){setError('Укажите название места встречи.');return;}
     setBusy(true);setError('');setNotice('');
     const payload={...draft,dateLabel:labelForDate(draft.dateKey)};
     try{
@@ -151,8 +158,28 @@ export function AdminOfficialTrainingsPanel(){
         <label className="text-[10px] text-slate-400">Статус<select className={`${field} mt-1`} value={draft.officialStatus} onChange={e=>setDraft({...draft,officialStatus:e.target.value as OfficialTrainingDraft['officialStatus']})}><option value="draft">Черновик</option><option value="published">Опубликована</option></select></label>
         <label className="text-[10px] text-slate-400">Дата<input type="date" className={`${field} mt-1`} value={draft.dateKey} onChange={e=>setDraft({...draft,dateKey:e.target.value,dateLabel:labelForDate(e.target.value)})}/></label>
         <label className="text-[10px] text-slate-400">Время<input type="time" className={`${field} mt-1`} value={draft.time} onChange={e=>setDraft({...draft,time:e.target.value})}/></label>
-        <label className="md:col-span-2 text-[10px] text-slate-400">Площадка SportBuddy Places<select className={`${field} mt-1`} value={draft.venueId||''} onChange={e=>chooseVenue(e.target.value)}><option value="">Выберите площадку с координатами</option>{venues.map(v=><option key={v.id} value={v.id}>{v.name} · {v.address}</option>)}</select></label>
-        <label className="text-[10px] text-slate-400">Район<select className={`${field} mt-1`} value={draft.districtId||''} onChange={e=>setDraft({...draft,districtId:e.target.value})}><option value="">Не указан</option>{DISTRICTS.filter(d=>d.region==='spb').map(d=><option key={d.id} value={d.id}>{districtLabel(d.id)}</option>)}</select></label>
+        <div className="md:col-span-2 min-w-0 space-y-3 rounded-2xl border border-slate-800 bg-slate-900/50 p-3">
+          <div><p className="text-xs font-black text-white">Место встречи и старта</p><p className="mt-1 text-[11px] text-slate-400">Выберите площадку или поставьте свою точку на карте. Маркер можно перетаскивать — именно здесь участники будут отмечать прибытие.</p></div>
+          {venueError&&<p role="alert" className="text-xs text-amber-300">{venueError}</p>}
+          <label className="block text-xs text-slate-400">Поиск площадки<input type="search" className={`${field} mt-1`} value={venueSearch} onChange={e=>setVenueSearch(e.target.value)} placeholder="Название, адрес или вид спорта"/></label>
+          <label className="block text-xs text-slate-400">Площадка SportBuddy Places · {venues.length}<select className={`${field} mt-1`} value={draft.venueId||''} onChange={e=>chooseVenue(e.target.value)}>
+            <option value="">Своя точка — без привязки к площадке</option>
+            {draft.venueId&&!venues.some(v=>v.id===draft.venueId)&&<option value={draft.venueId}>{draft.venueName||draft.locationName} · сохранённая площадка</option>}
+            {venues.filter(v=>v.id===draft.venueId||`${v.name} ${v.address} ${v.sports.join(' ')}`.toLocaleLowerCase('ru').includes(venueSearch.trim().toLocaleLowerCase('ru'))).map(v=><option key={v.id} value={v.id}>{v.name} · {v.address}{v.isPublished===false?' · скрыта в каталоге':''}{!v.coordinates?' · укажите точку':''}</option>)}
+          </select></label>
+          {draft.venueId&&<p className="text-[11px] text-slate-400">Точка может отличаться от центра площадки: укажите нужный вход или место сбора. Выбор скрытой площадки не публикует её карточку, но название и адрес будут видны в тренировке.</p>}
+          <Suspense fallback={<div className="flex h-80 items-center justify-center text-xs text-slate-400">Загрузка карты…</div>}>
+            <TrainingLocationMap point={Number.isFinite(draft.lat)&&Number.isFinite(draft.lng)&&Math.abs(draft.lat)<=90&&Math.abs(draft.lng)<=180?{lat:draft.lat,lng:draft.lng}:null} onChange={point=>setDraft(previous=>previous?{...previous,...point}:previous)}/>
+          </Suspense>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="text-xs text-slate-400">Место встречи<input className={`${field} mt-1`} maxLength={160} value={draft.locationName} onChange={e=>setDraft({...draft,locationName:e.target.value})} placeholder="Например, главный вход в парк"/></label>
+            <label className="text-xs text-slate-400">Адрес / ориентир<input className={`${field} mt-1`} maxLength={240} value={draft.address} onChange={e=>setDraft({...draft,address:e.target.value})} placeholder="Улица, вход, ближайший ориентир"/></label>
+            <label className="text-xs text-slate-400">Широта<input type="number" step="any" min={-90} max={90} className={`${field} mt-1`} value={Number.isFinite(draft.lat)?draft.lat:''} onChange={e=>setDraft({...draft,lat:e.target.value===''?NaN:Number(e.target.value)})}/></label>
+            <label className="text-xs text-slate-400">Долгота<input type="number" step="any" min={-180} max={180} className={`${field} mt-1`} value={Number.isFinite(draft.lng)?draft.lng:''} onChange={e=>setDraft({...draft,lng:e.target.value===''?NaN:Number(e.target.value)})}/></label>
+          </div>
+          <p className="text-[11px] text-emerald-300">{Number.isFinite(draft.lat)&&Number.isFinite(draft.lng)&&Math.abs(draft.lat)<=90&&Math.abs(draft.lng)<=180?'Точка выбрана. Проверьте место встречи перед публикацией.':'Точка пока не выбрана. Нажмите на карту.'}</p>
+        </div>
+        <label className="text-[10px] text-slate-400">Район<select className={`${field} mt-1`} value={draft.districtId||''} onChange={e=>setDraft({...draft,districtId:e.target.value})}><option value="">Не указан</option>{DISTRICTS.map(d=><option key={d.id} value={d.id}>{districtLabel(d.id)}</option>)}</select></label>
         <label className="text-[10px] text-slate-400">Уровень<select className={`${field} mt-1`} value={draft.level} onChange={e=>setDraft({...draft,level:e.target.value as OfficialTrainingDraft['level']})}><option value="amateur">Начинающие</option><option value="semi-pro">Любители+</option><option value="pro">Профи</option></select></label>
         <label className="text-[10px] text-slate-400">Кто может записаться<select className={`${field} mt-1`} value={draft.participantGender} onChange={e=>setDraft({...draft,participantGender:e.target.value as OfficialTrainingDraft['participantGender']})}><option value="any">Все</option><option value="male">Мужчины</option><option value="female">Женщины</option></select></label>
         <label className="text-[10px] text-slate-400">Количество мест<input type="number" min={2} max={100} className={`${field} mt-1`} value={draft.participantsMax} onChange={e=>setDraft({...draft,participantsMax:Number(e.target.value)})}/></label>

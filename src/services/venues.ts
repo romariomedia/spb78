@@ -1,3 +1,5 @@
+import { venueLocation } from '../lib/venueLocation';
+import { apiBase } from './serverApi';
 import { validVenueCoordinates } from '../../shared/venue-location.js';
 import { SPB_VENUES, SportVenue } from '../lib/venues';
 import { getAdminSession } from './adminAuth';
@@ -43,12 +45,12 @@ function readCache(): SportVenue[] {
   }
 }
 
-function mergeVenueCatalog(managed: Array<Partial<SportVenue> & {id:string}>): SportVenue[] {
+export function mergeVenueCatalog(managed: Array<Partial<SportVenue> & {id:string}>, includeUnpublished = false): SportVenue[] {
   const map = new Map<string, SportVenue>(SPB_VENUES.map(venue => [venue.id, normalizeVenue(venue)]));
   for (const raw of managed) {
     const id = String(raw.id || '').trim();
     if (!id) continue;
-    if ((raw as { archived?: boolean }).archived === true || raw.isPublished === false) {
+    if ((raw as { archived?: boolean }).archived === true || (!includeUnpublished && raw.isPublished === false)) {
       map.delete(id);
       continue;
     }
@@ -62,7 +64,7 @@ async function loadManagedVenues(includeUnpublished:boolean): Promise<Array<Part
   if (includeUnpublished) {
     const session = getAdminSession();
     if (session) {
-      const response = await fetch('/api/admin-mutate-venue', {
+      const response = await fetch(`${apiBase()}/api/admin-mutate-venue`, {
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({sessionId:session.sessionId,operation:'list'})
@@ -72,7 +74,7 @@ async function loadManagedVenues(includeUnpublished:boolean): Promise<Array<Part
       return Array.isArray(data.venues) ? data.venues : [];
     }
   }
-  const response = await fetch('/api/venues');
+  const response = await fetch(`${apiBase()}/api/venues`);
   const data = await response.json().catch(()=>({})) as {venues?:Array<Partial<SportVenue> & {id:string; archived?:boolean}>;error?:string};
   if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
   return Array.isArray(data.venues) ? data.venues : [];
@@ -102,7 +104,7 @@ export async function adminMutateVenue(payload: {
   const session = getAdminSession();
   if (!session) throw new Error('admin-otp-required');
 
-  const response = await fetch('/api/admin-mutate-venue', {
+  const response = await fetch(`${apiBase()}/api/admin-mutate-venue`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ sessionId: session.sessionId, ...payload })
@@ -113,4 +115,10 @@ export async function adminMutateVenue(payload: {
 
 export async function seedVenueCatalog(): Promise<void> {
   await adminMutateVenue({ operation: 'seed', venues: SPB_VENUES });
+}
+
+/** Full administrative catalog; never place unpublished entries in the public cache. */
+export async function loadOfficialTrainingVenues(): Promise<SportVenue[]> {
+  if (!getAdminSession()) throw new Error('admin-otp-required');
+  return mergeVenueCatalog(await loadManagedVenues(true), true).map(venue => ({ ...venue, coordinates: venueLocation(venue) }));
 }

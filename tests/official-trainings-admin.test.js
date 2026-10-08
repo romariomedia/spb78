@@ -82,3 +82,18 @@ test('official training admin cannot mutate a normal user training',async()=>{
   const result=await f.request({operation:'update',sessionId:'live',id:'t',training:draft,requestId:'request_789'});
   assert.equal(result.statusCode,403);
 });
+
+test('official training accepts independent start point and rejects missing or invalid coordinates',async()=>{
+  const f=fixture({'adminSessions/live':liveSession});
+  const created=await f.request({operation:'create',sessionId:'live',training:{...draft,venueId:'',venueName:'',locationName:'Вход в парк',lat:59.97,lng:30.32}});
+  assert.equal(created.statusCode,200);
+  assert.equal(created.body.training.lat,59.97);
+  assert.equal(created.body.training.venueId,'');
+  for(const coordinates of [{lat:null,lng:null},{lat:'',lng:''},{lat:'60',lng:'30'},{lat:91,lng:30},{lat:60,lng:181}]){
+    assert.equal((await f.request({operation:'create',sessionId:'live',training:{...draft,...coordinates}})).statusCode,400);
+  }
+  const updated=await f.request({operation:'update',sessionId:'live',id:created.body.training.id,training:{...draft,venueId:'some-venue',venueName:'Площадка',lat:60.01,lng:30.01}});
+  assert.equal(updated.statusCode,200);
+  assert.equal(updated.body.training.lat,60.01);
+  assert.equal(updated.body.training.venueId,'some-venue');
+});

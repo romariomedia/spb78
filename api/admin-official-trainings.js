@@ -37,7 +37,7 @@ function sanitize(input={},existing={}){
   const status=statuses.has(input.officialStatus)?input.officialStatus:(existing.officialStatus||'draft');
   const startsAt=Date.parse(`${date}T${time}:00+03:00`);
   if((status==='published'||status==='draft')&&startsAt<=Date.now())throw Object.assign(new Error('Официальная тренировка должна быть запланирована на будущее время (МСК).'),{status:400});
-  const lat=Number(input.lat??existing.lat),lng=Number(input.lng??existing.lng);
+  const lat=input.lat===undefined?existing.lat:input.lat,lng=input.lng===undefined?existing.lng:input.lng;
   if(!Number.isFinite(lat)||!Number.isFinite(lng)||Math.abs(lat)>90||Math.abs(lng)>180)throw Object.assign(new Error('Выберите корректную площадку или координаты.'),{status:400});
   const participantsMax=Number(input.participantsMax??existing.participantsMax);
   if(!Number.isInteger(participantsMax)||participantsMax<2||participantsMax>100)throw Object.assign(new Error('Лимит участников: от 2 до 100.'),{status:400});
