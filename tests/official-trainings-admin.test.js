@@ -16,7 +16,7 @@ const {default:handler}=await import('data:text/javascript;base64,'+Buffer.from(
 
 function fixture(initial={}){
   const rows=new Map(Object.entries(initial));
-  const snap=ref=>({id:ref.id,exists:rows.has(ref.path),data:()=>structuredClone(rows.get(ref.path))});
+  const snap=ref=>({id:ref.id,exists:rows.has(ref.path),data:()=>rows.get(ref.path)});
   const ref=path=>({id:path.split('/').at(-1),path,get:async()=>snap({id:path.split('/').at(-1),path}),create:async v=>rows.set(path,structuredClone(v)),set:async(v)=>rows.set(path,structuredClone(v)),delete:async()=>rows.delete(path)});
   const db={
     collection(name){
