@@ -1,7 +1,7 @@
 import { useEffect,useMemo,useState } from 'react';
-import { CheckCircle2,Clock3,Dumbbell,Eye,EyeOff,Flag,MapPin,Pencil,Plus,RefreshCw,Save,Trash2,Users,XCircle } from 'lucide-react';
+import { CheckCircle2,Dumbbell,Flag,MapPin,Pencil,Plus,RefreshCw,Save,Trash2,Users,XCircle } from 'lucide-react';
 import { DISTRICTS,districtLabel } from '../../shared/districts.js';
-import { SPORTS,Training } from '../lib/types';
+import { SPORTS } from '../lib/types';
 import { refreshVenues } from '../services/venues';
 import { SportVenue } from '../lib/venues';
 import {
