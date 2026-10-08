@@ -137,6 +137,7 @@ export function formatCountdown(c: Countdown): string {
 export function getMyUpcoming(trainings: Training[], userId: string): Training[] {
   return trainings
     .filter((t) => t.participantIds.includes(userId) && !t.isCompleted)
+    .filter((t) => !t.isOfficial || t.officialStatus === 'published')
     .filter((t) => msUntilStart(t) > 0)
     .sort((a, b) => msUntilStart(a) - msUntilStart(b));
 }
@@ -146,6 +147,7 @@ export function getActiveTrainings(trainings: Training[]): Training[] {
   const today = toDayKey(new Date());
   return trainings
     .filter((t) => !t.isCompleted)
+    .filter((t) => !t.isOfficial || t.officialStatus === 'published')
     .filter((t) => getTrainingDayKey(t) >= today)
     .sort((a, b) => getTrainingStart(a).getTime() - getTrainingStart(b).getTime());
 }

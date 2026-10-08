@@ -661,16 +661,26 @@ async function trainingMutation(db, uid, body) {
     }
     const startsAt=Date.parse(`${t.dateKey}T${t.time}:00+03:00`);
     if(!Number.isFinite(startsAt)||startsAt<=Date.now())throw Object.assign(new Error('Запись на начавшуюся тренировку закрыта'),{status:409});
-    const userSnap=await tx.get(db.collection('users').doc(uid)),ownerSnap=await tx.get(db.collection('users').doc(t.createdBy));
-    const user=userSnap.exists?userSnap.data():null,owner=ownerSnap.exists?ownerSnap.data():null;
-    if(!user||!owner||user.isSuspended===true||owner.isSuspended===true||cleanArray(user.blockedUserIds).includes(t.createdBy)||cleanArray(owner.blockedUserIds).includes(uid))throw Object.assign(new Error('Запись на тренировку недоступна'),{status:403});
+    const userSnap=await tx.get(db.collection('users').doc(uid));
+    const user=userSnap.exists?userSnap.data():null;
+    let owner=null;
+    if(t.isOfficial!==true){
+      const ownerSnap=await tx.get(db.collection('users').doc(t.createdBy));
+      owner=ownerSnap.exists?ownerSnap.data():null;
+    }
+    if(!user||user.isSuspended===true)throw Object.assign(new Error('Запись на тренировку недоступна'),{status:403});
+    if(t.isOfficial===true){
+      if(t.officialStatus!=='published')throw Object.assign(new Error('Запись на эту официальную тренировку закрыта'),{status:409});
+    }else if(!owner||owner.isSuspended===true||cleanArray(user.blockedUserIds).includes(t.createdBy)||cleanArray(owner.blockedUserIds).includes(uid)){
+      throw Object.assign(new Error('Запись на тренировку недоступна'),{status:403});
+    }
     if (t.participantGender && t.participantGender !== 'any') {
       if (!user?.gender || user.genderSet === false) throw Object.assign(new Error('Укажите пол в профиле для записи'), { status: 403 });
       if (user.gender !== t.participantGender) throw Object.assign(new Error(t.participantGender === 'female' ? 'На эту тренировку могут записаться только женщины' : 'На эту тренировку могут записаться только мужчины'), { status: 403 });
     }
     if (participants.length >= Number(t.participantsMax)) throw Object.assign(new Error('Все места уже заняты'), { status: 409 });
     const next = [...participants, uid];
-    enqueueNotification(tx,db,{id:`training-join:${trainingId}:${uid}:${randomUUID()}`,actorId:uid,recipients:[t.createdBy],category:'trainings',kind:'training_join',title:'Новый участник тренировки',message:String(t.title||'К вашей тренировке присоединились.'),link:'#training='+encodeURIComponent(trainingId)});
+    if(t.isOfficial!==true)enqueueNotification(tx,db,{id:`training-join:${trainingId}:${uid}:${randomUUID()}`,actorId:uid,recipients:[t.createdBy],category:'trainings',kind:'training_join',title:'Новый участник тренировки',message:String(t.title||'К вашей тренировке присоединились.'),link:'#training='+encodeURIComponent(trainingId)});
     tx.update(ref,{participantIds:next});
     if(groupSnap.exists)tx.set(groupRef,{...groupSnap.data(),participantIds:next,updatedAt:new Date().toISOString()},{merge:true});
     else tx.create(groupRef,{...trainingChatBase({...t,id:trainingId,participantIds:next}),participantIds:next});

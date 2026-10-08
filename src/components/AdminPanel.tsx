@@ -28,6 +28,7 @@ import { AdminManagementPanel } from './AdminManagementPanel';
 import { AdminPushPanel } from './AdminPushPanel';
 import { AdminAnnouncementsPanel } from './AdminAnnouncementsPanel';
 import { AdminPartnersPanel } from './AdminPartnersPanel';
+import { AdminOfficialTrainingsPanel } from './AdminOfficialTrainingsPanel';
 import { AdminModerationPanel } from './AdminModerationPanel';
 import { AdminAnalyticsPanel } from './AdminAnalyticsPanel';
 import { AdminSportIdVerificationPanel } from './AdminSportIdVerificationPanel';
@@ -48,7 +49,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 }) => {
   const admin = authorized;
 
-  const [adminView, setAdminView] = useState<'overview'|'analytics'|'manage'|'verification'|'moderation'|'push'|'announcements'|'partners'|'venues'|'leisure'|'events'|'audit'>('overview');
+  const [adminView, setAdminView] = useState<'overview'|'analytics'|'manage'|'verification'|'moderation'|'push'|'announcements'|'partners'|'officialTrainings'|'venues'|'leisure'|'events'|'audit'>('overview');
   const [creating, setCreating] = useState(false);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -224,6 +225,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               ['push','Push'],
               ['announcements','Объявления'],
               ['partners','Партнёры'],
+              ['officialTrainings','Офиц. тренировки'],
               ['venues','Площадки'],
               ['leisure','Отдых'],
               ['events','События'],
@@ -248,6 +250,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           {adminView === 'push' && <AdminPushPanel />}
           {adminView === 'announcements' && <AdminAnnouncementsPanel />}
           {adminView === 'partners' && <AdminPartnersPanel />}
+          {adminView === 'officialTrainings' && <AdminOfficialTrainingsPanel />}
           {adminView === 'venues' && <PlacesAdminPanel />}
           {adminView === 'leisure' && <LeisureAdminPanel />}
           {adminView === 'audit' && <AdminAuditPanel />}
