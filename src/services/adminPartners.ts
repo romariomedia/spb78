@@ -1,3 +1,4 @@
+import { apiBase } from './serverApi';
 import { getAdminSession } from './adminAuth';
 
 export type PartnerMediaType='none'|'image'|'video';
@@ -10,7 +11,7 @@ export type PartnerDraft=Omit<AdminPartner,'id'|'createdAt'|'updatedAt'>;
 
 async function post<T>(body:Record<string,unknown>):Promise<T>{
   const session=getAdminSession();if(!session)throw new Error('admin-otp-required');
-  const response=await fetch('/api/admin-partners',{
+  const response=await fetch(`${apiBase()}/api/admin-partners`,{
     method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({...body,sessionId:session.sessionId})
   });

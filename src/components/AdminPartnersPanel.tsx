@@ -50,7 +50,7 @@ export function AdminPartnersPanel(){
     });setError('');setNotice('');
   };
   const save=async()=>{
-    if(!draft)return;
+    if(!draft||busy||uploading)return;
     setBusy(true);setError('');setNotice('');
     const payload={...draft,startAt:iso(draft.startAt),endAt:iso(draft.endAt)};
     try{
@@ -66,7 +66,8 @@ export function AdminPartnersPanel(){
   };
 
   const upload=async(file:File|undefined,kind:'logo'|'cover'|'media')=>{
-    if(!file||!draft)return;
+    if(!file||!draft||uploading||busy)return;
+    if(!file.type.startsWith('image/') && !(kind==='media'&&file.type.startsWith('video/'))){setError('Выберите фото или видео подходящего формата');return;}
     setUploading(kind);setError('');
     try{
       const isVideo=kind==='media'&&file.type.startsWith('video/');
@@ -90,14 +91,14 @@ export function AdminPartnersPanel(){
         <p className="mt-1 text-[10px] text-slate-500">Акции, реклама, логотипы и медиа в Ленте без нового deploy</p>
       </div>
       <div className="flex gap-2">
-        <button onClick={()=>void refresh()} disabled={busy} className="rounded-xl border border-slate-700 bg-slate-900 p-2.5 text-slate-300"><RefreshCw className={`h-4 w-4 ${busy?'animate-spin':''}`}/></button>
-        <button onClick={()=>{setEditingId('');setDraft(empty());setError('');setNotice('');}} className="flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3 py-2.5 text-[11px] font-black text-slate-950"><Plus className="h-4 w-4"/>Добавить партнёра</button>
+        <button aria-label="Обновить список партнёров" onClick={()=>void refresh()} disabled={busy||uploading!==null} className="rounded-xl border border-slate-700 bg-slate-900 p-2.5 text-slate-300"><RefreshCw className={`h-4 w-4 ${busy?'animate-spin':''}`}/></button>
+        <button disabled={busy||uploading!==null} onClick={()=>{setEditingId('');setDraft(empty());setError('');setNotice('');}} className="flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3 py-2.5 text-[11px] font-black text-slate-950"><Plus className="h-4 w-4"/>Добавить партнёра</button>
       </div>
     </div>
 
     <div className={`flex items-center justify-between gap-4 rounded-2xl border p-4 ${visible?'border-emerald-500/35 bg-emerald-950/15':'border-slate-800 bg-slate-950'}`}>
       <div><p className="text-xs font-black text-white">Раздел в Ленте</p><p className="mt-1 text-[10px] text-slate-500">{visible?'Пользователи видят активных партнёров.':'Полностью скрыт. Можно заранее наполнить контентом.'}</p></div>
-      <button onClick={()=>void toggleVisible()} disabled={busy} className={`flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-[10px] font-black ${visible?'bg-emerald-500 text-slate-950':'border border-slate-700 bg-slate-900 text-slate-300'}`}>
+      <button onClick={()=>void toggleVisible()} disabled={busy||uploading!==null} className={`flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-[10px] font-black ${visible?'bg-emerald-500 text-slate-950':'border border-slate-700 bg-slate-900 text-slate-300'}`}>
         {visible?<Eye className="h-4 w-4"/>:<EyeOff className="h-4 w-4"/>}{visible?'Включён':'Скрыт'}
       </button>
     </div>
@@ -108,7 +109,7 @@ export function AdminPartnersPanel(){
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,.85fr)]">
       <div className="space-y-3">
         {draft?<div className="rounded-2xl border border-emerald-500/25 bg-slate-950 p-4">
-          <div className="mb-3 flex items-center justify-between"><div><p className="text-xs font-black text-white">{editingId?'Редактирование партнёра':'Новый партнёр'}</p><p className="text-[9px] text-slate-500">Заполните карточку и опубликуйте, когда интеграция готова</p></div><button onClick={()=>{setDraft(null);setEditingId('');}} className="rounded-lg p-2 text-slate-400"><X className="h-4 w-4"/></button></div>
+          <div className="mb-3 flex items-center justify-between"><div><p className="text-xs font-black text-white">{editingId?'Редактирование партнёра':'Новый партнёр'}</p><p className="text-[9px] text-slate-500">Заполните карточку и опубликуйте, когда интеграция готова</p></div><button disabled={busy||uploading!==null} aria-label="Закрыть карточку" onClick={()=>{setDraft(null);setEditingId('');}} className="rounded-lg p-2 text-slate-400"><X className="h-4 w-4"/></button></div>
           <div className="grid gap-3 md:grid-cols-2">
             <label className="text-[10px] text-slate-400">Название партнёра<input maxLength={100} className={`${field} mt-1`} value={draft.name} onChange={e=>setDraft({...draft,name:e.target.value})}/></label>
             <label className="text-[10px] text-slate-400">Подпись<input maxLength={60} className={`${field} mt-1`} value={draft.partnerLabel} onChange={e=>setDraft({...draft,partnerLabel:e.target.value})}/></label>
@@ -130,18 +131,18 @@ export function AdminPartnersPanel(){
               ['media','Медиа','image/*,video/*',mediaRef]
             ] as const).map(([kind,label,accept,ref])=><div key={kind} className="rounded-xl border border-slate-800 bg-slate-900 p-3">
               <p className="mb-2 text-[10px] font-black text-slate-300">{label}</p>
-              <button onClick={()=>ref.current?.click()} disabled={uploading!==null} className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-slate-600 py-3 text-[10px] font-bold text-slate-300">
+              <button onClick={()=>ref.current?.click()} disabled={busy||uploading!==null} className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-slate-600 py-3 text-[10px] font-bold text-slate-300">
                 {kind==='media'?<Video className="h-4 w-4"/>:<ImagePlus className="h-4 w-4"/>}{uploading===kind?'Загрузка…':'Загрузить'}
               </button>
-              <input ref={ref} type="file" accept={accept} className="hidden" onChange={e=>void upload(e.target.files?.[0],kind)}/>
+              <input ref={ref} type="file" accept={accept} className="hidden" onChange={e=>{const file=e.target.files?.[0];e.target.value='';void upload(file,kind);}}/>
               {kind==='logo'&&draft.logoUrl&&<img src={draft.logoUrl} alt="" className="mt-2 h-20 w-full rounded-xl object-contain bg-slate-950"/>}
               {kind==='cover'&&draft.coverUrl&&<img src={draft.coverUrl} alt="" className="mt-2 h-20 w-full rounded-xl object-cover"/>}
               {kind==='media'&&draft.mediaUrl&&(draft.mediaType==='video'?<video src={draft.mediaUrl} poster={videoPoster(draft.mediaUrl,480)} controls className="mt-2 h-20 w-full rounded-xl object-cover bg-black"/>:<img src={draft.mediaUrl} alt="" className="mt-2 h-20 w-full rounded-xl object-cover"/>)}
             </div>)}
           </div>
 
-          <button onClick={()=>void save()} disabled={busy} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 py-3 text-xs font-black text-slate-950 disabled:opacity-50"><Save className="h-4 w-4"/>Сохранить партнёра</button>
-        </div>:<button onClick={()=>{setEditingId('');setDraft(empty());}} className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-700 bg-slate-950 py-6 text-xs font-bold text-slate-400 hover:border-emerald-500/40 hover:text-emerald-300"><Handshake className="h-4 w-4"/>Создать первую партнёрскую карточку</button>}
+          <button onClick={()=>void save()} disabled={busy||uploading!==null} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 py-3 text-xs font-black text-slate-950 disabled:opacity-50"><Save className="h-4 w-4"/>Сохранить партнёра</button>
+        </div>:<button disabled={busy||uploading!==null} onClick={()=>{setEditingId('');setDraft(empty());}} className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-700 bg-slate-950 py-6 text-xs font-bold text-slate-400 hover:border-emerald-500/40 hover:text-emerald-300"><Handshake className="h-4 w-4"/>Создать первую партнёрскую карточку</button>}
 
         <div className="grid gap-2 md:grid-cols-2">
           {items.map(item=><article key={item.id} className="rounded-2xl border border-slate-800 bg-slate-950 p-3">
@@ -150,7 +151,7 @@ export function AdminPartnersPanel(){
               <div className="min-w-0 flex-1"><p className="truncate text-[11px] font-black text-white">{item.name}</p><p className="mt-1 line-clamp-2 text-[9px] leading-relaxed text-slate-400">{item.offerTitle}</p></div>
             </div>
             <div className="mt-2 flex gap-1 text-[9px]"><span className={`rounded-full px-2 py-1 ${item.isActive?'bg-emerald-500/15 text-emerald-300':'bg-slate-800 text-slate-400'}`}>{item.isActive?'Активен':'Черновик'}</span>{item.promoCode&&<span className="rounded-full bg-amber-500/10 px-2 py-1 text-amber-300">Промокод</span>}</div>
-            <div className="mt-3 grid grid-cols-2 gap-2"><button onClick={()=>edit(item)} className="flex items-center justify-center gap-1 rounded-xl border border-slate-700 bg-slate-900 py-2 text-[10px] font-bold text-slate-200"><Pencil className="h-3.5 w-3.5"/>Изменить</button><button onClick={()=>void remove(item)} className="flex items-center justify-center gap-1 rounded-xl border border-rose-500/30 bg-rose-500/10 py-2 text-[10px] font-bold text-rose-300"><Trash2 className="h-3.5 w-3.5"/>Удалить</button></div>
+            <div className="mt-3 grid grid-cols-2 gap-2"><button disabled={busy||uploading!==null} onClick={()=>edit(item)} className="flex items-center justify-center gap-1 rounded-xl border border-slate-700 bg-slate-900 py-2 text-[10px] font-bold text-slate-200"><Pencil className="h-3.5 w-3.5"/>Изменить</button><button disabled={busy||uploading!==null} onClick={()=>void remove(item)} className="flex items-center justify-center gap-1 rounded-xl border border-rose-500/30 bg-rose-500/10 py-2 text-[10px] font-bold text-rose-300"><Trash2 className="h-3.5 w-3.5"/>Удалить</button></div>
           </article>)}
         </div>
       </div>

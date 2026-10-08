@@ -13,12 +13,20 @@ export function PartnerFeedSection(){
   const [items,setItems]=useState<FeedPartner[]>([]);
   useEffect(()=>{
     let alive=true;
-    void loadFeedPartners().then(result=>{
-      if(!alive)return;
-      setVisible(result.visible);
-      setItems(result.partners);
-    }).catch(()=>{});
-    return()=>{alive=false;};
+    let loading=false;
+    const refresh=async()=>{
+      if(loading||document.visibilityState==='hidden')return;
+      loading=true;
+      try{
+        const result=await loadFeedPartners();
+        if(alive){setVisible(result.visible);setItems(result.partners);}
+      }catch{if(alive){setVisible(false);setItems([]);}}
+      finally{loading=false;}
+    };
+    void refresh();
+    const timer=setInterval(()=>void refresh(),60_000);
+    document.addEventListener('visibilitychange',refresh);
+    return()=>{alive=false;clearInterval(timer);document.removeEventListener('visibilitychange',refresh);};
   },[]);
 
   if(!visible||items.length===0)return null;
@@ -39,17 +47,17 @@ export function PartnerFeedSection(){
         <div className="relative h-40 overflow-hidden bg-slate-950">
           {item.mediaType==='video'&&item.mediaUrl?(
             <video src={item.mediaUrl} poster={videoPoster(item.mediaUrl,720)} controls playsInline preload="metadata" className="h-full w-full object-cover"/>
-          ):(
+          ):(item.mediaUrl||item.coverUrl)?(
             <img
               src={cldUrl(item.mediaUrl||item.coverUrl,{width:900,crop:'fill',quality:'auto:good'})||item.coverUrl}
               alt={item.name}
               loading="lazy" decoding="async"
               className="h-full w-full object-cover"
             />
-          )}
+          ):null}
           {!item.mediaUrl&&!item.coverUrl&&<div className="flex h-full items-center justify-center bg-gradient-to-br from-emerald-950/60 to-slate-950"><Handshake className="h-12 w-12 text-emerald-400/50"/></div>}
-          <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-slate-950 to-transparent"/>
-          <div className="absolute left-3 top-3 flex items-center gap-2">
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-slate-950 to-transparent"/>
+          <div className="pointer-events-none absolute left-3 top-3 flex items-center gap-2">
             <div className="h-11 w-11 overflow-hidden rounded-2xl border border-white/10 bg-slate-950/90 shadow-lg">
               {item.logoUrl?<img src={cldUrl(item.logoUrl,{width:120,height:120,crop:'fill'})} alt="" className="h-full w-full object-cover"/>:<div className="flex h-full w-full items-center justify-center"><Handshake className="h-5 w-5 text-emerald-400"/></div>}
             </div>
@@ -58,7 +66,7 @@ export function PartnerFeedSection(){
               <p className="max-w-[180px] truncate text-xs font-black text-white">{item.name}</p>
             </div>
           </div>
-          {item.mediaType==='video'&&<span className="absolute right-3 top-3 rounded-xl bg-slate-950/75 p-2 text-white backdrop-blur"><Video className="h-4 w-4"/></span>}
+          {item.mediaType==='video'&&<span className="pointer-events-none absolute right-3 top-3 rounded-xl bg-slate-950/75 p-2 text-white backdrop-blur"><Video className="h-4 w-4"/></span>}
         </div>
 
         <div className="p-3.5">
@@ -67,7 +75,7 @@ export function PartnerFeedSection(){
           {item.promoCode&&<div className="mt-3 flex items-center gap-2 rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2">
             <Tag className="h-3.5 w-3.5 text-amber-300"/>
             <span className="text-[10px] text-slate-400">Промокод</span>
-            <strong className="ml-auto text-[11px] tracking-wider text-amber-200">{item.promoCode}</strong>
+            <strong className="ml-auto break-all text-[11px] tracking-wider text-amber-200">{item.promoCode}</strong>
           </div>}
           {item.ctaUrl&&<button onClick={()=>openPartner(item.ctaUrl)} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 py-2.5 text-[11px] font-black text-slate-950 transition active:scale-[.98]">
             <Gift className="h-4 w-4"/>{item.ctaLabel||'Подробнее'}<ExternalLink className="h-3.5 w-3.5"/>

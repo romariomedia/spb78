@@ -2876,7 +2876,7 @@ export default function App(): JSX.Element {
                   className="hidden"
                 />
 
-                <PartnerFeedSection />
+                <PartnerFeedSection key={currentUser?.id} />
 
                 {/* Feed — virtualised: only visible posts stay mounted */}
                 <Virtuoso

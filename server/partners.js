@@ -6,7 +6,7 @@ function safeHttpsUrl(value,max=1800){
   if(!url)return '';
   try{
     const parsed=new URL(url);
-    return parsed.protocol==='https:'?url:'';
+    return parsed.protocol==='https:' && !parsed.username && !parsed.password ? url : '';
   }catch{return '';}
 }
 
@@ -19,6 +19,7 @@ function dateValue(value){
 }
 
 export function sanitizePartner(input={},existing={}){
+  if(!input || typeof input!=='object' || Array.isArray(input))throw Object.assign(new Error('Некорректная карточка партнёра.'),{status:400});
   const name=clean(input.name??existing.name,100);
   if(name.length<2)throw Object.assign(new Error('Укажите название партнёра.'),{status:400});
   const offerTitle=clean(input.offerTitle??existing.offerTitle,120);
@@ -36,7 +37,7 @@ export function sanitizePartner(input={},existing={}){
   if((input.ctaUrl??existing.ctaUrl)&&!ctaUrl)throw Object.assign(new Error('Ссылка партнёра должна использовать https.'),{status:400});
 
   const requestedType=clean(input.mediaType??existing.mediaType,20);
-  const mediaType=mediaTypes.has(requestedType)?requestedType:(mediaUrl?'image':'none');
+  const mediaType=mediaUrl?(mediaTypes.has(requestedType)&&requestedType!=='none'?requestedType:'image'):'none';
   const startAt=dateValue(input.startAt??existing.startAt);
   const endAt=dateValue(input.endAt??existing.endAt);
   if(startAt&&endAt&&Date.parse(endAt)<=Date.parse(startAt))throw Object.assign(new Error('Дата окончания должна быть позже даты начала.'),{status:400});
@@ -61,7 +62,8 @@ export function sanitizePartner(input={},existing={}){
 }
 
 export function partnerIsPublished(item,now=Date.now()){
-  if(!item||item.isActive===false)return false;
+  if(!item||item.isActive!==true)return false;
+  if((item.startAt&&!Number.isFinite(Date.parse(item.startAt)))||(item.endAt&&!Number.isFinite(Date.parse(item.endAt))))return false;
   const start=Date.parse(item.startAt||'');
   if(Number.isFinite(start)&&start>now)return false;
   const end=Date.parse(item.endAt||'');
