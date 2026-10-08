@@ -408,6 +408,11 @@ export interface Training {
   participantsMax: number;
   participantIds: string[];
   description: string;
+  /** Official activities created by the SportBuddy78 admin, never fake user content. */
+  isOfficial?: boolean;
+  officialOrganizerName?: string;
+  officialStatus?: 'draft' | 'published' | 'completed' | 'cancelled';
+  cancelledAt?: string;
   /** Optional SportBuddy Places reference selected by the organizer. */
   venueId?: string;
   venueName?: string;
