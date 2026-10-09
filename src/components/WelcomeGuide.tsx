@@ -51,7 +51,7 @@ export function WelcomeGuide({isOpen,onClose,userName,onStart,initialSlide=0}:We
     {slides.map((item,i)=><button key={item.id} aria-current={i===index?'step':undefined} onClick={()=>go(i)}><span>{String(i+1).padStart(2,'0')}</span>{item.label}</button>)}
    </nav>
    <div className="sb-guide-body" ref={scroll}>
-    <figure className="sb-guide-art" key={'art-'+slide.art}>
+    <figure className="sb-guide-art" key={'art-'+slide.id}>
      <img src={`/guide/${slide.art}.webp`} alt="" width="941" height="1672" decoding="async"/>
      <div className="sb-guide-art-shade"/>
      <figcaption><MapPin size={13}/> Санкт-Петербург и дальше</figcaption>
