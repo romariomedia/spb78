@@ -3,6 +3,7 @@ import { ArrowRight, ChevronLeft, ChevronRight, X, Zap, MapPin, BookOpen } from 
 import { triggerHapticImpact, triggerHapticNotification } from '../services/native';
 import { guideChapters } from './welcomeGuideContent';
 import './WelcomeGuide.css';
+import { WelcomeGuideArtwork } from './WelcomeGuideArtwork';
 
 const GUIDE_SEEN_KEY='sportbuddy_welcome_guide_v2';
 export function hasSeenWelcomeGuide():boolean {try{return localStorage.getItem(GUIDE_SEEN_KEY)==='1';}catch{return false;}}
@@ -52,16 +53,15 @@ export function WelcomeGuide({isOpen,onClose,userName,onStart,initialSlide=0}:We
    </nav>
    <div className="sb-guide-body" ref={scroll}>
     <figure className="sb-guide-art" key={'art-'+slide.id}>
-     <img src={`/guide/${slide.art}.webp`} alt="" width="941" height="1672" decoding="async"/>
+     <WelcomeGuideArtwork key={slide.id} art={slide.art}/>
      <div className="sb-guide-art-shade"/>
      <figcaption><MapPin size={13}/> Санкт-Петербург и дальше</figcaption>
-     <span className="sb-guide-art-note">Визуальная иллюстрация</span>
     </figure>
     <article key={slide.id} className="sb-guide-copy">
      <p className="sb-guide-kicker">{index===0&&userName?`Привет, ${userName.split(' ')[0]}!`:slide.eyebrow}</p>
      <h2 id="sb-guide-title" aria-live="polite">{slide.title}<em>{slide.accent}</em></h2>
      <p className="sb-guide-lead">{slide.lead}</p>
-     <ol className="sb-guide-steps">{slide.points.map(([title,detail],i)=><li key={title}><span className="sb-guide-number">0{i+1}</span><div><h3>{title}</h3><p>{detail}</p></div></li>)}</ol>
+     {slide.points.length > 0 && <ol className="sb-guide-steps">{slide.points.map(([title,detail],i)=><li key={title}><span className="sb-guide-number">0{i+1}</span><div><h3>{title}</h3><p>{detail}</p></div></li>)}</ol>}
      <aside className="sb-guide-tip"><BookOpen size={17}/><p>{slide.tip}</p></aside>
     </article>
    </div>
