@@ -97,6 +97,7 @@ import { VerificationStepId, SPORTS, SPORT_FILTERS, SPORT_TAGS } from './lib/typ
 import { getVerificationState, syncVerification, deleteExpiredUnverifiedProfile } from './services/verification';
 import { seedPresence, registerMyPresence } from './services/presence';
 import { OfficialEvents } from './components/OfficialEvents';
+import { CitySportsEvents } from './components/CitySportsEvents';
 import { OfficialEvent } from './lib/types';
 import {
   isAdmin, toggleEventRegistration, isRegistered,
@@ -2225,6 +2226,15 @@ export default function App(): JSX.Element {
                       </button>
                     ))}
                   </div>
+                )}
+
+                {/* City spectator events: weekly sports calendar + find company + verified ticket sources */}
+                {currentUser && (
+                  <CitySportsEvents
+                    currentUser={currentUser}
+                    onOpenEvent={(e) => setSelectedEvent(e)}
+                    refreshKey={eventsRefreshKey}
+                  />
                 )}
 
                 {/* Official SportBuddy events */}
