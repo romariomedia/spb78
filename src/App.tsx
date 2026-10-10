@@ -2823,9 +2823,9 @@ export default function App(): JSX.Element {
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center justify-between gap-2">
                                   <h4 className="text-sm font-extrabold text-white truncate flex items-center gap-1">
-                                    {isTraining?thread.trainingTitle:companion!.name}
-                                    {isTraining ? (
-                                      <span className={`text-[8px] font-black ${thread.archivedAt?'text-slate-500':'text-cyan-300'}`}>{thread.archivedAt?'АРХИВ':'ГРУППА'}</span>
+                                    {isTraining?thread.trainingTitle:isEvent?thread.eventTitle:companion!.name}
+                                    {isGroup ? (
+                                      <span className={`text-[8px] font-black ${thread.archivedAt?'text-slate-500':isEvent?'text-sky-300':'text-cyan-300'}`}>{thread.archivedAt?'АРХИВ':'ГРУППА'}</span>
                                     ) : companion!.subscriptionPlan==='premium'&&(
                                       <Crown className="w-3 h-3 fill-amber-400 text-amber-400 shrink-0"/>
                                     )}
