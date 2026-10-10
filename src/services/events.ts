@@ -248,6 +248,7 @@ export interface EventDraft {
   dateKey?: string;
   startsAt?: number;
   league?: string;
+  isMediaLeague?: boolean;
   homeTeam?: string;
   awayTeam?: string;
   officialSourceUrl?: string;
