@@ -186,15 +186,19 @@ export function getEvents(includeeDrafts = false): OfficialEvent[] {
     });
 }
 
-export function getUpcomingCityEvents(days=7,now=Date.now()): OfficialEvent[] {
+export function filterUpcomingCityEvents(all:OfficialEvent[],days=30,now=Date.now()):OfficialEvent[] {
   const horizon=now+Math.max(1,days)*86400000;
-  return getEvents().filter(event=>
+  return all.filter(event=>
+    event.status==='published' &&
     event.category==='spectator' &&
-    (event.isMediaLeague===true ? Boolean(event.organizerUrl && event.officialSourceUrl) : event.ticketVerified===true && Boolean(event.ticketUrl) && Boolean(event.officialSourceUrl)) &&
     Number.isFinite(Number(event.startsAt)) &&
     Number(event.startsAt)>=now-2*60*60*1000 &&
     Number(event.startsAt)<=horizon
-  );
+  ).sort((a,b)=>Number(a.startsAt)-Number(b.startsAt));
+}
+
+export function getUpcomingCityEvents(days=30,now=Date.now()):OfficialEvent[]{
+  return filterUpcomingCityEvents(getEvents(),days,now);
 }
 
 export function verifiedTicketUrl(event:OfficialEvent):string {
