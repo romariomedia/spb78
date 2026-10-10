@@ -37,7 +37,7 @@ export const CitySportsEvents:React.FC<Props>=({currentUser,refreshKey,onOpenCha
   const [loaded,setLoaded]=useState(false);
 
   useEffect(()=>{
-    void refreshEvents().then(()=>setEvents(getUpcomingCityEvents(7))).catch(()=>{});
+    void refreshEvents().then(all=>{setEvents(filterUpcomingCityEvents(all,30));setLoadError(false);setLoaded(true);}).catch(()=>{setLoadError(true);setLoaded(true);});
   },[refreshKey]);
 
   const visible=useMemo(()=>events.filter(event=>{
