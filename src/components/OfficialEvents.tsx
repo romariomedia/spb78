@@ -18,8 +18,8 @@ export const OfficialEvents: React.FC<OfficialEventsProps> = ({
   currentUser, onOpenEvent, isAdminUser, onOpenAdmin, refreshKey
 }) => {
   const [filter, setFilter] = useState<'all' | 'mine'>('all');
-  const [events, setEvents] = useState(() => getEvents());
-  useEffect(() => { void refreshEvents().then(setEvents).catch(() => {}); }, [refreshKey]);
+  const [events, setEvents] = useState(() => getEvents().filter(event=>event.category!=='spectator'));
+  useEffect(() => { void refreshEvents().then(items=>setEvents(items.filter(event=>event.category!=='spectator'))).catch(() => {}); }, [refreshKey]);
 
   const visible = filter === 'mine'
     ? events.filter((e) => isRegistered(e, currentUser.id))
