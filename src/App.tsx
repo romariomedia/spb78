@@ -3221,6 +3221,42 @@ export default function App(): JSX.Element {
           selectedEvent && currentUser && (() => {
             const registered = isRegistered(selectedEvent, currentUser.id);
             const full = selectedEvent.participantIds.length >= selectedEvent.participantsMax;
+            if(selectedEvent.category==='spectator'){
+              const ticketUrl=verifiedTicketUrl(selectedEvent);
+              return (
+                <div className="grid grid-cols-2 gap-2 w-full">
+                  <button
+                    onClick={() => shareContent(
+                      `Идём на: ${selectedEvent.title}`,
+                      `${selectedEvent.tagline} • ${selectedEvent.dateLabel} • ${selectedEvent.locationName}`,
+                      window.location.href
+                    )}
+                    className="px-3 py-3 bg-slate-800 text-slate-200 font-bold rounded-2xl text-xs flex items-center justify-center gap-1.5"
+                  >
+                    <Share2 className="w-4 h-4" /> Поделиться
+                  </button>
+                  {ticketUrl ? (
+                    <a href={ticketUrl} target="_blank" rel="noopener noreferrer"
+                      className="px-3 py-3 bg-amber-400/10 border border-amber-400/40 text-amber-300 font-black rounded-2xl text-xs flex items-center justify-center gap-1.5">
+                      <Ticket className="w-4 h-4"/> Купить билет
+                    </a>
+                  ) : <span />}
+                  {registered && (
+                    <button onClick={()=>void openEventGroupChat(selectedEvent)}
+                      className="px-3 py-3 bg-sky-500/15 border border-sky-500/40 text-sky-300 font-black rounded-2xl text-xs">
+                      💬 Чат события
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleToggleEventRegistration(selectedEvent)}
+                    disabled={!registered && full}
+                    className={`py-3 font-black rounded-2xl text-xs transition ${registered?'bg-rose-500 text-white':full?'bg-slate-800 text-slate-500':'bg-sky-400 text-slate-950'}`}
+                  >
+                    {registered?'Не иду':full?'Лимит группы достигнут':'Иду / ищу компанию'}
+                  </button>
+                </div>
+              );
+            }
             return (
               <div className="flex gap-2 w-full">
                 <button
@@ -3274,7 +3310,7 @@ export default function App(): JSX.Element {
 
             <div>
               <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase bg-emerald-500 text-slate-950 px-2 py-1 rounded-lg mb-2">
-                ✓ Официальное мероприятие
+                ✓ {selectedEvent.category==='spectator'?'Источник и билеты проверены':'Официальное мероприятие'}
               </span>
               <h3 className="text-lg font-black text-white leading-snug">{selectedEvent.title}</h3>
               <p className="text-emerald-400 font-semibold mt-0.5">{selectedEvent.tagline}</p>
