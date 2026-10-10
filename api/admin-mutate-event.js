@@ -125,12 +125,14 @@ export default async function handler(req, res) {
     if (operation === 'update' && (!patch || typeof patch !== 'object')) return res.status(400).json({ error: 'Patch required.' });
 
     const ref = db.doc(`events/${eventId}`);
+    const eventChatRef = db.doc(`chats/event_${eventId}`);
     let auditBefore = null;
     let auditAfter = null;
     let notify = null;
 
     await db.runTransaction(async tx => {
       const before = await tx.get(ref);
+      const chatBefore = await tx.get(eventChatRef);
       const old = before.exists ? before.data() : null;
       auditBefore = old;
 
@@ -148,6 +150,14 @@ export default async function handler(req, res) {
       }
 
       const next = auditAfter;
+      if (chatBefore.exists) {
+        const now = new Date().toISOString();
+        if (!next || next.status !== 'published') {
+          tx.set(eventChatRef, { archivedAt: now }, { merge: true });
+        } else if (chatBefore.data()?.archivedAt) {
+          tx.set(eventChatRef, { archivedAt: null, participantIds: Array.isArray(next.participantIds) ? next.participantIds : [] }, { merge: true });
+        }
+      }
       const newlyPublished = next?.status === 'published' && old?.status !== 'published';
       const participants = Array.isArray(old?.participantIds) ? old.participantIds : [];
       if (newlyPublished || (old?.status === 'published' && participants.length)) {
@@ -159,7 +169,7 @@ export default async function handler(req, res) {
           category:'events',
           kind:newlyPublished?'event_new':'event_update',
           entityId:eventId,
-          title:newlyPublished?'Новое событие SportBuddy':next?.status==='published'?'Событие обновлено':'Событие снято с публикации',
+          title:newlyPublished?(next?.category==='spectator'?'Новое спортивное событие Петербурга':'Новое событие SportBuddy'):next?.status==='published'?'Событие обновлено':'Событие снято с публикации',
           message:String(next?.title||old?.title||'Откройте раздел событий.'),
           link:next?.status==='published'?'#event='+encodeURIComponent(eventId):'#events'
         };
