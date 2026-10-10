@@ -92,7 +92,8 @@ function wrap(value,maxChars=28,maxLines=3){
   const words=clean(value,160).split(' ').filter(Boolean),lines=[];
   for(const word of words){
     const current=lines.at(-1)||'';
-    if(!current||current.length+1+word.length<=maxChars)lines[lines.length-1]=(current+' '+word).trim();
+    if(!current)lines.push(word);
+    else if(current.length+1+word.length<=maxChars)lines[lines.length-1]=current+' '+word;
     else if(lines.length<maxLines)lines.push(word);
     else { lines[maxLines-1]=(lines[maxLines-1]+'…').slice(0,maxChars); break; }
   }
