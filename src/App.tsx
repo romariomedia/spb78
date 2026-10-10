@@ -2249,7 +2249,7 @@ export default function App(): JSX.Element {
                 {currentUser && (
                   <CitySportsEvents
                     currentUser={currentUser}
-                    onOpenEvent={(e) => setSelectedEvent(e)}
+                    onOpenChat={(event)=>void openEventGroupChat(event)}
                     refreshKey={eventsRefreshKey}
                   />
                 )}
