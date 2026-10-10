@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, ExternalLink, ShieldCheck, Trash2, X } from 'lucide-react';
 import { EventStatus, OfficialEvent, UserProfile } from '../lib/types';
 import { createEvent, refreshEvents, removeEvent, updateEvent, validateEventDraft, EventDraft } from '../services/events';
+import { LEAGUE_SPORT, LEAGUE_VENUES, teamsForLeague, venuesForLeague, eventMatchTitle } from '../lib/eventAdminPresets';
 
 interface Props { currentUser:UserProfile; onChanged:()=>void }
 
@@ -35,6 +36,24 @@ export const CitySportsEventsAdminPanel:React.FC<Props>=({currentUser,onChanged}
 
   const load=async()=>{const all=await refreshEvents();setEvents(all.filter(e=>e.category==='spectator'));};
   useEffect(()=>{void load().catch(()=>{});},[]);
+  const availableTeams=useMemo(()=>isMediaLeague?[]:teamsForLeague(league),[league,isMediaLeague]);
+  const availableVenues=useMemo(()=>isMediaLeague?[]:venuesForLeague(league),[league,isMediaLeague]);
+  const useLeague=(next:string)=>{
+    setLeague(next);
+    if(next in LEAGUE_SPORT)setSport(LEAGUE_SPORT[next as keyof typeof LEAGUE_SPORT]);
+    setHomeTeam('');setAwayTeam('');setTitle('');
+    setLocationName('');setAddress('');setLat('');setLng('');
+  };
+  const useTeams=(home:string,away:string)=>{
+    if(home && away && home===away)return;
+    setHomeTeam(home);setAwayTeam(away);
+    const next=eventMatchTitle(home,away);if(next)setTitle(next);
+  };
+  const useVenue=(id:string)=>{
+    const selected=LEAGUE_VENUES.find(v=>v.id===id);
+    if(!selected)return;
+    setLocationName(selected.name);setAddress(selected.address);setLat(String(selected.lat));setLng(String(selected.lng));
+  };
   const sorted=useMemo(()=>[...events].sort((a,b)=>Number(a.startsAt||0)-Number(b.startsAt||0)),[events]);
 
   const reset=()=>{
@@ -88,12 +107,22 @@ export const CitySportsEventsAdminPanel:React.FC<Props>=({currentUser,onChanged}
     <div className="grid gap-2 md:grid-cols-2">
       <input className={field} value={title} onChange={e=>setTitle(e.target.value)} placeholder="СКА — Спартак"/>
       <select className={field} value={sport} onChange={e=>setSport(e.target.value)}>{sports.map(x=><option key={x}>{x}</option>)}</select>
-      <input className={field} value={league} onChange={e=>setLeague(e.target.value)} placeholder="КХЛ / РПЛ / Единая лига ВТБ"/>
+      {isMediaLeague?<input className={field} value={league} onChange={e=>setLeague(e.target.value)} placeholder="Медиалига"/>:
+        <select className={field} value={league} onChange={e=>useLeague(e.target.value)}>
+          <option value="">Выберите лигу</option>
+          <option value="КХЛ">КХЛ</option><option value="РПЛ">РПЛ</option>
+          <option value="Единая лига ВТБ">Единая лига ВТБ</option>
+          {league&&!['КХЛ','РПЛ','Единая лига ВТБ'].includes(league)&&<option value={league}>{league}</option>}
+        </select>}
       <label className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-950 px-3 text-xs text-slate-300"><input type="checkbox" checked={isMediaLeague} onChange={e=>setIsMediaLeague(e.target.checked)}/> Медиалига</label>
       <input className={field} value={homeTeam} onChange={e=>setHomeTeam(e.target.value)} placeholder="Команда 1"/>
       <input className={field} value={awayTeam} onChange={e=>setAwayTeam(e.target.value)} placeholder="Команда 2"/>
       <input className={field} type="date" value={dateKey} onChange={e=>setDateKey(e.target.value)}/>
       <input className={field} type="time" value={time} onChange={e=>setTime(e.target.value)}/>
+      {!isMediaLeague&&availableVenues.length>0&&<select aria-label="Готовые площадки Санкт-Петербурга" className={field+' md:col-span-2'} value={LEAGUE_VENUES.find(v=>v.name===locationName&&v.address===address)?.id||''} onChange={e=>useVenue(e.target.value)}>
+        <option value="">Выбрать готовую арену (проверьте место матча)</option>
+        {availableVenues.map(v=><option key={v.id} value={v.id}>{v.name} · {v.address}</option>)}
+      </select>}
       <input className={field} value={locationName} onChange={e=>setLocationName(e.target.value)} placeholder="Арена / стадион"/>
       <input className={field} value={address} onChange={e=>setAddress(e.target.value)} placeholder="Адрес"/>
       <input className={field} value={lat} onChange={e=>setLat(e.target.value)} placeholder="Широта"/>
