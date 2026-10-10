@@ -254,6 +254,7 @@ export interface OfficialEvent {
   startsAt?: number;
   /** Optional competition/league label, e.g. KHL, RPL, VTB League. */
   league?: string;
+  isMediaLeague?: boolean;
   homeTeam?: string;
   awayTeam?: string;
   /** Official informational source for the fixture/event itself. */
