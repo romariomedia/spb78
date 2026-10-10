@@ -101,7 +101,7 @@ export const CitySportsEventsAdminPanel:React.FC<Props>=({currentUser,onChanged}
   return <div className="space-y-4 rounded-2xl border border-sky-500/20 bg-slate-900/50 p-3">
     <div>
       <h4 className="text-xs font-black text-white">Спортивные события Петербурга</h4>
-      <p className="mt-1 text-[10px] leading-relaxed text-slate-400">Публикация билетной ссылки разрешена только после ручного подтверждения официального источника.</p>
+      <p className="mt-1 text-[10px] leading-relaxed text-slate-400">События в статусе «Опубликовано» отображаются в афише на 30 дней вперёд. Черновики пользователям не видны. Официальные билетные ссылки требуют подтверждения.</p>
     </div>
 
     <div className="grid gap-2 md:grid-cols-2">
@@ -175,7 +175,7 @@ export const CitySportsEventsAdminPanel:React.FC<Props>=({currentUser,onChanged}
         <div className="min-w-0 flex-1">
           <p className="truncate text-[11px] font-black text-white">{event.title}</p>
           <p className="truncate text-[9px] text-slate-500">{event.dateLabel} · {event.time} · {event.locationName}</p>
-          <p className={`mt-0.5 text-[9px] font-bold ${event.ticketVerified?'text-emerald-400':'text-amber-400'}`}>{event.ticketVerified?'✓ Билеты проверены':'⚠ Билеты не подтверждены'} · {event.status}</p>
+          <p className={`mt-0.5 text-[9px] font-bold ${event.ticketVerified?'text-emerald-400':'text-amber-400'}`}>{event.ticketVerified?'✓ Билеты проверены':'⚠ Билеты не подтверждены'} · {event.status==='published'?'Опубликовано':event.status==='draft'?'Черновик':'Завершено'}{Number(event.startsAt)>Date.now()+30*86400000?' · Не входит в 30-дневную афишу':''}</p>
         </div>
         {event.ticketUrl&&<a href={event.ticketUrl} target="_blank" rel="noopener noreferrer" className="p-2 text-sky-400" title="Проверить ссылку"><ExternalLink className="h-4 w-4"/></a>}
         <button onClick={()=>edit(event)} className="rounded-lg border border-slate-700 px-2 py-1.5 text-[10px] font-bold text-white">Править</button>
