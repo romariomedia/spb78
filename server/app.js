@@ -42,8 +42,8 @@ export async function createApiApp({ apiDir }) {
   app.get('/api/health', health);
 
   // Public social-preview routes must return HTML/image directly to crawlers before SPA fallback.
-  app.get('/share/:kind(training|leisure)/:id', sharePreviewPage);
-  app.get('/share/image/:kind(training|leisure)/:id', sharePreviewImage);
+  app.get('/share/:kind/:id', sharePreviewPage);
+  app.get('/share/image/:kind/:id', sharePreviewImage);
 
   for (const [name, handler] of handlers) {
     app.all(`/api/${name}`, async (req, res, next) => {
