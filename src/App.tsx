@@ -77,6 +77,7 @@ import { Virtuoso } from 'react-virtuoso';
 import { TrainingCard } from './components/TrainingCard';
 import { PostCard } from './components/PostCard';
 import { PartnerFeedSection } from './components/PartnerFeedSection';
+import { trainingShareCopy } from './services/shareLinks';
 import { ProfileStatsSection } from './components/ProfileStatsSection';
 import { TrainingCalendar } from './components/TrainingCalendar';
 import { UpcomingTrainings } from './components/UpcomingTrainings';
@@ -1101,6 +1102,19 @@ export default function App(): JSX.Element {
       post.content,
       window.location.href
     );
+  }, []);
+
+  const handleShareTraining = useCallback((training: Training) => {
+    triggerHapticImpact('light');
+    const payload = trainingShareCopy({
+      id: training.id,
+      title: training.title,
+      sport: training.sport,
+      locationName: training.locationName,
+      dateLabel: training.dateLabel,
+      isOfficial: training.isOfficial
+    });
+    void shareContent(payload.title, payload.text, payload.url);
   }, []);
 
   /* ---- Reminder scheduler: notify 2 hours before a signed-up training ---- */
@@ -2324,6 +2338,7 @@ export default function App(): JSX.Element {
                         userCoords={hasCurrentLocation ? userCoords : null}
                         onSelect={setSelectedTraining}
                         onJoin={handleJoinTraining}
+                        onShare={handleShareTraining}
                       />
                     )}
                     components={{ Item: VirtuosoSpacedItem }}
@@ -3870,11 +3885,7 @@ export default function App(): JSX.Element {
                   </p>
                 )}
                 <button
-                  onClick={() => shareContent(
-                    `Приглашение в тренировку: ${selectedTraining.title}`,
-                    `Привет! Присоединяйся к тренировке по ${selectedTraining.sport} в SportBuddy! Место: ${selectedTraining.locationName} (${selectedTraining.dateLabel}).`,
-                    `${window.location.origin}/#training=${selectedTraining.id}`
-                  )}
+                  onClick={() => handleShareTraining(selectedTraining)}
                   className="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold py-2.5 rounded-xl text-xs transition flex items-center justify-center gap-1.5"
                 >
                   <Share2 className="w-4 h-4" /> Поделиться
@@ -3902,11 +3913,7 @@ export default function App(): JSX.Element {
                 );
               })()}
               <button
-                onClick={() => shareContent(
-                  `Тренировка SportBuddy: ${selectedTraining.title}`,
-                  `${selectedTraining.title} • ${selectedTraining.locationName}`,
-                  `${window.location.origin}/#training=${selectedTraining.id}`
-                )}
+                onClick={() => handleShareTraining(selectedTraining)}
                 className="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold py-2.5 rounded-xl text-xs transition flex items-center justify-center gap-1.5"
               >
                 <Share2 className="w-4 h-4" /> Поделиться
@@ -3915,11 +3922,7 @@ export default function App(): JSX.Element {
             ) : (
             <div className="flex gap-2 w-full">
               <button
-                onClick={() => shareContent(
-                  `Приглашение в тренировку: ${selectedTraining.title}`,
-                  `Привет! Присоединяйся к тренировке по ${selectedTraining.sport} в SportBuddy! Место: ${selectedTraining.locationName} (${selectedTraining.dateLabel}).`,
-                  `${window.location.origin}/#training=${selectedTraining.id}`
-                )}
+                onClick={() => handleShareTraining(selectedTraining)}
                 className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold px-4 py-2.5 rounded-xl text-xs transition flex items-center justify-center gap-1.5"
               >
                 <Share2 className="w-4 h-4" /> Поделиться
