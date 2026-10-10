@@ -88,21 +88,33 @@ export function buildSharePreviewHtml(model){
 <script>setTimeout(()=>location.replace(${JSON.stringify(target)}),180)</script></body></html>`;
 }
 
+function wrap(value,maxChars=28,maxLines=3){
+  const words=clean(value,160).split(' ').filter(Boolean),lines=[];
+  for(const word of words){
+    const current=lines.at(-1)||'';
+    if(!current||current.length+1+word.length<=maxChars)lines[lines.length-1]=(current+' '+word).trim();
+    else if(lines.length<maxLines)lines.push(word);
+    else { lines[maxLines-1]=(lines[maxLines-1]+'…').slice(0,maxChars); break; }
+  }
+  return lines.length?lines:['SportBuddy78'];
+}
+
 export async function renderSharePreviewImage(model){
-  const title=xml(model.title);
-  const subtitle=xml(model.subtitle);
-  const when=xml(model.when);
+  const titleLines=wrap(model.title,28,3);
+  const titleSvg=titleLines.map((line,index)=>`<text x="72" y="${188+index*70}" font-family="DejaVu Sans,Arial,sans-serif" font-size="62" font-weight="900" fill="#f8fafc">${xml(line)}</text>`).join('');
+  const subtitle=xml(clean(model.subtitle,110));
+  const when=xml(clean(model.when,80));
   const eyebrow=xml(model.eyebrow);
   const svg=`<svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg">
 <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#020617"/><stop offset="1" stop-color="#172033"/></linearGradient><radialGradient id="glow" cx="0.8" cy="0.2" r="0.8"><stop stop-color="#a3e635" stop-opacity=".28"/><stop offset="1" stop-color="#a3e635" stop-opacity="0"/></radialGradient></defs>
 <rect width="1200" height="630" rx="44" fill="url(#bg)"/><rect width="1200" height="630" rx="44" fill="url(#glow)"/>
-<circle cx="1035" cy="112" r="52" fill="#a3e635"/><text x="1035" y="129" text-anchor="middle" font-family="Arial,sans-serif" font-size="42" font-weight="900" fill="#020617">78</text>
-<text x="72" y="86" font-family="Arial,sans-serif" font-size="25" font-weight="800" fill="#a3e635" letter-spacing="2">${eyebrow}</text>
-<foreignObject x="72" y="132" width="930" height="230"><div xmlns="http://www.w3.org/1999/xhtml" style="font-family:Arial,sans-serif;font-size:64px;line-height:1.05;font-weight:900;color:#f8fafc;overflow:hidden;">${title}</div></foreignObject>
-<foreignObject x="72" y="386" width="1000" height="82"><div xmlns="http://www.w3.org/1999/xhtml" style="font-family:Arial,sans-serif;font-size:30px;line-height:1.2;font-weight:700;color:#cbd5e1;overflow:hidden;">${subtitle}</div></foreignObject>
-<text x="72" y="512" font-family="Arial,sans-serif" font-size="28" font-weight="800" fill="#f8fafc">${when}</text>
-<rect x="72" y="546" width="330" height="54" rx="27" fill="#a3e635"/><text x="237" y="582" text-anchor="middle" font-family="Arial,sans-serif" font-size="22" font-weight="900" fill="#020617">ПРИСОЕДИНИТЬСЯ</text>
-<text x="1128" y="584" text-anchor="end" font-family="Arial,sans-serif" font-size="28" font-weight="900" fill="#f8fafc">SportBuddy78</text>
+<circle cx="1035" cy="112" r="52" fill="#a3e635"/><text x="1035" y="129" text-anchor="middle" font-family="DejaVu Sans,Arial,sans-serif" font-size="42" font-weight="900" fill="#020617">78</text>
+<text x="72" y="86" font-family="DejaVu Sans,Arial,sans-serif" font-size="25" font-weight="800" fill="#a3e635" letter-spacing="2">${eyebrow}</text>
+${titleSvg}
+<text x="72" y="422" font-family="DejaVu Sans,Arial,sans-serif" font-size="30" font-weight="700" fill="#cbd5e1">${subtitle}</text>
+<text x="72" y="500" font-family="DejaVu Sans,Arial,sans-serif" font-size="28" font-weight="800" fill="#f8fafc">${when}</text>
+<rect x="72" y="546" width="330" height="54" rx="27" fill="#a3e635"/><text x="237" y="582" text-anchor="middle" font-family="DejaVu Sans,Arial,sans-serif" font-size="22" font-weight="900" fill="#020617">ПРИСОЕДИНИТЬСЯ</text>
+<text x="1128" y="584" text-anchor="end" font-family="DejaVu Sans,Arial,sans-serif" font-size="28" font-weight="900" fill="#f8fafc">SportBuddy78</text>
 </svg>`;
   return sharp(Buffer.from(svg)).png({compressionLevel:9}).toBuffer();
 }
