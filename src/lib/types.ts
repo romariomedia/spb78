@@ -296,7 +296,7 @@ export interface LeaderboardEntry {
   isCurrentUser: boolean;
 }
 
-export type ChatCategory = 'matches' | 'friends' | 'trainings';
+export type ChatCategory = 'matches' | 'friends' | 'trainings' | 'events';
 
 export const MAX_PORTFOLIO_PHOTOS = 5;
 export const AVATAR_GRACE_PERIOD_HOURS = 24;
@@ -503,10 +503,13 @@ export interface ChatThread {
   id: string;
   participantIds: string[];
   companionId: string;     // empty for group chats
-  kind?: 'direct' | 'training';
+  kind?: 'direct' | 'training' | 'event';
   trainingId?: string;
   trainingTitle?: string;
   trainingSport?: string;
+  eventId?: string;
+  eventTitle?: string;
+  eventSport?: string;
   organizerId?: string;
   archivedAt?: string;
   updatedAt?: string;
