@@ -3,6 +3,7 @@ import { CheckCircle2, ExternalLink, ShieldCheck, Trash2, X } from 'lucide-react
 import { EventStatus, OfficialEvent, UserProfile } from '../lib/types';
 import { createEvent, refreshEvents, removeEvent, updateEvent, validateEventDraft, EventDraft } from '../services/events';
 import { LEAGUE_SPORT, LEAGUE_VENUES, teamsForLeague, venuesForLeague, eventMatchTitle } from '../lib/eventAdminPresets';
+import { presetEventCover } from '../lib/eventCoverPresets';
 
 interface Props { currentUser:UserProfile; onChanged:()=>void }
 
@@ -54,6 +55,7 @@ export const CitySportsEventsAdminPanel:React.FC<Props>=({currentUser,onChanged}
     if(!selected)return;
     setLocationName(selected.name);setAddress(selected.address);setLat(String(selected.lat));setLng(String(selected.lng));
   };
+  const defaultCover=presetEventCover({league,sport,homeTeam,awayTeam,isMediaLeague});
   const sorted=useMemo(()=>[...events].sort((a,b)=>Number(a.startsAt||0)-Number(b.startsAt||0)),[events]);
 
   const reset=()=>{
@@ -83,6 +85,7 @@ export const CitySportsEventsAdminPanel:React.FC<Props>=({currentUser,onChanged}
       officialSourceUrl:officialSourceUrl||undefined,ticketUrl:ticketUrl||undefined,ticketSourceName:ticketSourceName||undefined,
       ticketVerified,status,entryFee:'Билет приобретается самостоятельно на официальном сайте'
     };
+    if(coverUrl==='custom'){setError('Укажите ссылку на индивидуальную обложку или выберите стандартную.');return;}
     const problem=validateEventDraft(draft);if(problem){setError(problem);return;}
     setBusy(true);
     try{
@@ -144,7 +147,18 @@ export const CitySportsEventsAdminPanel:React.FC<Props>=({currentUser,onChanged}
 
     <textarea className={field+' min-h-20'} value={tagline} onChange={e=>setTagline(e.target.value)} placeholder="Короткий текст"/>
     <textarea className={field+' min-h-24'} value={description} onChange={e=>setDescription(e.target.value)} placeholder="Описание события"/>
-    <input className={field} value={coverUrl} onChange={e=>setCoverUrl(e.target.value)} placeholder="https://... обложка"/>
+    <div className="space-y-2 rounded-xl border border-slate-800 p-3">
+      <p className="text-xs font-bold text-slate-200">Обложка события</p>
+      {!isMediaLeague&&defaultCover&&<>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={()=>setCoverUrl('')} className={`rounded-lg border px-3 py-2 text-[11px] font-bold ${!coverUrl?'border-lime-400 text-lime-300':'border-slate-700 text-slate-400'}`}>Стандартная обложка клуба</button>
+          <button type="button" onClick={()=>setCoverUrl('custom')} className={`rounded-lg border px-3 py-2 text-[11px] font-bold ${coverUrl?'border-lime-400 text-lime-300':'border-slate-700 text-slate-400'}`}>Своя обложка</button>
+        </div>
+        {!coverUrl&&<img src={defaultCover} alt="Стандартная обложка" className="h-28 w-full rounded-xl object-cover"/>}
+      </>}
+      {(isMediaLeague||!defaultCover||Boolean(coverUrl))&&<input className={field} value={coverUrl==='custom'?'':coverUrl} onChange={e=>setCoverUrl(e.target.value)} placeholder="https://... индивидуальная обложка" />}
+      {!isMediaLeague&&!defaultCover&&<p className="text-[10px] text-slate-500">Для этой пары команд стандартной обложки нет. Добавьте индивидуальную при необходимости.</p>}
+    </div>
 
     <div className="space-y-2 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3">
       <p className="flex items-center gap-1 text-[10px] font-black uppercase text-amber-300"><ShieldCheck className="h-3.5 w-3.5"/>Проверка официальных источников</p>

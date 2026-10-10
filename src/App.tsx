@@ -894,11 +894,11 @@ export default function App(): JSX.Element {
     }else if(link==='#profile-friends'){try{localStorage.setItem('sportbuddy_profile_friends_open_v1','1');}catch{/* UI preference only */}setFriendsNotificationVersion(v=>v+1);setProfileSection('overview');setActiveTab('profile');setTimeout(()=>document.getElementById('profile-friends')?.scrollIntoView({behavior:'smooth'}),100);}
     else if(link.startsWith('#event=')){
       let id;try{id=decodeURIComponent(link.slice(7));}catch{return;}
-      setActiveTab('trainings');
+      setActiveTab('feed');
       void refreshEvents().then(events=>{const event=events.find(e=>e.id===id&&e.status==='published');if(event)setSelectedEvent(event);else notify('Событие больше недоступно','err');}).catch(()=>notify('Не удалось открыть событие','err'));
     }
     else if(link.startsWith('#leisure=')){try{setLeisureEventId(decodeURIComponent(link.slice(9)));setActiveTab('leisure');}catch{/* malformed link */}}
-    else if(link==='#events')setActiveTab('trainings');
+    else if(link==='#events')setActiveTab('feed');
     else if(link==='#notifications')setIsNotifModalOpen(true);
     setPendingNotificationLink('');
   },[currentUser?.id,pendingNotificationLink,chatThreads,trainings,chatCategory]);
@@ -2245,15 +2245,6 @@ export default function App(): JSX.Element {
                   </div>
                 )}
 
-                {/* City spectator events: weekly sports calendar + find company + verified ticket sources */}
-                {currentUser && (
-                  <CitySportsEvents
-                    currentUser={currentUser}
-                    onOpenChat={(event)=>void openEventGroupChat(event)}
-                    refreshKey={eventsRefreshKey}
-                  />
-                )}
-
                 {/* Official SportBuddy events */}
                 {currentUser && (
                   <OfficialEvents
@@ -2875,6 +2866,13 @@ export default function App(): JSX.Element {
                     <span>Пост {canPublishToFeed ? '👑' : '🔒'}</span>
                   </button>
                 </div>
+
+                {/* Спортивная афиша — медиа и поиск компании, не тренировки */}
+                {currentUser && (
+                  <CitySportsEvents currentUser={currentUser}
+                    onOpenChat={(event)=>void openEventGroupChat(event)}
+                    refreshKey={eventsRefreshKey} />
+                )}
 
                 {currentUser && <Stories key={currentUser.id} user={currentUser} canPublish={canPublishToFeed} onLocked={()=>{requirePublishingVerification();}}/>}
 
