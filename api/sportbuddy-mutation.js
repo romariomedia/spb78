@@ -218,20 +218,32 @@ async function friendMutation(db, uid, body) {
 async function eventMutation(db, uid, body) {
   const eventId=String(body.eventId||'');
   if(!eventId) throw Object.assign(new Error('Мероприятие не найдено'),{status:400});
-  const ref=db.collection('events').doc(eventId);
+  const ref=db.collection('events').doc(eventId),chatRef=db.collection('chats').doc(`event_${eventId}`);
   return db.runTransaction(async tx=>{
-    const snap=await tx.get(ref), user=await tx.get(db.collection('users').doc(uid));
+    const snap=await tx.get(ref), user=await tx.get(db.collection('users').doc(uid)), chatSnap=await tx.get(chatRef);
     if(!snap.exists || !user.exists) throw Object.assign(new Error('Мероприятие или профиль не найдены'),{status:404});
     const event=snap.data(), ids=cleanArray(event.participantIds);
     if(event.status!=='published') throw Object.assign(new Error('Регистрация на мероприятие закрыта'),{status:409});
     if(ids.includes(uid)) {
       const next=ids.filter(id=>id!==uid);tx.update(ref,{participantIds:next});
-      return {registered:false,event:{...event,participantIds:next}};
+      if(chatSnap.exists)tx.set(chatRef,{participantIds:next},{merge:true});
+      return {registered:false,event:{...event,participantIds:next},chatId:`event_${eventId}`};
     }
     const max=Number(event.participantsMax);
     if(!Number.isInteger(max)||max<1||ids.length>=max) throw Object.assign(new Error('Нет доступных мест'),{status:409});
     const next=[...ids,uid];tx.update(ref,{participantIds:next});
-    return {registered:true,event:{...event,participantIds:next}};
+    const base=chatSnap.exists?chatSnap.data():{
+      id:`event_${eventId}`,kind:'event',eventId,
+      eventTitle:String(event.title||'Спортивное событие').slice(0,120),
+      eventSport:String(event.sport||'').slice(0,80),
+      participantIds:[],createdAt:new Date().toISOString(),readAt:{},unreadCount:{},
+      messageCount:0,recentMessages:[],messages:[]
+    };
+    tx.set(chatRef,{
+      ...base,participantIds:next,
+      unreadCount:{...(base.unreadCount||{}),...Object.fromEntries(next.map(id=>[id,Number(base.unreadCount?.[id]||0)]))}
+    },{merge:true});
+    return {registered:true,event:{...event,participantIds:next},chatId:`event_${eventId}`};
   });
 }
 
@@ -265,6 +277,12 @@ const trainingChatBase = training => ({
 function isTrainingThread(thread) {
   return thread?.kind === 'training' && typeof thread.trainingId === 'string';
 }
+function isEventThread(thread) {
+  return thread?.kind === 'event' && typeof thread.eventId === 'string';
+}
+function isGroupThread(thread) {
+  return isTrainingThread(thread) || isEventThread(thread);
+}
 
 async function assertTrainingThreadActive(db, uid, thread) {
   if (!isTrainingThread(thread)) throw Object.assign(new Error('Некорректный групповой чат'), { status: 400 });
@@ -278,6 +296,18 @@ async function assertTrainingThreadActive(db, uid, thread) {
   return training;
 }
 
+async function assertEventThreadActive(db, uid, thread) {
+  if (!isEventThread(thread)) throw Object.assign(new Error('Некорректный чат события'), { status: 400 });
+  if (!cleanArray(thread.participantIds).includes(uid)) throw Object.assign(new Error('Вы больше не участник события'), { status: 403 });
+  if (thread.archivedAt) throw Object.assign(new Error('Чат события находится в архиве'), { status: 409, code: 'CHAT_ARCHIVED' });
+  const eventSnap=await db.collection('events').doc(String(thread.eventId)).get();
+  if(!eventSnap.exists)throw Object.assign(new Error('Событие не найдено'),{status:404});
+  const event=eventSnap.data()||{};
+  if(event.status!=='published')throw Object.assign(new Error('Чат события находится в архиве'),{status:409,code:'CHAT_ARCHIVED'});
+  if(!cleanArray(event.participantIds).includes(uid))throw Object.assign(new Error('Вы больше не участник события'),{status:403});
+  return event;
+}
+
 async function chatMutation(db, uid, body) {
   const chatId=String(body.chatId||'');
   if(!chatId || chatId.includes('/')) throw Object.assign(new Error('Некорректный чат'),{status:400});
@@ -288,7 +318,7 @@ async function chatMutation(db, uid, body) {
     if(!snap.exists) return {messages:[]};
     const thread=snap.data()||{};
     if(!cleanArray(thread.participantIds).includes(uid)) throw Object.assign(new Error('Нет доступа к чату'),{status:403});
-    if(!isTrainingThread(thread)){
+    if(!isGroupThread(thread)){
       const otherId=cleanArray(thread.participantIds).find(id=>id!==uid);
       if(!otherId) throw Object.assign(new Error('Некорректный чат'),{status:400});
       const [meS,otherS]=await Promise.all([db.collection('users').doc(uid).get(),db.collection('users').doc(otherId).get()]);
@@ -313,6 +343,8 @@ async function chatMutation(db, uid, body) {
     if(!participants.includes(uid)) throw Object.assign(new Error('Нет доступа к чату'),{status:403});
     if(isTrainingThread(thread)){
       await assertTrainingThreadActive(db,uid,thread);
+    } else if(isEventThread(thread)){
+      await assertEventThreadActive(db,uid,thread);
     } else {
       const otherId=participants.find(id=>id!==uid);
       if(!otherId) throw Object.assign(new Error('Некорректный чат'),{status:400});
@@ -336,7 +368,7 @@ async function chatMutation(db, uid, body) {
       const current=chatS.data()||{},participants=cleanArray(current.participantIds);
       if(!participants.includes(uid)) throw Object.assign(new Error('Нет доступа к чату'),{status:403});
       let otherId='';
-      if(isTrainingThread(current)){
+      if(isGroupThread(current)){
         if(current.archivedAt) throw Object.assign(new Error('Архивный чат доступен только для чтения'),{status:409,code:'CHAT_ARCHIVED'});
       } else {
         otherId=participants.find(id=>id!==uid)||'';
@@ -369,7 +401,7 @@ async function chatMutation(db, uid, body) {
             participantId,
             legacy.filter(item=>!item?.deletedAt&&item?.senderId!==participantId&&Number(item?.timestamp||0)>Number(current.readAt?.[participantId]||0)).length
           ]));
-      const affectedRecipients=isTrainingThread(current)?participants.filter(id=>id!==uid):[otherId];
+      const affectedRecipients=isGroupThread(current)?participants.filter(id=>id!==uid):[otherId];
       for(const recipientId of affectedRecipients){
         if(Number(current.readAt?.[recipientId]||0)<Number(original.timestamp||0)&&Number(unreadCount[recipientId]||0)>0){
           unreadCount[recipientId]=Math.max(0,Number(unreadCount[recipientId])-1);
@@ -400,20 +432,29 @@ async function chatMutation(db, uid, body) {
     });
   }
 
-  if(body.operation==='sendTraining') {
+  if(body.operation==='sendTraining' || body.operation==='sendGroup') {
     const text=sanitizeChatText(body.text);
     return db.runTransaction(async tx=>{
       const chatS=await tx.get(chatRef);
       if(!chatS.exists) throw Object.assign(new Error('Групповой чат ещё не создан'),{status:404});
       const current=chatS.data()||{},participants=cleanArray(current.participantIds);
-      if(!isTrainingThread(current)) throw Object.assign(new Error('Некорректный групповой чат'),{status:400});
+      if(!isGroupThread(current)) throw Object.assign(new Error('Некорректный групповой чат'),{status:400});
       if(!participants.includes(uid)) throw Object.assign(new Error('Вы не участник этой группы'),{status:403});
-      if(current.archivedAt) throw Object.assign(new Error('Чат тренировки находится в архиве'),{status:409,code:'CHAT_ARCHIVED'});
-      const trainingS=await tx.get(db.collection('trainings').doc(String(current.trainingId)));
-      if(!trainingS.exists) throw Object.assign(new Error('Тренировка не найдена'),{status:404});
-      const training=trainingS.data()||{};
-      if(training.isCompleted) throw Object.assign(new Error('Чат тренировки находится в архиве'),{status:409,code:'CHAT_ARCHIVED'});
-      if(!cleanArray(training.participantIds).includes(uid)) throw Object.assign(new Error('Вы больше не участник тренировки'),{status:403});
+      if(current.archivedAt) throw Object.assign(new Error('Групповой чат находится в архиве'),{status:409,code:'CHAT_ARCHIVED'});
+      let groupEntity;
+      if(isTrainingThread(current)){
+        const trainingS=await tx.get(db.collection('trainings').doc(String(current.trainingId)));
+        if(!trainingS.exists) throw Object.assign(new Error('Тренировка не найдена'),{status:404});
+        groupEntity=trainingS.data()||{};
+        if(groupEntity.isCompleted) throw Object.assign(new Error('Чат тренировки находится в архиве'),{status:409,code:'CHAT_ARCHIVED'});
+        if(!cleanArray(groupEntity.participantIds).includes(uid)) throw Object.assign(new Error('Вы больше не участник тренировки'),{status:403});
+      }else{
+        const eventS=await tx.get(db.collection('events').doc(String(current.eventId)));
+        if(!eventS.exists) throw Object.assign(new Error('Событие не найдено'),{status:404});
+        groupEntity=eventS.data()||{};
+        if(groupEntity.status!=='published') throw Object.assign(new Error('Чат события находится в архиве'),{status:409,code:'CHAT_ARCHIVED'});
+        if(!cleanArray(groupEntity.participantIds).includes(uid)) throw Object.assign(new Error('Вы больше не участник события'),{status:403});
+      }
       const userS=await tx.get(db.collection('users').doc(uid));
       if(!userS.exists) throw Object.assign(new Error('Профиль не найден'),{status:404});
       if(!premiumActive(userS.data()||{})) throw Object.assign(new Error('Переписка доступна только Premium'),{status:403});
@@ -446,11 +487,11 @@ async function chatMutation(db, uid, body) {
       }
       baseUnread[uid]=Number(baseUnread[uid]||0);
       const recentMessages=buildRecentMessages(current,message);
-      const thread={...current,participantIds:cleanArray(training.participantIds),messages:recentMessages,recentMessages,lastMessage:message,lastMessageAt:ts,
+      const thread={...current,participantIds:cleanArray(groupEntity.participantIds),messages:recentMessages,recentMessages,lastMessage:message,lastMessageAt:ts,
         messageCount:Number(current.messageCount||legacy.length)+1,messageStorageVersion:2,unreadCount:baseUnread,
         typingAt:{...(current.typingAt||{}),[uid]:0},lastSenderAt:{...(current.lastSenderAt||{}),[uid]:now}};
       const recipients=participants.filter(id=>id!==uid);
-      if(recipients.length)enqueueNotification(tx,db,{id:message.id,actorId:uid,recipients,category:'messages',kind:'message',title:`Чат: ${String(training.title||'Тренировка').slice(0,80)}`,message:'Новое сообщение в группе тренировки.',link:'#chat='+encodeURIComponent(chatId)});
+      if(recipients.length)enqueueNotification(tx,db,{id:message.id,actorId:uid,recipients,category:'messages',kind:'message',title:`Чат: ${String(groupEntity.title||'Группа SportBuddy78').slice(0,80)}`,message:isEventThread(current)?'Новое сообщение в группе события.':'Новое сообщение в группе тренировки.',link:'#chat='+encodeURIComponent(chatId)});
       tx.set(messageRef,message);tx.set(chatRef,thread,{merge:true});
       return {message,thread};
     });
