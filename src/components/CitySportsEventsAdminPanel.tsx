@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, ExternalLink, Plus, ShieldCheck, Trash2, X } from 'lucide-react';
+import { CheckCircle2, ExternalLink, ShieldCheck, Trash2, X } from 'lucide-react';
 import { EventStatus, OfficialEvent, UserProfile } from '../lib/types';
-import { createEvent, getEvents, refreshEvents, removeEvent, updateEvent, validateEventDraft, EventDraft } from '../services/events';
+import { createEvent, refreshEvents, removeEvent, updateEvent, validateEventDraft, EventDraft } from '../services/events';
 
 interface Props { currentUser:UserProfile; onChanged:()=>void }
 
