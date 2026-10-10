@@ -6,7 +6,7 @@ export function buildSportBuddyShareUrl(kind,id){
   if(kind!=='training'&&kind!=='leisure')throw new Error('Unsupported share kind');
   const safeId=encodeURIComponent(clean(id,200));
   const campaign=kind==='training'?'training_share':'leisure_share';
-  return `${SPORTBUDDY_PUBLIC_URL}/?utm_source=sportbuddy&utm_medium=share&utm_campaign=${campaign}#${kind}=${safeId}`;
+  return `${SPORTBUDDY_PUBLIC_URL}/share/${kind}/${safeId}?utm_source=sportbuddy&utm_medium=share&utm_campaign=${campaign}`;
 }
 
 export function trainingShareCopy(input={}){

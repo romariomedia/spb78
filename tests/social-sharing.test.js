@@ -6,7 +6,7 @@ test('training share uses public domain instead of device origin',()=>{
   const payload=trainingShareCopy({
     id:'tr 1',title:'Бег на Крестовском',sport:'Бег',locationName:'Крестовский остров',dateLabel:'12 октября, 10:00'
   });
-  assert.equal(payload.url,'https://sportbuddy78.pro/?utm_source=sportbuddy&utm_medium=share&utm_campaign=training_share#training=tr%201');
+  assert.equal(payload.url,'https://sportbuddy78.pro/share/training/tr%201?utm_source=sportbuddy&utm_medium=share&utm_campaign=training_share');
   assert.match(payload.text,/Присоединяйся/);
   assert.match(payload.text,/Крестовский остров/);
 });
@@ -17,12 +17,12 @@ test('leisure share opens the exact community event',()=>{
     id:'leisure-42',title:'Поездка в Рускеалу',destinationName:'Рускеала',
     meetingPoint:'Московский вокзал',startsAt
   });
-  assert.equal(payload.url,'https://sportbuddy78.pro/?utm_source=sportbuddy&utm_medium=share&utm_campaign=leisure_share#leisure=leisure-42');
+  assert.equal(payload.url,'https://sportbuddy78.pro/share/leisure/leisure-42?utm_source=sportbuddy&utm_medium=share&utm_campaign=leisure_share');
   assert.match(payload.text,/Московский вокзал/);
   assert.match(payload.text,/МСК/);
 });
 
 test('share URL encodes ids and rejects unsupported kinds',()=>{
-  assert.equal(buildSportBuddyShareUrl('training','a/b?c').endsWith('#training=a%2Fb%3Fc'),true);
+  assert.equal(buildSportBuddyShareUrl('training','a/b?c').includes('/share/training/a%2Fb%3Fc?'),true);
   assert.throws(()=>buildSportBuddyShareUrl('event','x'));
 });

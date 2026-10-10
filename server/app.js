@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { pathToFileURL } from 'node:url';
 import { join } from 'node:path';
+import { sharePreviewImage, sharePreviewPage } from './share-preview.js';
 
 // Explicit routes prevent an accidentally copied maintenance script becoming an API.
 export const API_ROUTES = Object.freeze([
@@ -39,6 +40,11 @@ export async function createApiApp({ apiDir }) {
   // These endpoints confirm process and route loading, not external service health.
   app.get('/health', health);
   app.get('/api/health', health);
+
+  // Public social-preview routes must return HTML/image directly to crawlers before SPA fallback.
+  app.get('/share/:kind/:id', sharePreviewPage);
+  app.get('/share/image/:kind/:id', sharePreviewImage);
+
   for (const [name, handler] of handlers) {
     app.all(`/api/${name}`, async (req, res, next) => {
       try { await handler(req, res); } catch (error) { next(error); }
