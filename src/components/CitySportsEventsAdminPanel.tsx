@@ -115,8 +115,21 @@ export const CitySportsEventsAdminPanel:React.FC<Props>=({currentUser,onChanged}
           {league&&!['КХЛ','РПЛ','Единая лига ВТБ'].includes(league)&&<option value={league}>{league}</option>}
         </select>}
       <label className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-950 px-3 text-xs text-slate-300"><input type="checkbox" checked={isMediaLeague} onChange={e=>setIsMediaLeague(e.target.checked)}/> Медиалига</label>
-      <input className={field} value={homeTeam} onChange={e=>setHomeTeam(e.target.value)} placeholder="Команда 1"/>
-      <input className={field} value={awayTeam} onChange={e=>setAwayTeam(e.target.value)} placeholder="Команда 2"/>
+      {!isMediaLeague&&availableTeams.length>0?<>
+        <select aria-label="Команда хозяев" className={field} value={homeTeam} onChange={e=>useTeams(e.target.value,awayTeam)}>
+          <option value="">Хозяева — выберите команду</option>
+          {homeTeam&&!availableTeams.includes(homeTeam)&&<option value={homeTeam}>{homeTeam}</option>}
+          {availableTeams.map(team=><option key={team} value={team} disabled={team===awayTeam}>{team}</option>)}
+        </select>
+        <select aria-label="Команда гостей" className={field} value={awayTeam} onChange={e=>useTeams(homeTeam,e.target.value)}>
+          <option value="">Гости — выберите команду</option>
+          {awayTeam&&!availableTeams.includes(awayTeam)&&<option value={awayTeam}>{awayTeam}</option>}
+          {availableTeams.map(team=><option key={team} value={team} disabled={team===homeTeam}>{team}</option>)}
+        </select>
+      </>:<>
+        <input className={field} value={homeTeam} onChange={e=>setHomeTeam(e.target.value)} placeholder="Команда 1"/>
+        <input className={field} value={awayTeam} onChange={e=>setAwayTeam(e.target.value)} placeholder="Команда 2"/>
+      </>}
       <input className={field} type="date" value={dateKey} onChange={e=>setDateKey(e.target.value)}/>
       <input className={field} type="time" value={time} onChange={e=>setTime(e.target.value)}/>
       {!isMediaLeague&&availableVenues.length>0&&<select aria-label="Готовые площадки Санкт-Петербурга" className={field+' md:col-span-2'} value={LEAGUE_VENUES.find(v=>v.name===locationName&&v.address===address)?.id||''} onChange={e=>useVenue(e.target.value)}>
