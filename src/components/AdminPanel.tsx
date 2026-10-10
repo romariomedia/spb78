@@ -33,6 +33,7 @@ import { AdminModerationPanel } from './AdminModerationPanel';
 import { AdminAnalyticsPanel } from './AdminAnalyticsPanel';
 import { AdminSportIdVerificationPanel } from './AdminSportIdVerificationPanel';
 import { AdminCompetitionResultsPanel } from './AdminCompetitionResultsPanel';
+import { CitySportsEventsAdminPanel } from './CitySportsEventsAdminPanel';
 
 import { SPORT_TAGS as SPORTS } from '../lib/types';
 
@@ -256,7 +257,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           {adminView === 'audit' && <AdminAuditPanel />}
 
           {adminView === 'events' && <>
-          <AdminCompetitionResultsPanel events={events} />
+          <CitySportsEventsAdminPanel currentUser={currentUser} onChanged={onEventsChanged} />
+          <AdminCompetitionResultsPanel events={events.filter(event=>event.category!=='spectator')} />
           <button
             onClick={() => {
               triggerHapticImpact('medium');
@@ -291,7 +293,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   <div>
                     <label className="block font-bold text-slate-300 mb-1.5">Тип мероприятия</label>
                     <div className="flex flex-wrap gap-1.5">
-                      {EVENT_CATEGORIES.map((c) => (
+                      {EVENT_CATEGORIES.filter((item)=>item.id!=='spectator').map((c) => (
                         <button
                           key={c.id}
                           onClick={() => setCategory(c.id)}
@@ -513,7 +515,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             <h4 className="text-[11px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
               <LayoutDashboard className="w-3.5 h-3.5" /> Мои мероприятия ({events.length})
             </h4>
-            {events.map((ev: OfficialEvent) => {
+            {events.filter(ev=>ev.category!=='spectator').map((ev: OfficialEvent) => {
               const cfg = getCategoryConfig(ev.category);
               return (
                 <div key={ev.id} className="bg-slate-950 border border-slate-800 rounded-2xl p-3 flex items-center gap-2.5">

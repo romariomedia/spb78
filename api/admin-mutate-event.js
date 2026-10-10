@@ -8,7 +8,7 @@ if (!getApps().length) {
   initializeApp({ credential: cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '{}')) });
 }
 
-const CATEGORIES = new Set(['competition','contest','festival','masterclass','charity']);
+const CATEGORIES = new Set(['competition','contest','festival','masterclass','charity','spectator']);
 const STATUSES = new Set(['draft','published','finished']);
 const SPORTS = new Set(['Бег','Футбол','Теннис','Баскетбол','Волейбол','Падел','Настольный теннис','Хоккей','Велопрогулка','Походы','Активный отдых','Воркаут','Общее']);
 
@@ -40,6 +40,15 @@ function sanitizeEvent(input, id, existing = null) {
   const category = CATEGORIES.has(input?.category) ? input.category : '';
   const status = STATUSES.has(input?.status) ? input.status : '';
   const sport = SPORTS.has(input?.sport) ? input.sport : '';
+  const audienceMode = input?.audienceMode === 'spectator' || category === 'spectator' ? 'spectator' : 'participant';
+  const ticketUrl = optionalUrl(input?.ticketUrl);
+  const officialSourceUrl = optionalUrl(input?.officialSourceUrl);
+  const ticketVerified = input?.ticketVerified === true;
+  const dateKey = text(input?.dateKey, 10);
+  const time = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(input?.time || '')) ? String(input.time) : '';
+  const startsAt = /^\d{4}-\d{2}-\d{2}$/.test(dateKey) && time
+    ? Date.parse(`${dateKey}T${time}:00+03:00`)
+    : Number(input?.startsAt);
 
   const event = {
     id,
@@ -55,11 +64,28 @@ function sanitizeEvent(input, id, existing = null) {
     lat,
     lng,
     dateLabel: text(input?.dateLabel, 160),
-    time: /^([01]\d|2[0-3]):[0-5]\d$/.test(String(input?.time || '')) ? String(input.time) : '',
+    ...(dateKey ? { dateKey } : {}),
+    time,
+    ...(Number.isFinite(startsAt) ? { startsAt } : {}),
     participantsMax,
     participantIds,
     ...(text(input?.prizePool, 240) ? { prizePool: text(input.prizePool, 240) } : {}),
     ...(text(input?.entryFee, 240) ? { entryFee: text(input.entryFee, 240) } : {}),
+    audienceMode,
+    ...(text(input?.league, 120) ? { league: text(input.league, 120) } : {}),
+    ...(input?.isMediaLeague === true ? { isMediaLeague:true } : {}),
+    ...(text(input?.homeTeam, 120) ? { homeTeam: text(input.homeTeam, 120) } : {}),
+    ...(text(input?.awayTeam, 120) ? { awayTeam: text(input.awayTeam, 120) } : {}),
+    ...(officialSourceUrl ? { officialSourceUrl } : {}),
+    ...(ticketUrl ? { ticketUrl } : {}),
+    ...(text(input?.ticketSourceName, 160) ? { ticketSourceName: text(input.ticketSourceName, 160) } : {}),
+    ticketVerified,
+    ...(ticketVerified ? {
+      ticketVerifiedAt: existing?.ticketVerified === true && existing?.ticketUrl === ticketUrl
+        ? existing.ticketVerifiedAt || new Date().toISOString()
+        : new Date().toISOString(),
+      ticketVerifiedBy: 'admin'
+    } : {}),
     status,
     createdBy: existing?.createdBy || text(input?.createdBy, 180) || 'admin',
     createdAt: existing?.createdAt || text(input?.createdAt, 80) || new Date().toISOString(),
@@ -71,6 +97,14 @@ function sanitizeEvent(input, id, existing = null) {
   }
   if (!category || !sport || !status || participantsMax === null || lat === null || lng === null || !event.time) {
     throw Object.assign(new Error('Invalid event fields.'), { status: 400 });
+  }
+  if (category === 'spectator') {
+    if (!Number.isFinite(event.startsAt)) {
+      throw Object.assign(new Error('Для городского события укажите точную дату и время.'), { status: 400 });
+    }
+    if (status === 'published' && (!event.ticketVerified || !event.ticketUrl || !event.ticketSourceName || !event.officialSourceUrl)) {
+      throw Object.assign(new Error('Перед публикацией подтвердите официальный источник события и официальную ссылку покупки билетов.'), { status: 400 });
+    }
   }
   if (event.locationName.length < 2 || event.address.length < 3 || event.dateLabel.length < 2) {
     throw Object.assign(new Error('Event location and date are required.'), { status: 400 });
@@ -91,12 +125,14 @@ export default async function handler(req, res) {
     if (operation === 'update' && (!patch || typeof patch !== 'object')) return res.status(400).json({ error: 'Patch required.' });
 
     const ref = db.doc(`events/${eventId}`);
+    const eventChatRef = db.doc(`chats/event_${eventId}`);
     let auditBefore = null;
     let auditAfter = null;
     let notify = null;
 
     await db.runTransaction(async tx => {
       const before = await tx.get(ref);
+      const chatBefore = await tx.get(eventChatRef);
       const old = before.exists ? before.data() : null;
       auditBefore = old;
 
@@ -114,6 +150,14 @@ export default async function handler(req, res) {
       }
 
       const next = auditAfter;
+      if (chatBefore.exists) {
+        const now = new Date().toISOString();
+        if (!next || next.status !== 'published') {
+          tx.set(eventChatRef, { archivedAt: now }, { merge: true });
+        } else if (chatBefore.data()?.archivedAt) {
+          tx.set(eventChatRef, { archivedAt: null, participantIds: Array.isArray(next.participantIds) ? next.participantIds : [] }, { merge: true });
+        }
+      }
       const newlyPublished = next?.status === 'published' && old?.status !== 'published';
       const participants = Array.isArray(old?.participantIds) ? old.participantIds : [];
       if (newlyPublished || (old?.status === 'published' && participants.length)) {
@@ -125,7 +169,7 @@ export default async function handler(req, res) {
           category:'events',
           kind:newlyPublished?'event_new':'event_update',
           entityId:eventId,
-          title:newlyPublished?'Новое событие SportBuddy':next?.status==='published'?'Событие обновлено':'Событие снято с публикации',
+          title:newlyPublished?(next?.category==='spectator'?'Новое спортивное событие Петербурга':'Новое событие SportBuddy'):next?.status==='published'?'Событие обновлено':'Событие снято с публикации',
           message:String(next?.title||old?.title||'Откройте раздел событий.'),
           link:next?.status==='published'?'#event='+encodeURIComponent(eventId):'#events'
         };

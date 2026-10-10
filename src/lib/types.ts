@@ -225,7 +225,7 @@ export interface PersonalGoal {
 
 /* ------------------------ Official SportBuddy events ------------------------ */
 
-export type EventCategory = 'competition' | 'contest' | 'festival' | 'masterclass' | 'charity';
+export type EventCategory = 'competition' | 'contest' | 'festival' | 'masterclass' | 'charity' | 'spectator';
 export type EventStatus = 'draft' | 'published' | 'finished';
 
 export interface OfficialEvent {
@@ -248,6 +248,24 @@ export interface OfficialEvent {
   participantIds: string[];
   prizePool?: string;
   entryFee?: string;
+  /** City spectator event: users attend as fans rather than compete. */
+  audienceMode?: 'participant' | 'spectator';
+  /** Machine-readable calendar date and Moscow-local start used for weekly sorting and expiry. */
+  dateKey?: string;
+  startsAt?: number;
+  /** Optional competition/league label, e.g. KHL, RPL, VTB League. */
+  league?: string;
+  isMediaLeague?: boolean;
+  homeTeam?: string;
+  awayTeam?: string;
+  /** Official informational source for the fixture/event itself. */
+  officialSourceUrl?: string;
+  /** Ticket link is rendered publicly only after an admin verifies it. */
+  ticketUrl?: string;
+  ticketSourceName?: string;
+  ticketVerified?: boolean;
+  ticketVerifiedAt?: string;
+  ticketVerifiedBy?: string;
   status: EventStatus;
   createdBy: string;
   createdAt: string;
@@ -262,7 +280,8 @@ export const EVENT_CATEGORIES: { id: EventCategory; label: string; icon: string 
   { id: 'contest',     label: 'Конкурс',      icon: '🎯' },
   { id: 'festival',    label: 'Фестиваль',    icon: '🎉' },
   { id: 'masterclass', label: 'Мастер-класс', icon: '🎓' },
-  { id: 'charity',     label: 'Благотворительный забег', icon: '❤️' }
+  { id: 'charity',     label: 'Благотворительный забег', icon: '❤️' },
+  { id: 'spectator',   label: 'Матч / спортивное событие', icon: '🎟️' }
 ];
 
 /** Only this account can access the admin panel */
@@ -277,7 +296,7 @@ export interface LeaderboardEntry {
   isCurrentUser: boolean;
 }
 
-export type ChatCategory = 'matches' | 'friends' | 'trainings';
+export type ChatCategory = 'matches' | 'friends' | 'trainings' | 'events';
 
 export const MAX_PORTFOLIO_PHOTOS = 5;
 export const AVATAR_GRACE_PERIOD_HOURS = 24;
@@ -484,10 +503,13 @@ export interface ChatThread {
   id: string;
   participantIds: string[];
   companionId: string;     // empty for group chats
-  kind?: 'direct' | 'training';
+  kind?: 'direct' | 'training' | 'event';
   trainingId?: string;
   trainingTitle?: string;
   trainingSport?: string;
+  eventId?: string;
+  eventTitle?: string;
+  eventSport?: string;
   organizerId?: string;
   archivedAt?: string;
   updatedAt?: string;

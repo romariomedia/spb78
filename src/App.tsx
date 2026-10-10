@@ -16,14 +16,14 @@ import {
   Filter, Plus, Share2, MessageCircle, Send, Zap, Crown, 
   ChevronRight, Bell, WifiOff, RefreshCw, Sparkles, Search, CheckCheck, Reply, Trash2,
   Map as MapIcon, SlidersHorizontal, CheckCircle2,
-  Calendar, ShieldAlert, Clock, Lock, UserPlus
+  Calendar, ShieldAlert, Clock, Lock, UserPlus, Ticket
 } from 'lucide-react';
 
 import { 
   UserProfile, Training, FeedPost, TabType, AppNotification, ChatThread, ChatMessage 
 } from './lib/types';
 import {
-  loadChatThreads, sendChatMessage, sendTrainingGroupMessage, ensureTrainingGroupChat, markThreadAsRead, countUnread, deleteChatMessage, setChatTyping,
+  loadChatThreads, sendChatMessage, sendTrainingGroupMessage, ensureTrainingGroupChat, ensureEventGroupChat, markThreadAsRead, countUnread, deleteChatMessage, setChatTyping,
   buildChatId, clearChatCache, formatTimeLabel, loadChatHistory, subscribeChatThreads
 } from './services/chats';
 import { 
@@ -97,10 +97,11 @@ import { VerificationStepId, SPORTS, SPORT_FILTERS, SPORT_TAGS } from './lib/typ
 import { getVerificationState, syncVerification, deleteExpiredUnverifiedProfile } from './services/verification';
 import { seedPresence, registerMyPresence } from './services/presence';
 import { OfficialEvents } from './components/OfficialEvents';
+import { CitySportsEvents } from './components/CitySportsEvents';
 import { OfficialEvent } from './lib/types';
 import {
   isAdmin, toggleEventRegistration, isRegistered,
-  getCategoryConfig, eventFillPercent, refreshEvents
+  getCategoryConfig, eventFillPercent, refreshEvents, verifiedTicketUrl
 } from './services/events';
 import { clearAdminSession } from './services/adminAuth';
 import { checkMessageForUnsafeSuggestion, SAFETY_BANNER_TIMEOUT_MS } from './services/safety';
@@ -853,7 +854,7 @@ export default function App(): JSX.Element {
     return chatThreads.filter(thread=>{
       const companion=allUsers.find(user=>user.id===thread.companionId);
       const last=thread.messages[thread.messages.length-1];
-      return [thread.trainingTitle,thread.trainingSport,companion?.name,companion?.sports?.join(' '),last?.text].filter(Boolean).join(' ').toLowerCase().includes(needle);
+      return [thread.trainingTitle,thread.trainingSport,thread.eventTitle,thread.eventSport,companion?.name,companion?.sports?.join(' '),last?.text].filter(Boolean).join(' ').toLowerCase().includes(needle);
     });
   },[chatThreads,chatSearch,allUsers]);
 
@@ -883,7 +884,7 @@ export default function App(): JSX.Element {
     if(link.startsWith('#chat=')){
       let id;try{id=decodeURIComponent(link.slice(6));}catch{return;}
       setActiveTab('chats');
-      const category:ChatCategory=id.startsWith('training_')?'trainings':(currentUser.friendIds||[]).some(friend=>buildChatId(currentUser.id,friend)===id)?'friends':'matches';
+      const category:ChatCategory=id.startsWith('training_')?'trainings':id.startsWith('event_')?'events':(currentUser.friendIds||[]).some(friend=>buildChatId(currentUser.id,friend)===id)?'friends':'matches';
       if(chatCategory!==category){setChatCategory(category);return;}
       if(!chatThreads.some(t=>t.id===id))return;
       setOpenChatId(id);
@@ -908,7 +909,9 @@ export default function App(): JSX.Element {
 
   const openChatThread = chatThreads.find(t => t.id === openChatId) || null;
   const openChatIsTraining = openChatThread?.kind === 'training';
-  const openChatCompanion = openChatThread && !openChatIsTraining
+  const openChatIsEvent = openChatThread?.kind === 'event';
+  const openChatIsGroup = openChatIsTraining || openChatIsEvent;
+  const openChatCompanion = openChatThread && !openChatIsGroup
     ? allUsers.find(u => u.id === openChatThread.companionId) || null
     : null;
   const lastMineMessageId = openChatThread
@@ -929,7 +932,7 @@ export default function App(): JSX.Element {
 
   const handleSendChatMessage = () => {
     if (chatSending || !chatDraft.trim() || !openChatThread || !currentUser) return;
-    if(!openChatIsTraining && !openChatCompanion)return;
+    if(!openChatIsGroup && !openChatCompanion)return;
     if(openChatThread.archivedAt){notify('Чат завершённой тренировки доступен только для чтения','err');return;}
     triggerHapticImpact('light');
     const text = chatDraft.trim();
@@ -938,7 +941,7 @@ export default function App(): JSX.Element {
     setChatReplyTarget(null);
     setChatSending(true);
     void setChatTyping(openChatThread.id,false).catch(()=>undefined);
-    const sending=openChatIsTraining
+    const sending=openChatIsGroup
       ? sendTrainingGroupMessage(openChatThread.id,text,replyTarget?.id)
       : sendChatMessage(openChatThread.id,openChatCompanion!.id,text,replyTarget?.id);
     void sending
@@ -963,6 +966,21 @@ export default function App(): JSX.Element {
       setPendingNotificationLink('#chat='+encodeURIComponent(result.chatId));
     }catch(error){
       notify(error instanceof Error?error.message:'Не удалось открыть чат тренировки','err');
+    }
+  };
+
+  const openEventGroupChat=async(event:OfficialEvent)=>{
+    if(!currentUser||!event.participantIds.includes(currentUser.id)){
+      notify('Чат доступен только тем, кто идёт на событие','err');return;
+    }
+    try{
+      const result=await ensureEventGroupChat(event.id);
+      setSelectedEvent(null);
+      setChatCategory('events');
+      handleTabChange('chats');
+      setPendingNotificationLink('#chat='+encodeURIComponent(result.chatId));
+    }catch(error){
+      notify(error instanceof Error?error.message:'Не удалось открыть чат события','err');
     }
   };
 
@@ -2227,6 +2245,15 @@ export default function App(): JSX.Element {
                   </div>
                 )}
 
+                {/* City spectator events: weekly sports calendar + find company + verified ticket sources */}
+                {currentUser && (
+                  <CitySportsEvents
+                    currentUser={currentUser}
+                    onOpenChat={(event)=>void openEventGroupChat(event)}
+                    refreshKey={eventsRefreshKey}
+                  />
+                )}
+
                 {/* Official SportBuddy events */}
                 {currentUser && (
                   <OfficialEvents
@@ -2418,7 +2445,7 @@ export default function App(): JSX.Element {
                       </div>
                     )}
                   </div>
-                ) : openChatThread && (openChatCompanion || openChatIsTraining) ? (
+                ) : openChatThread && (openChatCompanion || openChatIsGroup) ? (
                   /* ACTIVE CONVERSATION */
                   <div className="space-y-3">
                     <div className="flex items-center gap-3 bg-slate-900 border border-slate-800 rounded-3xl p-3 shadow-lg">
@@ -2431,6 +2458,8 @@ export default function App(): JSX.Element {
                       </button>
                       {openChatIsTraining ? (
                         <div className="w-11 h-11 rounded-2xl border-2 border-cyan-500/60 bg-cyan-500/10 flex items-center justify-center text-xl shadow">🏃</div>
+                      ) : openChatIsEvent ? (
+                        <div className="w-11 h-11 rounded-2xl border-2 border-sky-500/60 bg-sky-500/10 flex items-center justify-center text-xl shadow">🎟️</div>
                       ) : (
                         <AvatarImage
                           src={avatarUrl(openChatCompanion!.avatar, 88) || AVATAR_FALLBACK}
@@ -2441,19 +2470,21 @@ export default function App(): JSX.Element {
                       )}
                       <div className="flex-1 min-w-0">
                         <h3 className="text-sm font-black text-white truncate flex items-center gap-1.5">
-                          {openChatIsTraining ? openChatThread.trainingTitle : openChatCompanion!.name}
-                          {!openChatIsTraining && openChatCompanion!.subscriptionPlan === 'premium' && (
+                          {openChatIsTraining ? openChatThread.trainingTitle : openChatIsEvent ? openChatThread.eventTitle : openChatCompanion!.name}
+                          {!openChatIsGroup && openChatCompanion!.subscriptionPlan === 'premium' && (
                             <Crown className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
                           )}
                         </h3>
                         <p className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1 truncate">
                           {openChatIsTraining
                             ? <><Users className="w-3 h-3 shrink-0"/>{openChatThread.participantIds.length} участников • {openChatThread.trainingSport}</>
+                            : openChatIsEvent
+                              ? <><Users className="w-3 h-3 shrink-0"/>{openChatThread.participantIds.length} идут • {openChatThread.eventSport}</>
                             : <><MapPin className="w-3 h-3 shrink-0"/>{openChatCompanion!.locationName}</>}
                         </p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        {!openChatIsTraining && (
+                        {!openChatIsGroup && (
                           <button
                             onClick={() => { setComplaintContactId(openChatCompanion!.id); setComplaintChatId(openChatThread.id); setIsComplaintOpen(true); }}
                             className="rounded-xl border border-rose-500/25 bg-rose-500/10 px-2.5 py-1.5 text-[9px] font-black text-rose-300 active:scale-95"
@@ -2461,8 +2492,8 @@ export default function App(): JSX.Element {
                             Пожаловаться
                           </button>
                         )}
-                        <span className={`text-[10px] font-black px-2 py-1 rounded-lg border ${openChatIsTraining?'bg-cyan-500/15 text-cyan-300 border-cyan-500/30':'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'}`}>
-                          {openChatIsTraining ? (openChatThread.archivedAt?'АРХИВ 🏁':'ГРУППА 👥') : chatCategory === 'friends' ? 'ДРУГ 👥' : 'МЭТЧ 🤝'}
+                        <span className={`text-[10px] font-black px-2 py-1 rounded-lg border ${openChatIsTraining?'bg-cyan-500/15 text-cyan-300 border-cyan-500/30':openChatIsEvent?'bg-sky-500/15 text-sky-300 border-sky-500/30':'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'}`}>
+                          {openChatIsGroup ? (openChatThread.archivedAt?'АРХИВ 🏁':'ГРУППА 👥') : chatCategory === 'friends' ? 'ДРУГ 👥' : 'МЭТЧ 🤝'}
                         </span>
                       </div>
                     </div>
@@ -2478,15 +2509,17 @@ export default function App(): JSX.Element {
                       <p className="text-center text-[10px] text-slate-600 font-medium">
                         {openChatIsTraining
                           ? `Чат участников • ${openChatThread.trainingSport || 'тренировка'}`
+                          : openChatIsEvent
+                            ? `Чат события • ${openChatThread.eventSport || 'спорт'}`
                           : `Начало переписки • ${openChatCompanion!.sports.join(' • ')}`}
                       </p>
 
                       {openChatThread.messages.map((m: ChatMessage) => {
                         const mine = m.senderId === CURRENT_USER_ID;
-                        const sender=openChatIsTraining?allUsers.find(user=>user.id===m.senderId):openChatCompanion;
+                        const sender=openChatIsGroup?allUsers.find(user=>user.id===m.senderId):openChatCompanion;
                         const canDelete=mine&&!m.deletedAt&&!openChatThread.archivedAt&&Date.now()-m.timestamp<=15*60*1000;
-                        const groupRecipients=openChatIsTraining?openChatThread.participantIds.filter(id=>id!==CURRENT_USER_ID):[];
-                        const groupReadCount=openChatIsTraining?groupRecipients.filter(id=>Number(openChatThread.readAt?.[id]||0)>=m.timestamp).length:0;
+                        const groupRecipients=openChatIsGroup?openChatThread.participantIds.filter(id=>id!==CURRENT_USER_ID):[];
+                        const groupReadCount=openChatIsGroup?groupRecipients.filter(id=>Number(openChatThread.readAt?.[id]||0)>=m.timestamp).length:0;
                         return (
                           <div key={m.id} className={`group flex ${mine ? 'justify-end' : 'justify-start'} gap-2`}>
                             {!mine && (
@@ -2652,7 +2685,7 @@ export default function App(): JSX.Element {
                       <div>
                         <h2 className="text-lg font-black text-white tracking-tight">Чаты</h2>
                         <p className="text-xs text-slate-400">
-                          {chatCategory === 'matches' ? 'Общение с взаимными симпатиями' : chatCategory === 'friends' ? 'Общение с друзьями' : 'Группы ваших тренировок'}
+                          {chatCategory === 'matches' ? 'Общение с взаимными симпатиями' : chatCategory === 'friends' ? 'Общение с друзьями' : chatCategory === 'events' ? 'Компании на спортивные события' : 'Группы ваших тренировок'}
                         </p>
                       </div>
                       <span className="text-[10px] font-black bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 px-2.5 py-1 rounded-xl flex items-center gap-1 shadow">
@@ -2665,7 +2698,8 @@ export default function App(): JSX.Element {
                       {([
                         { id: 'matches' as ChatCategory, label: 'Мэтчи', icon: '💚', count: currentUser.matchIds.length },
                         { id: 'friends' as ChatCategory, label: 'Друзья', icon: '👥', count: friendsCount },
-                        { id: 'trainings' as ChatCategory, label: 'Группы', icon: '🏃', count: allChatThreads.filter(thread=>thread.kind==='training').length }
+                        { id: 'trainings' as ChatCategory, label: 'Тренировки', icon: '🏃', count: allChatThreads.filter(thread=>thread.kind==='training').length },
+                        { id: 'events' as ChatCategory, label: 'События', icon: '🎟️', count: allChatThreads.filter(thread=>thread.kind==='event').length }
                       ]).map((c) => (
                         <button
                           key={c.id}
@@ -2712,10 +2746,10 @@ export default function App(): JSX.Element {
                     {visibleChatThreads.length === 0 ? (
                       <div className="text-center py-14 px-4 bg-slate-900/60 rounded-3xl border border-slate-800 space-y-3">
                         <div className="w-16 h-16 rounded-3xl bg-emerald-500/15 border border-emerald-500/40 mx-auto flex items-center justify-center text-3xl">
-                          {chatCategory === 'matches' ? '💬' : chatCategory === 'friends' ? '👥' : '🏃'}
+                          {chatCategory === 'matches' ? '💬' : chatCategory === 'friends' ? '👥' : chatCategory === 'events' ? '🎟️' : '🏃'}
                         </div>
                         <h3 className="text-base font-bold text-white">
-                          {chatSearch.trim() ? 'Ничего не найдено' : chatCategory === 'matches' ? 'Пока нет взаимных симпатий' : chatCategory === 'friends' ? 'Пока нет друзей' : 'Пока нет групп тренировок'}
+                          {chatSearch.trim() ? 'Ничего не найдено' : chatCategory === 'matches' ? 'Пока нет взаимных симпатий' : chatCategory === 'friends' ? 'Пока нет друзей' : chatCategory === 'events' ? 'Пока нет групп событий' : 'Пока нет групп тренировок'}
                         </h3>
                         <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
                           {chatSearch.trim()
@@ -2724,14 +2758,18 @@ export default function App(): JSX.Element {
                               ? 'Чат открывается автоматически, когда вы и другой спортсмен из Санкт-Петербурга ставите друг другу «Симпатию».'
                               : chatCategory === 'friends'
                                 ? 'Добавляйте спортсменов в друзья из анкет и таблицы лидеров — чат откроется после взаимного согласия.'
+                                : chatCategory === 'events'
+                                ? 'Отметьте «Я иду» на спортивном событии — общий чат станет доступен всем участникам SportBuddy78.'
                                 : 'Запишитесь на тренировку или создайте свою — общий чат появится автоматически для участников.'}
                         </p>
                         <button
-                          onClick={() => handleTabChange(chatCategory==='trainings'?'trainings':'discover')}
+                          onClick={() => handleTabChange(chatCategory==='trainings'||chatCategory==='events'?'trainings':'discover')}
                           className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold px-5 py-2.5 rounded-2xl text-xs transition shadow-[0_0_18px_rgba(16,185,129,0.4)] active:scale-95 inline-flex items-center gap-2"
                         >
                           {chatCategory==='trainings'
                             ? <><Dumbbell className="w-4 h-4" /> Открыть тренировки</>
+                            : chatCategory==='events'
+                              ? <><Ticket className="w-4 h-4" /> Открыть события</>
                             : <><Heart className="w-4 h-4 fill-slate-950 stroke-none" /> Найти напарника</>}
                         </button>
                       </div>
@@ -2739,8 +2777,10 @@ export default function App(): JSX.Element {
                       <div className="space-y-2.5">
                         {visibleChatThreads.map(thread => {
                           const isTraining=thread.kind==='training';
-                          const companion=isTraining?null:allUsers.find(u=>u.id===thread.companionId);
-                          if(!isTraining&&!companion)return null;
+                          const isEvent=thread.kind==='event';
+                          const isGroup=isTraining||isEvent;
+                          const companion=isGroup?null:allUsers.find(u=>u.id===thread.companionId);
+                          if(!isGroup&&!companion)return null;
                           const last=thread.messages[thread.messages.length-1];
                           const metadataUnread=Number(thread.unreadCount?.[CURRENT_USER_ID]);
                           const unread=Number.isFinite(metadataUnread)
@@ -2748,10 +2788,12 @@ export default function App(): JSX.Element {
                             : thread.messages.filter(m=>!m.deletedAt&&!m.read&&m.senderId!==CURRENT_USER_ID).length;
                           const subtitle=isTraining
                             ? `${thread.trainingSport||'Тренировка'} • ${thread.participantIds.length} участников`
-                            : companion!.sports.slice(0,3).join(' • ');
+                            : isEvent
+                              ? `${thread.eventSport||'Событие'} • ${thread.participantIds.length} идут`
+                              : companion!.sports.slice(0,3).join(' • ');
                           const preview=last
-                            ? `${last.senderId===CURRENT_USER_ID?'Вы: ':isTraining?messageAuthor(last.senderId)+': ':''}${last.text}`
-                            : isTraining?'Группа создана для участников тренировки':'Начните диалог первым!';
+                            ? `${last.senderId===CURRENT_USER_ID?'Вы: ':isGroup?messageAuthor(last.senderId)+': ':''}${last.text}`
+                            : isTraining?'Группа создана для участников тренировки':isEvent?'Группа создана для тех, кто идёт на событие':'Начните диалог первым!';
 
                           return (
                             <button
@@ -2762,6 +2804,8 @@ export default function App(): JSX.Element {
                               <div className="relative shrink-0">
                                 {isTraining ? (
                                   <div className="w-12 h-12 rounded-2xl border-2 border-cyan-500/60 bg-cyan-500/10 flex items-center justify-center text-xl">🏃</div>
+                                ) : isEvent ? (
+                                  <div className="w-12 h-12 rounded-2xl border-2 border-sky-500/60 bg-sky-500/10 flex items-center justify-center text-xl">🎟️</div>
                                 ) : (
                                   <>
                                     <AvatarImage
@@ -2779,9 +2823,9 @@ export default function App(): JSX.Element {
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center justify-between gap-2">
                                   <h4 className="text-sm font-extrabold text-white truncate flex items-center gap-1">
-                                    {isTraining?thread.trainingTitle:companion!.name}
-                                    {isTraining ? (
-                                      <span className={`text-[8px] font-black ${thread.archivedAt?'text-slate-500':'text-cyan-300'}`}>{thread.archivedAt?'АРХИВ':'ГРУППА'}</span>
+                                    {isTraining?thread.trainingTitle:isEvent?thread.eventTitle:companion!.name}
+                                    {isGroup ? (
+                                      <span className={`text-[8px] font-black ${thread.archivedAt?'text-slate-500':isEvent?'text-sky-300':'text-cyan-300'}`}>{thread.archivedAt?'АРХИВ':'ГРУППА'}</span>
                                     ) : companion!.subscriptionPlan==='premium'&&(
                                       <Crown className="w-3 h-3 fill-amber-400 text-amber-400 shrink-0"/>
                                     )}
@@ -3170,13 +3214,49 @@ export default function App(): JSX.Element {
       <Modal
         isOpen={!!selectedEvent}
         onClose={() => setSelectedEvent(null)}
-        title="Мероприятие SportBuddy"
+        title={selectedEvent?.category==='spectator'?'Спортивное событие Петербурга':'Мероприятие SportBuddy'}
         subtitle={selectedEvent ? getCategoryConfig(selectedEvent.category).label : undefined}
         maxWidth="lg"
         footer={
           selectedEvent && currentUser && (() => {
             const registered = isRegistered(selectedEvent, currentUser.id);
             const full = selectedEvent.participantIds.length >= selectedEvent.participantsMax;
+            if(selectedEvent.category==='spectator'){
+              const ticketUrl=verifiedTicketUrl(selectedEvent);
+              return (
+                <div className="grid grid-cols-2 gap-2 w-full">
+                  <button
+                    onClick={() => shareContent(
+                      `Идём на: ${selectedEvent.title}`,
+                      `${selectedEvent.tagline} • ${selectedEvent.dateLabel} • ${selectedEvent.locationName}`,
+                      window.location.href
+                    )}
+                    className="px-3 py-3 bg-slate-800 text-slate-200 font-bold rounded-2xl text-xs flex items-center justify-center gap-1.5"
+                  >
+                    <Share2 className="w-4 h-4" /> Поделиться
+                  </button>
+                  {ticketUrl ? (
+                    <a href={ticketUrl} target="_blank" rel="noopener noreferrer"
+                      className="px-3 py-3 bg-amber-400/10 border border-amber-400/40 text-amber-300 font-black rounded-2xl text-xs flex items-center justify-center gap-1.5">
+                      <Ticket className="w-4 h-4"/> Купить билет
+                    </a>
+                  ) : <span />}
+                  {registered && (
+                    <button onClick={()=>void openEventGroupChat(selectedEvent)}
+                      className="px-3 py-3 bg-sky-500/15 border border-sky-500/40 text-sky-300 font-black rounded-2xl text-xs">
+                      💬 Чат события
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleToggleEventRegistration(selectedEvent)}
+                    disabled={!registered && full}
+                    className={`py-3 font-black rounded-2xl text-xs transition ${registered?'bg-rose-500 text-white':full?'bg-slate-800 text-slate-500':'bg-sky-400 text-slate-950'}`}
+                  >
+                    {registered?'Не иду':full?'Лимит группы достигнут':'Иду / ищу компанию'}
+                  </button>
+                </div>
+              );
+            }
             return (
               <div className="flex gap-2 w-full">
                 <button
@@ -3230,7 +3310,7 @@ export default function App(): JSX.Element {
 
             <div>
               <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase bg-emerald-500 text-slate-950 px-2 py-1 rounded-lg mb-2">
-                ✓ Официальное мероприятие
+                ✓ {selectedEvent.category==='spectator'?'Источник и билеты проверены':'Официальное мероприятие'}
               </span>
               <h3 className="text-lg font-black text-white leading-snug">{selectedEvent.title}</h3>
               <p className="text-emerald-400 font-semibold mt-0.5">{selectedEvent.tagline}</p>
