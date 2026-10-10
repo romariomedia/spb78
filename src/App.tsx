@@ -16,7 +16,7 @@ import {
   Filter, Plus, Share2, MessageCircle, Send, Zap, Crown, 
   ChevronRight, Bell, WifiOff, RefreshCw, Sparkles, Search, CheckCheck, Reply, Trash2,
   Map as MapIcon, SlidersHorizontal, CheckCircle2,
-  Calendar, ShieldAlert, Clock, Lock, UserPlus
+  Calendar, ShieldAlert, Clock, Lock, UserPlus, Ticket
 } from 'lucide-react';
 
 import { 
@@ -854,7 +854,7 @@ export default function App(): JSX.Element {
     return chatThreads.filter(thread=>{
       const companion=allUsers.find(user=>user.id===thread.companionId);
       const last=thread.messages[thread.messages.length-1];
-      return [thread.trainingTitle,thread.trainingSport,companion?.name,companion?.sports?.join(' '),last?.text].filter(Boolean).join(' ').toLowerCase().includes(needle);
+      return [thread.trainingTitle,thread.trainingSport,thread.eventTitle,thread.eventSport,companion?.name,companion?.sports?.join(' '),last?.text].filter(Boolean).join(' ').toLowerCase().includes(needle);
     });
   },[chatThreads,chatSearch,allUsers]);
 
@@ -2445,7 +2445,7 @@ export default function App(): JSX.Element {
                       </div>
                     )}
                   </div>
-                ) : openChatThread && (openChatCompanion || openChatIsTraining) ? (
+                ) : openChatThread && (openChatCompanion || openChatIsGroup) ? (
                   /* ACTIVE CONVERSATION */
                   <div className="space-y-3">
                     <div className="flex items-center gap-3 bg-slate-900 border border-slate-800 rounded-3xl p-3 shadow-lg">
@@ -2458,6 +2458,8 @@ export default function App(): JSX.Element {
                       </button>
                       {openChatIsTraining ? (
                         <div className="w-11 h-11 rounded-2xl border-2 border-cyan-500/60 bg-cyan-500/10 flex items-center justify-center text-xl shadow">🏃</div>
+                      ) : openChatIsEvent ? (
+                        <div className="w-11 h-11 rounded-2xl border-2 border-sky-500/60 bg-sky-500/10 flex items-center justify-center text-xl shadow">🎟️</div>
                       ) : (
                         <AvatarImage
                           src={avatarUrl(openChatCompanion!.avatar, 88) || AVATAR_FALLBACK}
@@ -2468,19 +2470,21 @@ export default function App(): JSX.Element {
                       )}
                       <div className="flex-1 min-w-0">
                         <h3 className="text-sm font-black text-white truncate flex items-center gap-1.5">
-                          {openChatIsTraining ? openChatThread.trainingTitle : openChatCompanion!.name}
-                          {!openChatIsTraining && openChatCompanion!.subscriptionPlan === 'premium' && (
+                          {openChatIsTraining ? openChatThread.trainingTitle : openChatIsEvent ? openChatThread.eventTitle : openChatCompanion!.name}
+                          {!openChatIsGroup && openChatCompanion!.subscriptionPlan === 'premium' && (
                             <Crown className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
                           )}
                         </h3>
                         <p className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1 truncate">
                           {openChatIsTraining
                             ? <><Users className="w-3 h-3 shrink-0"/>{openChatThread.participantIds.length} участников • {openChatThread.trainingSport}</>
+                            : openChatIsEvent
+                              ? <><Users className="w-3 h-3 shrink-0"/>{openChatThread.participantIds.length} идут • {openChatThread.eventSport}</>
                             : <><MapPin className="w-3 h-3 shrink-0"/>{openChatCompanion!.locationName}</>}
                         </p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        {!openChatIsTraining && (
+                        {!openChatIsGroup && (
                           <button
                             onClick={() => { setComplaintContactId(openChatCompanion!.id); setComplaintChatId(openChatThread.id); setIsComplaintOpen(true); }}
                             className="rounded-xl border border-rose-500/25 bg-rose-500/10 px-2.5 py-1.5 text-[9px] font-black text-rose-300 active:scale-95"
@@ -2488,8 +2492,8 @@ export default function App(): JSX.Element {
                             Пожаловаться
                           </button>
                         )}
-                        <span className={`text-[10px] font-black px-2 py-1 rounded-lg border ${openChatIsTraining?'bg-cyan-500/15 text-cyan-300 border-cyan-500/30':'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'}`}>
-                          {openChatIsTraining ? (openChatThread.archivedAt?'АРХИВ 🏁':'ГРУППА 👥') : chatCategory === 'friends' ? 'ДРУГ 👥' : 'МЭТЧ 🤝'}
+                        <span className={`text-[10px] font-black px-2 py-1 rounded-lg border ${openChatIsTraining?'bg-cyan-500/15 text-cyan-300 border-cyan-500/30':openChatIsEvent?'bg-sky-500/15 text-sky-300 border-sky-500/30':'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'}`}>
+                          {openChatIsGroup ? (openChatThread.archivedAt?'АРХИВ 🏁':'ГРУППА 👥') : chatCategory === 'friends' ? 'ДРУГ 👥' : 'МЭТЧ 🤝'}
                         </span>
                       </div>
                     </div>
@@ -2505,15 +2509,17 @@ export default function App(): JSX.Element {
                       <p className="text-center text-[10px] text-slate-600 font-medium">
                         {openChatIsTraining
                           ? `Чат участников • ${openChatThread.trainingSport || 'тренировка'}`
+                          : openChatIsEvent
+                            ? `Чат события • ${openChatThread.eventSport || 'спорт'}`
                           : `Начало переписки • ${openChatCompanion!.sports.join(' • ')}`}
                       </p>
 
                       {openChatThread.messages.map((m: ChatMessage) => {
                         const mine = m.senderId === CURRENT_USER_ID;
-                        const sender=openChatIsTraining?allUsers.find(user=>user.id===m.senderId):openChatCompanion;
+                        const sender=openChatIsGroup?allUsers.find(user=>user.id===m.senderId):openChatCompanion;
                         const canDelete=mine&&!m.deletedAt&&!openChatThread.archivedAt&&Date.now()-m.timestamp<=15*60*1000;
-                        const groupRecipients=openChatIsTraining?openChatThread.participantIds.filter(id=>id!==CURRENT_USER_ID):[];
-                        const groupReadCount=openChatIsTraining?groupRecipients.filter(id=>Number(openChatThread.readAt?.[id]||0)>=m.timestamp).length:0;
+                        const groupRecipients=openChatIsGroup?openChatThread.participantIds.filter(id=>id!==CURRENT_USER_ID):[];
+                        const groupReadCount=openChatIsGroup?groupRecipients.filter(id=>Number(openChatThread.readAt?.[id]||0)>=m.timestamp).length:0;
                         return (
                           <div key={m.id} className={`group flex ${mine ? 'justify-end' : 'justify-start'} gap-2`}>
                             {!mine && (
