@@ -3,6 +3,7 @@ import { CalendarDays, ExternalLink, MapPin, ShieldCheck, Ticket, Users } from '
 import { OfficialEvent, UserProfile } from '../lib/types';
 import { filterUpcomingCityEvents, getUpcomingCityEvents, isRegistered, refreshEvents, toggleEventRegistration, verifiedTicketUrl } from '../services/events';
 import { triggerHapticImpact, triggerHapticNotification } from '../services/native';
+import { effectiveEventCover } from '../lib/eventCoverPresets';
 
 type Filter='all'|'Хоккей'|'Футбол'|'Баскетбол'|'media'|'mine';
 
@@ -89,11 +90,12 @@ export const CitySportsEvents:React.FC<Props>=({currentUser,refreshKey,onOpenCha
     <div className="space-y-3">{visible.map(event=>{
       const joined=isRegistered(event,currentUser.id);
       const ticketUrl=verifiedTicketUrl(event);
+      const eventCover=effectiveEventCover(event);
       const isMedia=event.isMediaLeague===true;
       const organizerUrl=isMedia?event.organizerUrl:'';
       return <article key={event.id} className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-950">
-        {event.coverUrl&&<div className="relative block h-32 w-full overflow-hidden">
-          <img src={event.coverUrl} alt={event.title} loading="lazy" className="h-full w-full object-cover"/>
+        {eventCover&&<div className="relative block h-32 w-full overflow-hidden">
+          <img src={eventCover} alt={event.title} loading="lazy" className="h-full w-full object-cover"/>
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent"/>
           <span className="absolute left-2 top-2 flex items-center gap-1 rounded-lg border border-emerald-400/40 bg-slate-950/90 px-2 py-1 text-[9px] font-black text-emerald-300">
             <ShieldCheck className="h-3 w-3"/> Источник проверен
