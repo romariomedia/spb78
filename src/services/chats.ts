@@ -27,7 +27,7 @@ function readAllThreads(userId = CURRENT_USER_ID): Record<string, ChatThread> {
 export function getReportableChatThreads(userId: string): ChatThread[] {
   return Object.values(readAllThreads(userId))
     .filter((thread) => thread.participantIds.includes(userId))
-    .filter((thread) => thread.kind !== 'training')
+    .filter((thread) => thread.kind !== 'training' && thread.kind !== 'event')
     .filter((thread) => thread.messages.length > 0)
     .sort((a, b) => b.lastMessageAt - a.lastMessageAt);
 }
@@ -80,14 +80,15 @@ function createEmptyThread(currentUserId: string, companion: UserProfile): ChatT
 export function loadChatThreads(
   currentUser: UserProfile,
   allUsers: UserProfile[],
-  category: 'matches' | 'friends' | 'trainings' = 'matches'
+  category: 'matches' | 'friends' | 'trainings' | 'events' = 'matches'
 ): ChatThread[] {
   const stored = readAllThreads(currentUser.id);
   let changed = false;
 
-  if(category==='trainings'){
+  if(category==='trainings'||category==='events'){
+    const kind=category==='trainings'?'training':'event';
     return Object.values(stored)
-      .filter(thread=>thread.kind==='training'&&thread.participantIds.includes(currentUser.id))
+      .filter(thread=>thread.kind===kind&&thread.participantIds.includes(currentUser.id))
       .map(thread=>({...thread,messages:thread.messages.map(message=>({...message,createdAt:formatTimeLabel(message.timestamp)}))}))
       .sort((a,b)=>b.lastMessageAt-a.lastMessageAt);
   }
@@ -126,7 +127,7 @@ export function loadChatThreads(
  */
 export function subscribeChatThreads(
   currentUser: UserProfile,
-  category: 'matches' | 'friends' | 'trainings',
+  category: 'matches' | 'friends' | 'trainings' | 'events',
   onChange: (threads: ChatThread[]) => void,
   onAllChange?: (threads: ChatThread[]) => void
 ): Unsubscribe {
@@ -140,8 +141,9 @@ export function subscribeChatThreads(
       const stored = readAllThreads(currentUser.id);
       snapshot.docs.forEach((chatDoc) => {
         const data = chatDoc.data() as ChatThread & { readAt?: Record<string, number> };
-        const companionId = data.kind === 'training' ? '' : (data.participantIds.find((id) => id !== currentUser.id) || '');
-        if (data.kind !== 'training' && !companionId) return;
+        const isGroup=data.kind==='training'||data.kind==='event';
+        const companionId = isGroup ? '' : (data.participantIds.find((id) => id !== currentUser.id) || '');
+        if (!isGroup && !companionId) return;
         const sourceMessages = data.recentMessages || data.messages || [];
         const merged=new Map<string,ChatMessage>();
         for(const message of stored[chatDoc.id]?.messages||[])merged.set(message.id,message);
@@ -166,7 +168,9 @@ export function subscribeChatThreads(
       onAllChange?.(allThreads);
       onChange(category==='trainings'
         ? allThreads.filter(thread=>thread.kind==='training')
-        : allThreads.filter((thread) => thread.kind!=='training' && companionIds.has(thread.companionId)));
+        : category==='events'
+          ? allThreads.filter(thread=>thread.kind==='event')
+          : allThreads.filter((thread) => thread.kind!=='training' && thread.kind!=='event' && companionIds.has(thread.companionId)));
     },
     () => {
       // Offline cache remains active; no UI error needed.
@@ -196,15 +200,21 @@ export async function ensureTrainingGroupChat(trainingId:string):Promise<{chatId
   return callServer('/api/sportbuddy-mutation',{action:'training',operation:'ensureGroupChat',trainingId});
 }
 
-export async function sendTrainingGroupMessage(chatId:string,text:string,replyToMessageId?:string):Promise<ChatMessage>{
+export async function ensureEventGroupChat(eventId:string):Promise<{chatId:string}>{
+  return callServer('/api/sportbuddy-mutation',{action:'event',operation:'ensureGroupChat',eventId});
+}
+
+export async function sendGroupMessage(chatId:string,text:string,replyToMessageId?:string):Promise<ChatMessage>{
   const result=await callServer<{message:ChatMessage;thread:ChatThread}>('/api/sportbuddy-mutation',{
-    action:'chat',operation:'sendTraining',chatId,text,...(replyToMessageId?{replyToMessageId}:{})
+    action:'chat',operation:'sendGroup',chatId,text,...(replyToMessageId?{replyToMessageId}:{})
   });
   const threads=readAllThreads(CURRENT_USER_ID);
   threads[chatId]=result.thread;
   writeAllThreads(threads,CURRENT_USER_ID);
   return result.message;
 }
+
+export const sendTrainingGroupMessage=sendGroupMessage;
 
 export async function sendChatMessage(chatId: string, companionId: string, text: string, replyToMessageId?: string): Promise<ChatMessage> {
   const result = await callServer<{message:ChatMessage;thread:ChatThread}>('/api/sportbuddy-mutation', {
