@@ -250,7 +250,8 @@ export interface OfficialEvent {
   entryFee?: string;
   /** City spectator event: users attend as fans rather than compete. */
   audienceMode?: 'participant' | 'spectator';
-  /** Machine-readable Moscow-local start used for weekly sorting and expiry. */
+  /** Machine-readable calendar date and Moscow-local start used for weekly sorting and expiry. */
+  dateKey?: string;
   startsAt?: number;
   /** Optional competition/league label, e.g. KHL, RPL, VTB League. */
   league?: string;
