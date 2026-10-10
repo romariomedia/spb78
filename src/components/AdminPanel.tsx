@@ -33,6 +33,7 @@ import { AdminModerationPanel } from './AdminModerationPanel';
 import { AdminAnalyticsPanel } from './AdminAnalyticsPanel';
 import { AdminSportIdVerificationPanel } from './AdminSportIdVerificationPanel';
 import { AdminCompetitionResultsPanel } from './AdminCompetitionResultsPanel';
+import { CitySportsEventsAdminPanel } from './CitySportsEventsAdminPanel';
 
 import { SPORT_TAGS as SPORTS } from '../lib/types';
 
@@ -256,7 +257,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           {adminView === 'audit' && <AdminAuditPanel />}
 
           {adminView === 'events' && <>
-          <AdminCompetitionResultsPanel events={events} />
+          <CitySportsEventsAdminPanel currentUser={currentUser} onChanged={onEventsChanged} />
+          <AdminCompetitionResultsPanel events={events.filter(event=>event.category!=='spectator')} />
           <button
             onClick={() => {
               triggerHapticImpact('medium');
