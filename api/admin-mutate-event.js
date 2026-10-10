@@ -73,6 +73,7 @@ function sanitizeEvent(input, id, existing = null) {
     ...(text(input?.entryFee, 240) ? { entryFee: text(input.entryFee, 240) } : {}),
     audienceMode,
     ...(text(input?.league, 120) ? { league: text(input.league, 120) } : {}),
+    ...(input?.isMediaLeague === true ? { isMediaLeague:true } : {}),
     ...(text(input?.homeTeam, 120) ? { homeTeam: text(input.homeTeam, 120) } : {}),
     ...(text(input?.awayTeam, 120) ? { awayTeam: text(input.awayTeam, 120) } : {}),
     ...(officialSourceUrl ? { officialSourceUrl } : {}),
