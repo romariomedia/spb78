@@ -264,6 +264,11 @@ export interface OfficialEvent {
   ticketUrl?: string;
   ticketSourceName?: string;
   ticketVerified?: boolean;
+  officialClubId?: string;
+  officialHosts?: string[];
+  organizerUrl?: string;
+  isImported?: boolean;
+  adminHidden?: boolean;
   ticketVerifiedAt?: string;
   ticketVerifiedBy?: string;
   status: EventStatus;
