@@ -2679,7 +2679,7 @@ export default function App(): JSX.Element {
                       <div>
                         <h2 className="text-lg font-black text-white tracking-tight">Чаты</h2>
                         <p className="text-xs text-slate-400">
-                          {chatCategory === 'matches' ? 'Общение с взаимными симпатиями' : chatCategory === 'friends' ? 'Общение с друзьями' : 'Группы ваших тренировок'}
+                          {chatCategory === 'matches' ? 'Общение с взаимными симпатиями' : chatCategory === 'friends' ? 'Общение с друзьями' : chatCategory === 'events' ? 'Компании на спортивные события' : 'Группы ваших тренировок'}
                         </p>
                       </div>
                       <span className="text-[10px] font-black bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 px-2.5 py-1 rounded-xl flex items-center gap-1 shadow">
@@ -2692,7 +2692,8 @@ export default function App(): JSX.Element {
                       {([
                         { id: 'matches' as ChatCategory, label: 'Мэтчи', icon: '💚', count: currentUser.matchIds.length },
                         { id: 'friends' as ChatCategory, label: 'Друзья', icon: '👥', count: friendsCount },
-                        { id: 'trainings' as ChatCategory, label: 'Группы', icon: '🏃', count: allChatThreads.filter(thread=>thread.kind==='training').length }
+                        { id: 'trainings' as ChatCategory, label: 'Тренировки', icon: '🏃', count: allChatThreads.filter(thread=>thread.kind==='training').length },
+                        { id: 'events' as ChatCategory, label: 'События', icon: '🎟️', count: allChatThreads.filter(thread=>thread.kind==='event').length }
                       ]).map((c) => (
                         <button
                           key={c.id}
@@ -2739,10 +2740,10 @@ export default function App(): JSX.Element {
                     {visibleChatThreads.length === 0 ? (
                       <div className="text-center py-14 px-4 bg-slate-900/60 rounded-3xl border border-slate-800 space-y-3">
                         <div className="w-16 h-16 rounded-3xl bg-emerald-500/15 border border-emerald-500/40 mx-auto flex items-center justify-center text-3xl">
-                          {chatCategory === 'matches' ? '💬' : chatCategory === 'friends' ? '👥' : '🏃'}
+                          {chatCategory === 'matches' ? '💬' : chatCategory === 'friends' ? '👥' : chatCategory === 'events' ? '🎟️' : '🏃'}
                         </div>
                         <h3 className="text-base font-bold text-white">
-                          {chatSearch.trim() ? 'Ничего не найдено' : chatCategory === 'matches' ? 'Пока нет взаимных симпатий' : chatCategory === 'friends' ? 'Пока нет друзей' : 'Пока нет групп тренировок'}
+                          {chatSearch.trim() ? 'Ничего не найдено' : chatCategory === 'matches' ? 'Пока нет взаимных симпатий' : chatCategory === 'friends' ? 'Пока нет друзей' : chatCategory === 'events' ? 'Пока нет групп событий' : 'Пока нет групп тренировок'}
                         </h3>
                         <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
                           {chatSearch.trim()
@@ -2751,14 +2752,18 @@ export default function App(): JSX.Element {
                               ? 'Чат открывается автоматически, когда вы и другой спортсмен из Санкт-Петербурга ставите друг другу «Симпатию».'
                               : chatCategory === 'friends'
                                 ? 'Добавляйте спортсменов в друзья из анкет и таблицы лидеров — чат откроется после взаимного согласия.'
+                                : chatCategory === 'events'
+                                ? 'Отметьте «Я иду» на спортивном событии — общий чат станет доступен всем участникам SportBuddy78.'
                                 : 'Запишитесь на тренировку или создайте свою — общий чат появится автоматически для участников.'}
                         </p>
                         <button
-                          onClick={() => handleTabChange(chatCategory==='trainings'?'trainings':'discover')}
+                          onClick={() => handleTabChange(chatCategory==='trainings'||chatCategory==='events'?'trainings':'discover')}
                           className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold px-5 py-2.5 rounded-2xl text-xs transition shadow-[0_0_18px_rgba(16,185,129,0.4)] active:scale-95 inline-flex items-center gap-2"
                         >
                           {chatCategory==='trainings'
                             ? <><Dumbbell className="w-4 h-4" /> Открыть тренировки</>
+                            : chatCategory==='events'
+                              ? <><Ticket className="w-4 h-4" /> Открыть события</>
                             : <><Heart className="w-4 h-4 fill-slate-950 stroke-none" /> Найти напарника</>}
                         </button>
                       </div>
@@ -2766,8 +2771,10 @@ export default function App(): JSX.Element {
                       <div className="space-y-2.5">
                         {visibleChatThreads.map(thread => {
                           const isTraining=thread.kind==='training';
-                          const companion=isTraining?null:allUsers.find(u=>u.id===thread.companionId);
-                          if(!isTraining&&!companion)return null;
+                          const isEvent=thread.kind==='event';
+                          const isGroup=isTraining||isEvent;
+                          const companion=isGroup?null:allUsers.find(u=>u.id===thread.companionId);
+                          if(!isGroup&&!companion)return null;
                           const last=thread.messages[thread.messages.length-1];
                           const metadataUnread=Number(thread.unreadCount?.[CURRENT_USER_ID]);
                           const unread=Number.isFinite(metadataUnread)
@@ -2775,10 +2782,12 @@ export default function App(): JSX.Element {
                             : thread.messages.filter(m=>!m.deletedAt&&!m.read&&m.senderId!==CURRENT_USER_ID).length;
                           const subtitle=isTraining
                             ? `${thread.trainingSport||'Тренировка'} • ${thread.participantIds.length} участников`
-                            : companion!.sports.slice(0,3).join(' • ');
+                            : isEvent
+                              ? `${thread.eventSport||'Событие'} • ${thread.participantIds.length} идут`
+                              : companion!.sports.slice(0,3).join(' • ');
                           const preview=last
-                            ? `${last.senderId===CURRENT_USER_ID?'Вы: ':isTraining?messageAuthor(last.senderId)+': ':''}${last.text}`
-                            : isTraining?'Группа создана для участников тренировки':'Начните диалог первым!';
+                            ? `${last.senderId===CURRENT_USER_ID?'Вы: ':isGroup?messageAuthor(last.senderId)+': ':''}${last.text}`
+                            : isTraining?'Группа создана для участников тренировки':isEvent?'Группа создана для тех, кто идёт на событие':'Начните диалог первым!';
 
                           return (
                             <button
@@ -2789,6 +2798,8 @@ export default function App(): JSX.Element {
                               <div className="relative shrink-0">
                                 {isTraining ? (
                                   <div className="w-12 h-12 rounded-2xl border-2 border-cyan-500/60 bg-cyan-500/10 flex items-center justify-center text-xl">🏃</div>
+                                ) : isEvent ? (
+                                  <div className="w-12 h-12 rounded-2xl border-2 border-sky-500/60 bg-sky-500/10 flex items-center justify-center text-xl">🎟️</div>
                                 ) : (
                                   <>
                                     <AvatarImage
