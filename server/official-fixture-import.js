@@ -23,7 +23,8 @@ export function normalizeFixture(input, source, now = Date.now()) {
   const organizerUrl=media?mediaOrganizerLink(input.organizerUrl || input.sourceUrl,source.allowedHosts):null;
   if(media && !organizerUrl) return null;
   const eventId='evt-auto-'+createHash('sha256').update(source.id+'|'+id).digest('hex').slice(0,24);
-  const day = new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Moscow',year:'numeric',month:'2-digit',day:'2-digit'}).format(start);
+  const parts=Object.fromEntries(new Intl.DateTimeFormat('en-US',{timeZone:'Europe/Moscow',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(start).map(part=>[part.type,part.value]));
+  const day=`${parts.year}-${parts.month}-${parts.day}`;
   const clock = new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Moscow',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(start);
   return {
     id:eventId,sourceEventId:id,sourceId:source.id,
