@@ -1,7 +1,7 @@
 import { districtLabel } from '../../shared/districts.js';
 import { trainingGenderError, trainingGenderLabel } from '../lib/trainingEligibility';
 import React from 'react';
-import { Calendar, MapPin, BadgeCheck } from 'lucide-react';
+import { Calendar, MapPin, BadgeCheck, Share2 } from 'lucide-react';
 import { Training, UserProfile } from '../lib/types';
 import { ProgressBar } from './ProgressBar';
 import { getCheckInsFor } from '../services/checkin';
@@ -15,10 +15,11 @@ interface TrainingCardProps {
   userCoords: Coords | null;
   onSelect: (training: Training) => void;
   onJoin: (training: Training) => void;
+  onShare: (training: Training) => void;
 }
 
 const TrainingCardInner: React.FC<TrainingCardProps> = ({
-  training: tr, creator, currentUserId, currentUser, userCoords, onSelect, onJoin
+  training: tr, creator, currentUserId, currentUser, userCoords, onSelect, onJoin, onShare
 }) => {
   const isJoined = tr.participantIds.includes(currentUserId);
   const genderError = !isJoined ? trainingGenderError(tr, currentUser) : null;
@@ -119,20 +120,31 @@ const TrainingCardInner: React.FC<TrainingCardProps> = ({
             </span>
           </div>
 
-          <button
-            title={genderError || undefined}
-            disabled={Boolean(genderError) || tr.isCompleted || (isFull && !isJoined) || (!tr.isOfficial && tr.createdBy === currentUserId)}
-            onClick={(e) => { e.stopPropagation(); onJoin(tr); }}
-            className={`text-xs font-black px-3 py-1.5 rounded-xl transition ${
-              isJoined
-                ? 'bg-slate-800 text-rose-400 hover:bg-rose-500/20 border border-slate-700'
-                : isFull
-                ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow'
-            }`}
-          >
-            {tr.isCompleted ? 'Завершена' : (!tr.isOfficial && tr.createdBy === currentUserId) ? 'Вы организатор' : isJoined ? 'Отменить' : genderError ? 'Запись недоступна' : isFull ? 'Заполнено' : 'Участвовать ↗'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              aria-label="Поделиться тренировкой"
+              title="Поделиться тренировкой"
+              onClick={(e) => { e.stopPropagation(); onShare(tr); }}
+              className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-700 bg-slate-950 text-slate-300 transition hover:border-emerald-500/50 hover:text-emerald-300 active:scale-95"
+            >
+              <Share2 className="h-3.5 w-3.5" />
+            </button>
+            <button
+              title={genderError || undefined}
+              disabled={Boolean(genderError) || tr.isCompleted || (isFull && !isJoined) || (!tr.isOfficial && tr.createdBy === currentUserId)}
+              onClick={(e) => { e.stopPropagation(); onJoin(tr); }}
+              className={`text-xs font-black px-3 py-1.5 rounded-xl transition ${
+                isJoined
+                  ? 'bg-slate-800 text-rose-400 hover:bg-rose-500/20 border border-slate-700'
+                  : isFull
+                  ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                  : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow'
+              }`}
+            >
+              {tr.isCompleted ? 'Завершена' : (!tr.isOfficial && tr.createdBy === currentUserId) ? 'Вы организатор' : isJoined ? 'Отменить' : genderError ? 'Запись недоступна' : isFull ? 'Заполнено' : 'Участвовать ↗'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -149,5 +161,6 @@ export const TrainingCard = React.memo(
     prev.creator === next.creator &&
     prev.userCoords === next.userCoords &&
     prev.onSelect === next.onSelect &&
-    prev.onJoin === next.onJoin
+    prev.onJoin === next.onJoin &&
+    prev.onShare === next.onShare
 );

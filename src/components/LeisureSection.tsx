@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, ArrowUpRight, CalendarDays, Compass, MapPin, Phone, RefreshCw, Search, Users, X } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, CalendarDays, Compass, MapPin, Phone, RefreshCw, Search, Share2, Users, X } from 'lucide-react';
 import { LEISURE_DESTINATIONS, LEISURE_REGIONS } from '../../shared/leisure-destinations.js';
 import { createLeisureEvent, listLeisureEvents, readLeisureEvent, changeLeisureEvent, listLeisureDestinations, LeisureDraft, LeisureEvent, LeisureDestination } from '../services/leisure';
 import { UserProfile } from '../lib/types';
+import { shareContent, triggerHapticImpact } from '../services/native';
+import { leisureShareCopy } from '../services/shareLinks';
 
 interface Props { user:UserProfile; users:UserProfile[]; isPremium:boolean; initialEventId:string; onOpenTariff:()=>void; onOpenUser:(user:UserProfile)=>void }
 const field='w-full min-w-0 min-h-11 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-400';
@@ -95,7 +97,20 @@ export default function LeisureSection({user,users,isPremium,initialEventId,onOp
     <div className="flex flex-wrap gap-2">{selected.participantIds.map(id=>{const person=users.find(u=>u.id===id)||(id===user.id?user:null);return person?<button key={id} onClick={()=>onOpenUser(person)} className={secondary}>{person.name}{id===selected.createdBy?' · организатор':''}</button>:<span key={id} className="p-2 text-sm text-slate-400">Участник</span>;})}</div>
     {!owner&&<button disabled={busy||(!joined&&(closed||full))} onClick={()=>void change(selected,joined?'leave':'join')} className={primary+' w-full'}>{busy?'Обновляем…':joined?'Отменить свою запись':closed?'Запись закрыта':full?'Мест нет':'Присоединиться'}</button>}
     {owner&&selected.status!=='cancelled'&&(cancelConfirm?<div className="space-y-2 rounded-xl bg-rose-950/30 p-3"><p className="text-sm">Отменить встречу и уведомить участников?</p><div className="flex gap-2"><button disabled={busy} className={secondary} onClick={()=>setCancelConfirm(false)}>Оставить</button><button disabled={busy} className={secondary+' text-rose-300'} onClick={()=>void change(selected,'cancel')}>Да, отменить</button></div></div>:<button disabled={busy} className={secondary+' text-rose-300'} onClick={()=>setCancelConfirm(true)}>Отменить встречу</button>)}
-    <button className={secondary} onClick={()=>{const url=location.origin+'/#leisure='+selected.id;(navigator.clipboard?.writeText(url) || Promise.reject(new Error('Clipboard unavailable'))).then(()=>setError('Ссылка на встречу скопирована')).catch(()=>setError('Ссылка: '+url));}}>Скопировать приглашение</button>
+    <button
+      className={secondary+' w-full'}
+      onClick={()=>{
+        triggerHapticImpact('light');
+        const payload=leisureShareCopy({
+          id:selected.id,
+          title:selected.title,
+          destinationName:destination?.name,
+          meetingPoint:selected.meetingPoint,
+          startsAt:selected.startsAt
+        });
+        void shareContent(payload.title,payload.text,payload.url);
+      }}
+     ><Share2 className="mr-2 inline h-4 w-4"/>Поделиться встречей</button>
    </div></article>
   </section>;
  }
