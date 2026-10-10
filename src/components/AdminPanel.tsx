@@ -293,7 +293,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   <div>
                     <label className="block font-bold text-slate-300 mb-1.5">Тип мероприятия</label>
                     <div className="flex flex-wrap gap-1.5">
-                      {EVENT_CATEGORIES.map((c) => (
+                      {EVENT_CATEGORIES.filter((item)=>item.id!=='spectator').map((c) => (
                         <button
                           key={c.id}
                           onClick={() => setCategory(c.id)}
