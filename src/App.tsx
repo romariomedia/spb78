@@ -3214,7 +3214,7 @@ export default function App(): JSX.Element {
       <Modal
         isOpen={!!selectedEvent}
         onClose={() => setSelectedEvent(null)}
-        title="Мероприятие SportBuddy"
+        title={selectedEvent?.category==='spectator'?'Спортивное событие Петербурга':'Мероприятие SportBuddy'}
         subtitle={selectedEvent ? getCategoryConfig(selectedEvent.category).label : undefined}
         maxWidth="lg"
         footer={
