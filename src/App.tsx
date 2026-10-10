@@ -23,7 +23,7 @@ import {
   UserProfile, Training, FeedPost, TabType, AppNotification, ChatThread, ChatMessage 
 } from './lib/types';
 import {
-  loadChatThreads, sendChatMessage, sendTrainingGroupMessage, ensureTrainingGroupChat, markThreadAsRead, countUnread, deleteChatMessage, setChatTyping,
+  loadChatThreads, sendChatMessage, sendTrainingGroupMessage, ensureTrainingGroupChat, ensureEventGroupChat, markThreadAsRead, countUnread, deleteChatMessage, setChatTyping,
   buildChatId, clearChatCache, formatTimeLabel, loadChatHistory, subscribeChatThreads
 } from './services/chats';
 import { 
@@ -101,7 +101,7 @@ import { CitySportsEvents } from './components/CitySportsEvents';
 import { OfficialEvent } from './lib/types';
 import {
   isAdmin, toggleEventRegistration, isRegistered,
-  getCategoryConfig, eventFillPercent, refreshEvents
+  getCategoryConfig, eventFillPercent, refreshEvents, verifiedTicketUrl
 } from './services/events';
 import { clearAdminSession } from './services/adminAuth';
 import { checkMessageForUnsafeSuggestion, SAFETY_BANNER_TIMEOUT_MS } from './services/safety';
@@ -884,7 +884,7 @@ export default function App(): JSX.Element {
     if(link.startsWith('#chat=')){
       let id;try{id=decodeURIComponent(link.slice(6));}catch{return;}
       setActiveTab('chats');
-      const category:ChatCategory=id.startsWith('training_')?'trainings':(currentUser.friendIds||[]).some(friend=>buildChatId(currentUser.id,friend)===id)?'friends':'matches';
+      const category:ChatCategory=id.startsWith('training_')?'trainings':id.startsWith('event_')?'events':(currentUser.friendIds||[]).some(friend=>buildChatId(currentUser.id,friend)===id)?'friends':'matches';
       if(chatCategory!==category){setChatCategory(category);return;}
       if(!chatThreads.some(t=>t.id===id))return;
       setOpenChatId(id);
@@ -909,7 +909,9 @@ export default function App(): JSX.Element {
 
   const openChatThread = chatThreads.find(t => t.id === openChatId) || null;
   const openChatIsTraining = openChatThread?.kind === 'training';
-  const openChatCompanion = openChatThread && !openChatIsTraining
+  const openChatIsEvent = openChatThread?.kind === 'event';
+  const openChatIsGroup = openChatIsTraining || openChatIsEvent;
+  const openChatCompanion = openChatThread && !openChatIsGroup
     ? allUsers.find(u => u.id === openChatThread.companionId) || null
     : null;
   const lastMineMessageId = openChatThread
@@ -930,7 +932,7 @@ export default function App(): JSX.Element {
 
   const handleSendChatMessage = () => {
     if (chatSending || !chatDraft.trim() || !openChatThread || !currentUser) return;
-    if(!openChatIsTraining && !openChatCompanion)return;
+    if(!openChatIsGroup && !openChatCompanion)return;
     if(openChatThread.archivedAt){notify('Чат завершённой тренировки доступен только для чтения','err');return;}
     triggerHapticImpact('light');
     const text = chatDraft.trim();
@@ -939,7 +941,7 @@ export default function App(): JSX.Element {
     setChatReplyTarget(null);
     setChatSending(true);
     void setChatTyping(openChatThread.id,false).catch(()=>undefined);
-    const sending=openChatIsTraining
+    const sending=openChatIsGroup
       ? sendTrainingGroupMessage(openChatThread.id,text,replyTarget?.id)
       : sendChatMessage(openChatThread.id,openChatCompanion!.id,text,replyTarget?.id);
     void sending
@@ -964,6 +966,21 @@ export default function App(): JSX.Element {
       setPendingNotificationLink('#chat='+encodeURIComponent(result.chatId));
     }catch(error){
       notify(error instanceof Error?error.message:'Не удалось открыть чат тренировки','err');
+    }
+  };
+
+  const openEventGroupChat=async(event:OfficialEvent)=>{
+    if(!currentUser||!event.participantIds.includes(currentUser.id)){
+      notify('Чат доступен только тем, кто идёт на событие','err');return;
+    }
+    try{
+      const result=await ensureEventGroupChat(event.id);
+      setSelectedEvent(null);
+      setChatCategory('events');
+      handleTabChange('chats');
+      setPendingNotificationLink('#chat='+encodeURIComponent(result.chatId));
+    }catch(error){
+      notify(error instanceof Error?error.message:'Не удалось открыть чат события','err');
     }
   };
 
