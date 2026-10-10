@@ -75,6 +75,24 @@ root /opt/sportbuddy-current/dist;
 ```
 
 Preserve existing SPA fallback, /api proxy to 127.0.0.1:3001, TLS and limits.
+
+Social sharing previews are server-rendered. Add this block in the same HTTPS server block
+**before** the generic SPA `location /` fallback, so Telegram/VK/WhatsApp crawlers reach PM2:
+
+```nginx
+location ^~ /share/ {
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_pass http://127.0.0.1:3001;
+}
+```
+
+Without this block, `/share/...` may fall through to Vite's static `index.html` and social
+networks will not receive activity-specific Open Graph metadata. Keep the existing `/api/`
+proxy unchanged.
+
 Check nginx symlink restrictions and worker read/traverse permissions. Then:
 
 ```bash
