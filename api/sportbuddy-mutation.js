@@ -224,6 +224,19 @@ async function eventMutation(db, uid, body) {
     if(!snap.exists || !user.exists) throw Object.assign(new Error('Мероприятие или профиль не найдены'),{status:404});
     const event=snap.data(), ids=cleanArray(event.participantIds);
     if(event.status!=='published') throw Object.assign(new Error('Регистрация на мероприятие закрыта'),{status:409});
+    if(body.operation==='ensureGroupChat'){
+      if(!ids.includes(uid))throw Object.assign(new Error('Чат доступен только тем, кто идёт на событие'),{status:403});
+      if(!chatSnap.exists){
+        tx.create(chatRef,{
+          id:`event_${eventId}`,kind:'event',eventId,
+          eventTitle:String(event.title||'Спортивное событие').slice(0,120),
+          eventSport:String(event.sport||'').slice(0,80),
+          participantIds:ids,createdAt:new Date().toISOString(),readAt:{},
+          unreadCount:Object.fromEntries(ids.map(id=>[id,0])),messageCount:0,recentMessages:[],messages:[]
+        });
+      }else tx.set(chatRef,{participantIds:ids},{merge:true});
+      return {event,registered:true,chatId:`event_${eventId}`};
+    }
     if(ids.includes(uid)) {
       const next=ids.filter(id=>id!==uid);tx.update(ref,{participantIds:next});
       if(chatSnap.exists)tx.set(chatRef,{participantIds:next},{merge:true});
