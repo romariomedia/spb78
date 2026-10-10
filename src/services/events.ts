@@ -190,6 +190,7 @@ export function getUpcomingCityEvents(days=7,now=Date.now()): OfficialEvent[] {
   const horizon=now+Math.max(1,days)*86400000;
   return getEvents().filter(event=>
     event.category==='spectator' &&
+    event.ticketVerified===true && Boolean(event.ticketUrl) && Boolean(event.officialSourceUrl) &&
     Number.isFinite(Number(event.startsAt)) &&
     Number(event.startsAt)>=now-2*60*60*1000 &&
     Number(event.startsAt)<=horizon
