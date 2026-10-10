@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { CalendarDays, ExternalLink, MapPin, ShieldCheck, Ticket, Users } from 'lucide-react';
 import { OfficialEvent, UserProfile } from '../lib/types';
-import { getUpcomingCityEvents, isRegistered, refreshEvents, toggleEventRegistration, verifiedTicketUrl } from '../services/events';
+import { filterUpcomingCityEvents, getUpcomingCityEvents, isRegistered, refreshEvents, toggleEventRegistration, verifiedTicketUrl } from '../services/events';
 import { triggerHapticImpact, triggerHapticNotification } from '../services/native';
 
 type Filter='all'|'Хоккей'|'Футбол'|'Баскетбол'|'media'|'mine';
@@ -32,6 +32,8 @@ export const CitySportsEvents:React.FC<Props>=({currentUser,refreshKey,onOpenCha
   const [filter,setFilter]=useState<Filter>('all');
   const [days,setDays]=useState<7|30>(30);
   const [busy,setBusy]=useState('');
+  const [loadError,setLoadError]=useState(false);
+  const [loaded,setLoaded]=useState(false);
 
   useEffect(()=>{
     void refreshEvents().then(()=>setEvents(getUpcomingCityEvents(7))).catch(()=>{});
@@ -82,7 +84,8 @@ export const CitySportsEvents:React.FC<Props>=({currentUser,refreshKey,onOpenCha
       </button>)}
     </div>
 
-    {visible.length===0?<div className="rounded-2xl border border-slate-800 bg-slate-950 p-5 text-center text-xs text-slate-500">На выбранный период опубликованных событий пока нет. Проверьте другой период.</div>:
+    {loadError&&<p role="alert" className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-300">Не удалось обновить спортивную афишу. Проверьте соединение и перезапустите раздел.</p>}
+    {visible.length===0?<div className="rounded-2xl border border-slate-800 bg-slate-950 p-5 text-center text-xs text-slate-500">{!loaded?'Загружаем события…':'На выбранный период опубликованных событий пока нет. Проверьте другой период.'}</div>:
     <div className="space-y-3">{visible.map(event=>{
       const joined=isRegistered(event,currentUser.id);
       const ticketUrl=verifiedTicketUrl(event);
@@ -122,7 +125,7 @@ export const CitySportsEvents:React.FC<Props>=({currentUser,refreshKey,onOpenCha
             className="w-full min-h-10 rounded-xl border border-sky-500/35 bg-sky-500/10 text-[11px] font-black text-sky-300">
             💬 Открыть чат тех, кто идёт
           </button>}
-          {ticketUrl&&<p className="flex items-center gap-1 text-[9px] text-slate-500"><ShieldCheck className="h-3 w-3 text-emerald-400"/>Ссылка подтверждена администратором · {event.ticketSourceName}</p>}
+          {ticketUrl&&<p className="flex items-center gap-1 text-[9px] text-slate-500"><ShieldCheck className="h-3 w-3 text-emerald-400"/>Официальная ссылка · {event.ticketSourceName}</p>}
         </div>
       </article>;
     })}</div>}
