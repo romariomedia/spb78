@@ -178,7 +178,27 @@ export async function refreshEvents(): Promise<OfficialEvent[]> {
 export function getEvents(includeeDrafts = false): OfficialEvent[] {
   return readAll()
     .filter((e) => (includeeDrafts ? true : e.status === 'published'))
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    .sort((a, b) => {
+      const aStart=Number(a.startsAt||0),bStart=Number(b.startsAt||0);
+      if(aStart&&bStart)return aStart-bStart;
+      if(aStart)return -1;if(bStart)return 1;
+      return b.createdAt.localeCompare(a.createdAt);
+    });
+}
+
+export function getUpcomingCityEvents(days=7,now=Date.now()): OfficialEvent[] {
+  const horizon=now+Math.max(1,days)*86400000;
+  return getEvents().filter(event=>
+    event.category==='spectator' &&
+    Number.isFinite(Number(event.startsAt)) &&
+    Number(event.startsAt)>=now-2*60*60*1000 &&
+    Number(event.startsAt)<=horizon
+  );
+}
+
+export function verifiedTicketUrl(event:OfficialEvent):string {
+  return event.category==='spectator' && event.ticketVerified===true && /^https:\/\//i.test(event.ticketUrl||'')
+    ? String(event.ticketUrl) : '';
 }
 
 export function getEventById(id: string): OfficialEvent | undefined {
@@ -199,7 +219,8 @@ export function getCategoryConfig(category: EventCategory) {
     contest:     { label: 'Конкурс',      icon: '🎯', color: 'emerald' },
     festival:    { label: 'Фестиваль',    icon: '🎉', color: 'purple' },
     masterclass: { label: 'Мастер-класс', icon: '🎓', color: 'sky' },
-    charity:     { label: 'Благотворительность', icon: '❤️', color: 'rose' }
+    charity:     { label: 'Благотворительность', icon: '❤️', color: 'rose' },
+    spectator:   { label: 'Матч / событие', icon: '🎟️', color: 'sky' }
   };
   return map[category];
 }
@@ -223,6 +244,16 @@ export interface EventDraft {
   participantsMax: number;
   prizePool?: string;
   entryFee?: string;
+  audienceMode?: 'participant' | 'spectator';
+  dateKey?: string;
+  startsAt?: number;
+  league?: string;
+  homeTeam?: string;
+  awayTeam?: string;
+  officialSourceUrl?: string;
+  ticketUrl?: string;
+  ticketSourceName?: string;
+  ticketVerified?: boolean;
   status: EventStatus;
 }
 
@@ -232,6 +263,13 @@ export function validateEventDraft(draft: EventDraft): string | null {
   if (draft.description.trim().length < 20) return 'Описание должно содержать минимум 20 символов';
   if (draft.participantsMax < EVENT_MIN_PARTICIPANTS || draft.participantsMax > EVENT_MAX_PARTICIPANTS) {
     return `Количество участников — от ${EVENT_MIN_PARTICIPANTS} до ${EVENT_MAX_PARTICIPANTS}`;
+  }
+  if (draft.category === 'spectator') {
+    if (!draft.dateKey || !/^\d{4}-\d{2}-\d{2}$/.test(draft.dateKey)) return 'Укажите точную дату события';
+    if (!draft.officialSourceUrl) return 'Добавьте официальный источник расписания';
+    if (draft.status === 'published' && (!draft.ticketUrl || !draft.ticketSourceName || !draft.ticketVerified)) {
+      return 'Для публикации подтвердите официальный источник билетов';
+    }
   }
   return null;
 }
