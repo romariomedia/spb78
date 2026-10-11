@@ -1,20 +1,20 @@
 import React from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 
-interface State { hasError: boolean; errorCode: string; }
+interface State { hasError: boolean; errorCode: string; errorDetail: string; }
 
 /**
  * Last-resort mobile error screen. A faulty third-party widget (map, VK ID,
  * media decoder) must not leave the user with a blank Capacitor WebView.
  */
 export class AppErrorBoundary extends React.Component<React.PropsWithChildren, State> {
-  state: State = { hasError: false, errorCode: '' };
+  state: State = { hasError: false, errorCode: '', errorDetail: '' };
 
   static getDerivedStateFromError(error: Error): State {
     const message = String(error?.message || '');
     const chunkError = /ChunkLoadError|Failed to fetch dynamically imported module|Importing a module script failed|Loading chunk/i.test(message);
     const code = chunkError ? 'SB78-CHUNK' : error instanceof TypeError ? 'SB78-TYPE' : 'SB78-RENDER';
-    return { hasError: true, errorCode: code };
+    return { hasError: true, errorCode: code, errorDetail: message.slice(0, 220) };
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo): void {
@@ -36,6 +36,11 @@ export class AppErrorBoundary extends React.Component<React.PropsWithChildren, S
             Произошла ошибка загрузки экрана. Если она повторяется, сообщите поддержке код ниже.
           </p>
           <p className="mt-3 text-xs font-mono text-amber-300">Код: {this.state.errorCode}</p>
+          {this.state.errorDetail && (
+            <p className="mt-2 break-words text-left text-xs text-slate-300" data-testid="runtime-error-detail">
+              {this.state.errorDetail}
+            </p>
+          )}
           <button
             onClick={() => window.location.reload()}
             className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-500 py-3 text-sm font-black text-slate-950 active:scale-95"
