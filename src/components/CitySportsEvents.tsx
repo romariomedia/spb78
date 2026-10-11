@@ -41,7 +41,7 @@ export const CitySportsEvents:React.FC<Props>=({currentUser,refreshKey,onOpenCha
     void refreshEvents().then(all=>{setEvents(filterUpcomingCityEvents(all,30));setLoadError(false);setLoaded(true);}).catch(()=>{setLoadError(true);setLoaded(true);});
   },[refreshKey]);
 
-  const visible=useMemo(()=>events.filter(event=>{
+  const visible=useMemo(()=>(Array.isArray(events)?events:[]).filter(event=>{
     if(Number(event.startsAt)>Date.now()+days*86400000)return false;
     if(filter==='all')return true;
     if(filter==='mine')return isRegistered(event,currentUser.id);
