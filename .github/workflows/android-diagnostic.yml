@@ -18,6 +18,17 @@ jobs:
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
+      - name: Verify diagnostic source revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Commit: $(git rev-parse HEAD)"
+          sed -n '1,40p' android/app/src/main/java/ru/sportbuddy/mobile/MainActivity.java
+          if grep -q 'BuildConfig.DEBUG' android/app/src/main/java/ru/sportbuddy/mobile/MainActivity.java; then
+            echo 'Stale diagnostic source: BuildConfig.DEBUG is still present' >&2
+            exit 1
+          fi
+          grep -q 'ApplicationInfo.FLAG_DEBUGGABLE' android/app/src/main/java/ru/sportbuddy/mobile/MainActivity.java
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
