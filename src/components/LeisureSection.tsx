@@ -34,12 +34,12 @@ export default function LeisureSection({user,users,isPremium,initialEventId,onOp
  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;loadVersion.current++;};},[]);
  const refresh=useCallback(async(next?:string)=>{
   const version=++loadVersion.current;setLoading(true);
-  try{const result=await listLeisureEvents(next);if(!mounted.current||version!==loadVersion.current)return;setEvents(old=>next?mergeEvents(old,result.events):result.events);setCursor(result.next);setError('');}
+  try{const result=await listLeisureEvents(next);if(!mounted.current||version!==loadVersion.current)return;if(!Array.isArray(result.events))throw new Error('Сервер вернул некорректный список встреч. Повторите попытку позже.');setEvents(old=>next?mergeEvents(Array.isArray(old)?old:[],result.events):result.events);setCursor(result.next??null);setError('');}
   catch(e){if(mounted.current&&version===loadVersion.current)setError(e instanceof Error?e.message:'Не удалось загрузить встречи');}
   finally{if(mounted.current&&version===loadVersion.current)setLoading(false);}
  },[]);
  useEffect(()=>{void refresh();},[refresh]);
- useEffect(()=>{let stopped=false;listLeisureDestinations().then(result=>{if(!stopped&&result.destinations.length)setDestinations(result.destinations);}).catch(()=>undefined);return()=>{stopped=true;};},[]);
+ useEffect(()=>{let stopped=false;listLeisureDestinations().then(result=>{if(!stopped&&Array.isArray(result.destinations)&&result.destinations.length)setDestinations(result.destinations);}).catch(()=>undefined);return()=>{stopped=true;};},[]);
  const destinationMap=useMemo(()=>new Map(destinations.map(item=>[item.id,item])),[destinations]);
  const findDestination=useCallback((id:string)=>destinationMap.get(id),[destinationMap]);
  useEffect(()=>{
@@ -47,8 +47,8 @@ export default function LeisureSection({user,users,isPremium,initialEventId,onOp
   readLeisureEvent(initialEventId).then(({event})=>{if(!stopped){setSelected(event);setEvents(old=>mergeEvents(old,[event]));}}).catch(e=>{if(!stopped)setError(e instanceof Error?e.message:'Встреча недоступна');});
   return()=>{stopped=true;};
  },[initialEventId]);
- const filteredPlaces=useMemo(()=>destinations.filter(item=>(region==='all'||item.region===region)&&(category==='all'||(item.category||'destination')===category)&&`${item.name} ${item.description} ${item.format} ${item.address||''}`.toLocaleLowerCase('ru').includes(search.trim().toLocaleLowerCase('ru'))),[destinations,region,category,search]);
- const filteredEvents=events.filter(event=>(region==='all'||event.region===region)&&(!mine||event.participantIds.includes(user.id))&&(mine||event.status==='open')&&`${event.title} ${findDestination(event.destinationId)?.name||''}`.toLocaleLowerCase('ru').includes(search.trim().toLocaleLowerCase('ru')));
+ const filteredPlaces=useMemo(()=>(Array.isArray(destinations)?destinations:[]).filter(item=>(region==='all'||item.region===region)&&(category==='all'||(item.category||'destination')===category)&&`${item.name} ${item.description} ${item.format} ${item.address||''}`.toLocaleLowerCase('ru').includes(search.trim().toLocaleLowerCase('ru'))),[destinations,region,category,search]);
+ const filteredEvents=(Array.isArray(events)?events:[]).filter(event=>(region==='all'||event.region===region)&&(!mine||event.participantIds.includes(user.id))&&(mine||event.status==='open')&&`${event.title} ${findDestination(event.destinationId)?.name||''}`.toLocaleLowerCase('ru').includes(search.trim().toLocaleLowerCase('ru')));
  const begin=(destination:LeisureDestination)=>{
   if(!isPremium){onOpenTariff();return;}
   const tomorrow=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Moscow',year:'numeric',month:'2-digit',day:'2-digit'}).format(Date.now()+86400000);
