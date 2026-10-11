@@ -14,7 +14,7 @@ android {
         applicationId "ru.sportbuddy.mobile"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode (System.getenv("RUSTORE_VERSION_CODE") ?: "5").toInteger()
+        versionCode ((System.getenv("RUSTORE_VERSION_CODE") ?: "5").toInteger())
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
