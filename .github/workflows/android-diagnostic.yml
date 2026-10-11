@@ -1,0 +1,94 @@
+name: SportBuddy Android diagnostics (internal only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_code:
+        description: 'Diagnostic versionCode; must exceed installed APK'
+        required: true
+        type: string
+        default: '12'
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Prepare Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$SDKMANAGER"
+          "$SDKMANAGER" --install 'platforms;android-36' 'build-tools;36.0.0' 'platform-tools'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Validate app and build with private source maps
+        env:
+          SB78_DIAGNOSTIC: '1'
+        run: |
+          npm ci --include=dev
+          npm test
+          npm run build
+          test -n "$(find dist/assets -name '*.js.map' -print -quit)"
+      - name: Sync Android project
+        run: npx cap sync android
+      - name: Prepare existing release certificate
+        env:
+          KEYSTORE_B64: ${{ secrets.RUSTORE_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.RUSTORE_KEYSTORE_PASSWORD }}
+          ALIAS: ${{ secrets.RUSTORE_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.RUSTORE_KEY_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$KEYSTORE_B64" || -z "$STORE_PASSWORD" || -z "$ALIAS" || -z "$KEY_PASSWORD" ]]; then
+            echo 'Missing RuStore signing secrets' >&2
+            exit 1
+          fi
+          printf '%s' "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/rustore-release.keystore"
+          chmod 600 "$RUNNER_TEMP/rustore-release.keystore"
+          echo "RUSTORE_KEYSTORE_PATH=$RUNNER_TEMP/rustore-release.keystore" >> "$GITHUB_ENV"
+      - name: Assemble internal diagnostic APK
+        working-directory: android
+        env:
+          RUSTORE_KEYSTORE_PASSWORD: ${{ secrets.RUSTORE_KEYSTORE_PASSWORD }}
+          RUSTORE_KEY_ALIAS: ${{ secrets.RUSTORE_KEY_ALIAS }}
+          RUSTORE_KEY_PASSWORD: ${{ secrets.RUSTORE_KEY_PASSWORD }}
+          RUSTORE_VERSION_CODE: ${{ inputs.version_code }}
+        run: |
+          set -euo pipefail
+          [[ "$RUSTORE_VERSION_CODE" =~ ^[1-9][0-9]*$ ]] || exit 1
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleDiagnostic
+      - name: Verify identity, signing, and diagnostics
+        env:
+          EXPECTED_VERSION: ${{ inputs.version_code }}
+        run: |
+          set -euo pipefail
+          APK=android/app/build/outputs/apk/diagnostic/app-diagnostic.apk
+          test -s "$APK"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -n 1)"
+          "$APKSIGNER" verify --verbose --print-certs "$APK"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -name aapt | sort -V | tail -n 1)"
+          "$AAPT" dump badging "$APK" | grep -m1 "^package: name='ru.sportbuddy.mobile'.*versionCode='$EXPECTED_VERSION'"
+          mkdir -p diagnostic
+          cp "$APK" "diagnostic/sportbuddy78-diagnostic-v${EXPECTED_VERSION}.apk"
+          sha256sum diagnostic/*.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: INTERNAL-sportbuddy78-diagnostic-v${{ inputs.version_code }}
+          path: diagnostic/*.apk
+          retention-days: 3
+          if-no-files-found: error
