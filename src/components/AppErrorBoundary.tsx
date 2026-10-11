@@ -1,25 +1,27 @@
 import React from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 
-interface State { hasError: boolean; errorCode: string; errorDetail: string; }
+interface State { hasError: boolean; errorCode: string; errorDetail: string; componentTrace: string; }
 
 /**
  * Last-resort mobile error screen. A faulty third-party widget (map, VK ID,
  * media decoder) must not leave the user with a blank Capacitor WebView.
  */
 export class AppErrorBoundary extends React.Component<React.PropsWithChildren, State> {
-  state: State = { hasError: false, errorCode: '', errorDetail: '' };
+  state: State = { hasError: false, errorCode: '', errorDetail: '', componentTrace: '' };
 
   static getDerivedStateFromError(error: Error): State {
     const message = String(error?.message || '');
     const chunkError = /ChunkLoadError|Failed to fetch dynamically imported module|Importing a module script failed|Loading chunk/i.test(message);
     const code = chunkError ? 'SB78-CHUNK' : error instanceof TypeError ? 'SB78-TYPE' : 'SB78-RENDER';
-    return { hasError: true, errorCode: code, errorDetail: message.slice(0, 220) };
+    return { hasError: true, errorCode: code, errorDetail: message.slice(0, 220), componentTrace: '' };
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo): void {
     // Keep diagnostics in development without exposing internal details in UI.
     console.error('[SportBuddy] render error', error, info);
+    const trace = (info.componentStack || '').trim().split('\n').slice(0, 7).join('\n');
+    if (trace && trace !== this.state.componentTrace) this.setState({ componentTrace: trace });
   }
 
   render(): React.ReactNode {
@@ -40,6 +42,9 @@ export class AppErrorBoundary extends React.Component<React.PropsWithChildren, S
             <p className="mt-2 break-words text-left text-xs text-slate-300" data-testid="runtime-error-detail">
               {this.state.errorDetail}
             </p>
+          )}
+          {this.state.componentTrace && (
+            <pre className="mt-3 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-slate-950 p-3 text-left text-[10px] text-slate-300">{this.state.componentTrace}</pre>
           )}
           <button
             onClick={() => window.location.reload()}
