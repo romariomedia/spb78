@@ -3,7 +3,7 @@ import { CalendarDays, ChevronDown, ExternalLink, MapPin, Ticket, Users } from '
 import { OfficialEvent, UserProfile } from '../lib/types';
 import { filterUpcomingCityEvents, getUpcomingCityEvents, isRegistered, refreshEvents, toggleEventRegistration, verifiedTicketUrl } from '../services/events';
 import { triggerHapticImpact, triggerHapticNotification } from '../services/native';
-import { effectiveEventCover } from '../lib/eventCoverPresets';
+import { effectiveEventCover, presetEventCover } from '../lib/eventCoverPresets';
 
 type Filter='all'|'Хоккей'|'Футбол'|'Баскетбол'|'media'|'mine';
 
@@ -88,7 +88,7 @@ export const CitySportsEvents:React.FC<Props>=({currentUser,refreshKey,onOpenCha
         return <article key={event.id} className="rounded-xl border border-slate-800 bg-slate-950 p-2.5">
           <div className="flex items-start gap-3">
             {eventCover&&<img src={eventCover} alt="" loading="lazy"
-              onError={e=>{e.currentTarget.style.display='none';}}
+              onError={e=>{const fallback=presetEventCover(event);if(fallback&& !e.currentTarget.src.endsWith(fallback)){e.currentTarget.src=fallback;}else{e.currentTarget.style.display='none';}}}
               className="h-20 w-20 shrink-0 rounded-lg object-cover sm:h-24 sm:w-28"/>}
             <div className="min-w-0 flex-1 space-y-1">
               <p className="text-[10px] font-bold uppercase text-sky-400">{event.league||event.sport}</p>
