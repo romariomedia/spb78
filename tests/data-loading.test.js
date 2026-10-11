@@ -101,3 +101,17 @@ test('membership on a second device uses server participants', () => {
   assert.equal(storage.has('sportbuddy_offline_cache_v4'),false);
   assert.equal(storage.has('sportbuddy_offline_cache_v5'),true);
  });
+
+test('legacy null arrays and unknown medal tier do not break the loaded profile', async () => {
+  reset();
+  globalThis.__sbReads['users/alice'] = snapshot('alice', {
+    name: 'Alice', sports: null, matchIds: null, rewardItems: {}, medalTier: 'legacy-tier', photoPortfolio: null
+  });
+  const result = await repository.loadAppData();
+  assert.deepEqual(result.currentUser.matchIds, []);
+  assert.deepEqual(result.currentUser.sports, []);
+  assert.deepEqual(result.currentUser.rewardItems, []);
+  assert.deepEqual(result.currentUser.photoPortfolio, []);
+  assert.equal(result.currentUser.medalTier, 'bronze');
+  assert.equal(result.allUsers.length, 2);
+});

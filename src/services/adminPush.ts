@@ -1,3 +1,4 @@
+import { apiFetch } from './apiEndpoint';
 import { getAdminSession } from './adminAuth';
 
 export interface AdminPushAudience {
@@ -46,7 +47,7 @@ export interface AdminPushCampaign {
 async function post<T>(body:Record<string,unknown>):Promise<T>{
   const session=getAdminSession();
   if(!session)throw new Error('admin-otp-required');
-  const response=await fetch('/api/admin-push',{
+  const response=await apiFetch('/api/admin-push',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({...body,sessionId:session.sessionId})

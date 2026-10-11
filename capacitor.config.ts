@@ -6,7 +6,8 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   server: {
     androidScheme: 'https',
-    hostname: 'sportbuddy78.pro',
+    // Keep bundled assets separate from the real API host.
+    hostname: 'localhost',
     cleartext: true,
   },
   android: {

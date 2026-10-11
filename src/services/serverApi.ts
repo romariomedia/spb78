@@ -1,18 +1,8 @@
 import { auth } from './firebaseAuth';
 
-const configuredApi = import.meta.env.VITE_API_BASE_URL || '';
-const PRODUCTION_API = 'https://sportbuddy78.pro';
+import { apiFetch, readApiJson } from './apiEndpoint';
+export { apiBase } from './apiEndpoint';
 const REQUEST_TIMEOUT_MS = 15_000;
-
-declare global {
-  interface Window { Capacitor?: { isNativePlatform?: () => boolean } }
-}
-
-export function apiBase(): string {
-  if (configuredApi) return configuredApi.replace(/\/$/, '');
-  if (typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.()) return PRODUCTION_API;
-  return '';
-}
 
 export async function callServer<T = Record<string, unknown>>(path: string, body: unknown): Promise<T> {
   const user = auth.currentUser;
@@ -21,13 +11,13 @@ export async function callServer<T = Record<string, unknown>>(path: string, body
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
-    const response = await fetch(`${apiBase()}${path}`, {
+    const response = await apiFetch(path, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify(body),
       signal: controller.signal
     });
-    const payload = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+    const payload = await readApiJson(response);
     if (!response.ok) {
       const error = new Error(String(payload.error || `HTTP ${response.status}`));
       (error as Error & { status?: number; code?: string }).status = response.status;

@@ -1,3 +1,4 @@
+import { apiBase } from './apiEndpoint';
 import { detachPushOnLogout } from './notifications';
 import { AuthAccount } from '../lib/types';
 import { triggerHapticNotification } from './native';
@@ -17,15 +18,6 @@ const LEGACY_ACCOUNTS_KEY = 'sportbuddy_accounts_v1';
 const LEGACY_SESSION_KEY = 'sportbuddy_session_v1';
 
 export const TRIAL_DAYS = 30;
-
-declare global { interface Window { Capacitor?: { isNativePlatform?: () => boolean } } }
-
-function authApiBase(): string {
-  const configured = import.meta.env.VITE_API_BASE_URL || '';
-  if (configured) return configured.replace(/\/$/, '');
-  if (typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.()) return 'https://sportbuddy78.pro';
-  return '';
-}
 
 export function validateEmail(email: string): boolean {
   return /^[^\s@]+@[^@\s]+\.[^\s@]{2,}$/.test(email.trim());
@@ -120,7 +112,7 @@ export async function loginWithVK(
   }
 
   try {
-    const response = await fetch(`${authApiBase()}/api/vk-login`, {
+    const response = await fetch(`${apiBase()}/api/vk-login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

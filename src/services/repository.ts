@@ -79,6 +79,12 @@ function normalizeUserProfile(raw: Record<string, unknown>): UserProfile {
   // Start from the canonical profile shape so the function returns a real
   // UserProfile instead of asserting an arbitrary Record<string, unknown>.
   const base = createFreshProfile(String(out.id ?? CURRENT_USER_ID));
+  for (const field of ['sports', 'photoPortfolio', 'likedUserIds', 'matchIds', 'matchHistory',
+    'friendIds', 'friendRequestsSent', 'friendRequestsReceived', 'claimedBoxTiers',
+    'rewardItems', 'redeemedPromoCodes']) {
+    if (!Array.isArray(out[field])) out[field] = [];
+  }
+  if (!['bronze', 'silver', 'gold'].includes(String(out.medalTier))) out.medalTier = 'bronze';
   const profileData = out as Partial<UserProfile>;
   return { ...base, ...profileData };
 }
@@ -565,7 +571,7 @@ export async function persistFreshProfile(profile: UserProfile): Promise<UserPro
     }
   });
 
-  const authoritative = { ...profile, ...result.profile, id: CURRENT_USER_ID };
+  const authoritative = normalizeUserProfile({ ...profile, ...result.profile, id: CURRENT_USER_ID });
   const cached = getOfflineCache();
   const community = (cached?.allUsers ?? INITIAL_USERS)
     .filter((u) => u.id !== CURRENT_USER_ID)
@@ -591,6 +597,7 @@ async function loadPublicProfiles(): Promise<UserProfile[]> {
   do {
     const page: {profiles: Record<string, unknown>[]; nextCursor: string | null} =
       await callServer('/api/public-profiles', cursor ? {cursor} : {});
+    if (!Array.isArray(page.profiles)) throw new Error('Сервер не вернул список атлетов. Повторите загрузку.');
     profiles.push(...page.profiles.filter(item => !LEGACY_DEMO_USER_IDS.includes(String(item.id)))
       .map(item => normalizeUserProfile(item)));
     if (page.nextCursor && page.nextCursor === cursor) throw new Error('Не удалось загрузить следующую страницу анкет');
@@ -645,7 +652,7 @@ export async function loadAppData(): Promise<AppData> {
     }, timeout)
   ]);
   if (CURRENT_USER_ID !== uid) throw new Error('Аккаунт изменился во время загрузки.');
-  const currentUser = { ...profile.value.user, ...privateFields.value, id: uid };
+  const currentUser = normalizeUserProfile({ ...profile.value.user, ...privateFields.value, id: uid });
   const stale = [profile, users, trainings, feed, privateFields].some(section => section.stale);
   const result: AppData = {
     currentUser,

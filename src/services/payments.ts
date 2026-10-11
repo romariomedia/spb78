@@ -1,3 +1,4 @@
+import { apiBase } from './apiEndpoint';
 import { auth } from './firebaseAuth';
 export type PremiumPlan = 'monthly' | 'yearly';
 
@@ -5,24 +6,6 @@ export interface PremiumPaymentResult {
   confirmationUrl: string;
   paymentId: string;
   amount: string;
-}
-
-/* API base resolution mirrors storage.ts / verification.ts. */
-const configuredApi = import.meta.env.VITE_API_BASE_URL || '';
-const PRODUCTION_API = 'https://sportbuddy78.pro';
-
-declare global {
-  interface Window {
-    Capacitor?: { isNativePlatform?: () => boolean };
-  }
-}
-
-function apiBase(): string {
-  if (configuredApi) return configuredApi.replace(/\/$/, '');
-  if (typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.()) {
-    return PRODUCTION_API;
-  }
-  return '';
 }
 
 const REQUEST_TIMEOUT_MS = 20_000;

@@ -6,12 +6,12 @@ import {MEDAL_TIERS} from '../lib/medals';
 interface Props {user:UserProfile;friendsCount:number;isPremium:boolean;avatar:string;birthday?:string;onUpdateAvatar:()=>void}
 const count=(value:number)=>Math.max(0,Number.isFinite(value)?Math.floor(value):0).toLocaleString('ru-RU');
 export function ProfileSummary({user,friendsCount,isPremium,avatar,birthday,onUpdateAvatar}:Props){
-  const tier=MEDAL_TIERS[user.medalTier||'bronze'];
+  const tier=MEDAL_TIERS[user.medalTier||'bronze'] || MEDAL_TIERS.bronze;
   const stats=[
     {label:'Рейтинг',value:Number.isFinite(user.rating)?user.rating.toFixed(1):'0.0',icon:Star,accent:true},
     {label:'Тренировки',value:count(user.totalWorkouts),icon:Dumbbell},
     {label:'Друзья',value:count(friendsCount),icon:Users},
-    {label:'Мэтчи',value:count(user.matchIds.length),icon:Heart}
+    {label:'Мэтчи',value:count(Array.isArray(user.matchIds) ? user.matchIds.length : 0),icon:Heart}
   ];
   return <div className="sb-profile-summary">
     <div className="sb-profile-identity">

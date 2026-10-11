@@ -1,3 +1,4 @@
+import { apiFetch } from './apiEndpoint';
 const ADMIN_EMAIL = 'support@sportbuddy78.ru';
 const SESSION_KEY = 'sportbuddy_admin_session';
 const LEGACY_TOKEN_KEY = 'admin_session_token';
@@ -66,7 +67,7 @@ export function logoutAdmin(): void {
   const session = getAdminSession();
   clearAdminSession();
   if (session) {
-    void fetch('/api/admin-session', {
+    void apiFetch('/api/admin-session', {
       method: 'POST',
       headers: { 'Content-Type':'application/json' },
       body: JSON.stringify({ sessionId:session.sessionId, action:'revoke' }),
@@ -94,7 +95,7 @@ export function getAdminEmail(): string {
 }
 
 async function apiPost<T>(path: string, body: Record<string, unknown>): Promise<T> {
-  const response = await fetch(path, {
+  const response = await apiFetch(path, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body)

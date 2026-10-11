@@ -1,3 +1,4 @@
+import { apiFetch } from './apiEndpoint';
 import { getAdminSession } from './adminAuth';
 
 export interface AdminUserRow {
@@ -69,7 +70,7 @@ export interface AppConfig {
 async function post<T>(path:string, body:Record<string,unknown>):Promise<T>{
   const session=getAdminSession();
   if(!session) throw new Error('admin-otp-required');
-  const response=await fetch(path,{
+  const response=await apiFetch(path,{
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({...body,sessionId:session.sessionId})

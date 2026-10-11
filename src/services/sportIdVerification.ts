@@ -1,3 +1,4 @@
+import { apiFetch } from './apiEndpoint';
 import { auth } from './firebaseAuth';
 
 export type SportIdClaimType='rank'|'achievement';
@@ -10,7 +11,7 @@ export interface SportIdVerificationRequest{
 }
 async function call<T>(body:Record<string,unknown>):Promise<T>{
   const token=await auth.currentUser?.getIdToken();if(!token)throw new Error('Требуется повторный вход');
-  const response=await fetch('/api/sport-id-verification',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify(body)});
+  const response=await apiFetch('/api/sport-id-verification',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify(body)});
   const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.error||`HTTP ${response.status}`);return data as T;
 }
 export async function loadSportIdVerificationRequests():Promise<SportIdVerificationRequest[]>{

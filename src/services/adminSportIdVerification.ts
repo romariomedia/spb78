@@ -1,8 +1,9 @@
+import { apiFetch } from './apiEndpoint';
 import { getAdminSession } from './adminAuth';
 import { SportIdVerificationRequest } from './sportIdVerification';
 async function post<T>(body:Record<string,unknown>):Promise<T>{
   const session=getAdminSession();if(!session)throw new Error('admin-otp-required');
-  const response=await fetch('/api/admin-sport-id-verification',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...body,sessionId:session.sessionId})});
+  const response=await apiFetch('/api/admin-sport-id-verification',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...body,sessionId:session.sessionId})});
   const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.error||`HTTP ${response.status}`);return data as T;
 }
 export async function loadAdminSportIdVerification():Promise<SportIdVerificationRequest[]>{

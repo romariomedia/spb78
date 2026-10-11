@@ -1,3 +1,4 @@
+import { apiFetch, publicSiteOrigin } from './apiEndpoint';
 import { SportPassportLevel } from '../lib/types';
 import { auth } from './firebaseAuth';
 
@@ -40,7 +41,7 @@ export interface SportPassportDraft {
 async function call<T>(body:Record<string,unknown>):Promise<T>{
   const token=await auth.currentUser?.getIdToken();
   if(!token)throw new Error('Требуется повторный вход');
-  const response=await fetch('/api/sport-passport',{
+  const response=await apiFetch('/api/sport-passport',{
     method:'POST',
     headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},
     body:JSON.stringify(body)
@@ -63,13 +64,13 @@ export async function setSportIdPublic(enabled:boolean):Promise<SportPassportSna
   return data.sportId;
 }
 export async function loadPublicSportId(slug:string):Promise<SportPassportSnapshot>{
-  const response=await fetch('/api/public-sport-id?slug='+encodeURIComponent(slug));
+  const response=await apiFetch('/api/public-sport-id?slug='+encodeURIComponent(slug));
   const data=await response.json().catch(()=>({}));
   if(!response.ok)throw new Error(data.error||`HTTP ${response.status}`);
   return data.sportId as SportPassportSnapshot;
 }
 export function publicSportIdUrl(slug:string):string{
-  return `${window.location.origin}/#/id/${encodeURIComponent(slug)}`;
+  return `${publicSiteOrigin()}/#/id/${encodeURIComponent(slug)}`;
 }
 export function publicSportIdQrUrl(slug:string):string{
   const value=publicSportIdUrl(slug);

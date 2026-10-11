@@ -1,3 +1,4 @@
+import { apiFetch } from './apiEndpoint';
 import { auth } from './firebaseAuth';
 
 const FLUSH_MS=60_000;
@@ -13,7 +14,7 @@ export function startProductAnalytics(userId:string):()=>void{
     pending=true;
     try{
       const token=await user.getIdToken();
-      await fetch('/api/analytics-session',{
+      await apiFetch('/api/analytics-session',{
         method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},
         body:JSON.stringify({sessionId,seq:seq++,activeSeconds}),keepalive:true
       });

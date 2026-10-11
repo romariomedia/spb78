@@ -1,3 +1,4 @@
+import { apiFetch } from './apiEndpoint';
 import { getAdminSession } from './adminAuth';
 
 export type AdminLeisureDestination={
@@ -9,7 +10,7 @@ export type AdminLeisureDestination={
 };
 async function call<T>(body:Record<string,unknown>):Promise<T>{
   const session=getAdminSession();if(!session)throw new Error('admin-otp-required');
-  const response=await fetch('/api/admin-mutate-leisure',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:session.sessionId,...body})});
+  const response=await apiFetch('/api/admin-mutate-leisure',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:session.sessionId,...body})});
   const data=await response.json().catch(()=>({}));
   if(!response.ok)throw new Error(data.error||`HTTP ${response.status}`);
   return data as T;

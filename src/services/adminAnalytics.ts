@@ -1,3 +1,4 @@
+import { apiFetch } from './apiEndpoint';
 import { getAdminSession } from './adminAuth';
 
 export interface AnalyticsDailyPoint{
@@ -16,7 +17,7 @@ export interface AdminAnalyticsData{
 
 export async function loadAdminAnalytics():Promise<AdminAnalyticsData>{
   const session=getAdminSession();if(!session)throw new Error('admin-otp-required');
-  const response=await fetch('/api/admin-analytics',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:session.sessionId})});
+  const response=await apiFetch('/api/admin-analytics',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:session.sessionId})});
   const data=await response.json().catch(()=>({}));
   if(!response.ok)throw new Error(data.error||`HTTP ${response.status}`);
   return data as AdminAnalyticsData;

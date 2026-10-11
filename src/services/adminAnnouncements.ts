@@ -1,3 +1,4 @@
+import { apiFetch } from './apiEndpoint';
 import { getAdminSession } from './adminAuth';
 
 export type AnnouncementPlacement='global'|'discover'|'trainings'|'leisure'|'feed'|'profile';
@@ -12,7 +13,7 @@ export type AnnouncementDraft=Omit<AdminAnnouncement,'id'|'createdAt'|'updatedAt
 
 async function post<T>(body:Record<string,unknown>):Promise<T>{
   const session=getAdminSession();if(!session)throw new Error('admin-otp-required');
-  const response=await fetch('/api/admin-announcements',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...body,sessionId:session.sessionId})});
+  const response=await apiFetch('/api/admin-announcements',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...body,sessionId:session.sessionId})});
   const data=await response.json().catch(()=>({}));
   if(!response.ok)throw new Error(data.error||`HTTP ${response.status}`);
   return data as T;

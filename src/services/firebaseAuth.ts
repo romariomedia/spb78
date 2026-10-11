@@ -1,3 +1,4 @@
+import { publicSiteOrigin } from './apiEndpoint';
 import {
   getAuth,
   signInWithEmailAndPassword,
@@ -116,7 +117,7 @@ export async function loginFirebaseAccount(
 export async function requestFirebasePasswordReset(email: string): Promise<FirebaseAuthResult> {
   try {
     await sendPasswordResetEmail(auth, email, {
-      url: typeof window !== 'undefined' ? window.location.origin : 'https://sportbuddy78.pro',
+      url: publicSiteOrigin(),
       handleCodeInApp: false
     });
     return { ok: true };
