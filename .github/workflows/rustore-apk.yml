@@ -1,0 +1,85 @@
+name: RuStore signed APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_code:
+        description: 'Android versionCode (must exceed published version)'
+        required: true
+        default: '6'
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Install and validate web build
+        run: |
+          npm ci --include=dev
+          npm test
+          npm run build
+      - name: Sync Capacitor Android
+        run: npx cap sync android
+      - name: Prepare private signing file
+        env:
+          KEYSTORE_B64: ${{ secrets.RUSTORE_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.RUSTORE_KEYSTORE_PASSWORD }}
+          ALIAS: ${{ secrets.RUSTORE_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.RUSTORE_KEY_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$KEYSTORE_B64" || -z "$STORE_PASSWORD" || -z "$ALIAS" || -z "$KEY_PASSWORD" ]]; then
+            echo 'Missing required RuStore signing secrets' >&2
+            exit 1
+          fi
+          printf '%s' "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/rustore-release.keystore"
+          chmod 600 "$RUNNER_TEMP/rustore-release.keystore"
+          echo "RUSTORE_KEYSTORE_PATH=$RUNNER_TEMP/rustore-release.keystore" >> "$GITHUB_ENV"
+      - name: Assemble release APK
+        working-directory: android
+        env:
+          RUSTORE_KEYSTORE_PASSWORD: ${{ secrets.RUSTORE_KEYSTORE_PASSWORD }}
+          RUSTORE_KEY_ALIAS: ${{ secrets.RUSTORE_KEY_ALIAS }}
+          RUSTORE_KEY_PASSWORD: ${{ secrets.RUSTORE_KEY_PASSWORD }}
+          RUSTORE_VERSION_CODE: ${{ inputs.version_code }}
+        run: |
+          set -euo pipefail
+          [[ "$RUSTORE_VERSION_CODE" =~ ^[1-9][0-9]*$ ]] || { echo 'Invalid versionCode'; exit 1; }
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleRelease
+      - name: Verify APK signature and identity
+        env:
+          EXPECTED_VERSION: ${{ inputs.version_code }}
+        run: |
+          set -euo pipefail
+          APK=android/app/build/outputs/apk/release/app-release.apk
+          test -s "$APK"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -n 1)"
+          "$APKSIGNER" verify --verbose --print-certs "$APK"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -name aapt | sort -V | tail -n 1)"
+          "$AAPT" dump badging "$APK" | grep -m1 "^package: name='ru.sportbuddy.mobile'.*versionCode='$EXPECTED_VERSION'"
+          mkdir -p release
+          cp "$APK" "release/sportbuddy78-rustore-v${EXPECTED_VERSION}.apk"
+          sha256sum release/*.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sportbuddy78-rustore-v${{ inputs.version_code }}
+          path: release/*.apk
+          retention-days: 14
+          if-no-files-found: error
