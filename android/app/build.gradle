@@ -39,6 +39,13 @@ android {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
+        // Test-only variant: same package/signing certificate for in-place upgrade,
+        // but allows Chrome remote WebView debugging. Never distribute to RuStore.
+        diagnostic {
+            initWith release
+            matchingFallbacks = ['release']
+            debuggable true
+        }
     }
 }
 
