@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { CalendarDays, ExternalLink, MapPin, ShieldCheck, Ticket, Users } from 'lucide-react';
+import { CalendarDays, ChevronDown, ExternalLink, MapPin, Ticket, Users } from 'lucide-react';
 import { OfficialEvent, UserProfile } from '../lib/types';
 import { filterUpcomingCityEvents, getUpcomingCityEvents, isRegistered, refreshEvents, toggleEventRegistration, verifiedTicketUrl } from '../services/events';
 import { triggerHapticImpact, triggerHapticNotification } from '../services/native';
-import { effectiveEventCover } from '../lib/eventCoverPresets';
+import { effectiveEventCover, presetEventCover } from '../lib/eventCoverPresets';
 
 type Filter='all'|'Хоккей'|'Футбол'|'Баскетбол'|'media'|'mine';
 
@@ -35,6 +35,7 @@ export const CitySportsEvents:React.FC<Props>=({currentUser,refreshKey,onOpenCha
   const [busy,setBusy]=useState('');
   const [loadError,setLoadError]=useState(false);
   const [loaded,setLoaded]=useState(false);
+  const [expanded,setExpanded]=useState(true);
 
   useEffect(()=>{
     void refreshEvents().then(all=>{setEvents(filterUpcomingCityEvents(all,30));setLoadError(false);setLoaded(true);}).catch(()=>{setLoadError(true);setLoaded(true);});
@@ -60,76 +61,53 @@ export const CitySportsEvents:React.FC<Props>=({currentUser,refreshKey,onOpenCha
     }finally{setBusy('');}
   };
 
-  return <section className="rounded-3xl border border-sky-500/30 bg-gradient-to-br from-slate-900 via-slate-900 to-sky-950/30 p-4 shadow-xl space-y-3">
-    <div className="flex items-start justify-between gap-3">
-      <div>
-        <div className="flex items-center gap-2">
-          <Ticket className="h-5 w-5 text-sky-400"/>
-          <h3 className="text-sm font-black text-white">Спортивные события Петербурга</h3>
-        </div>
-        <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
-          Предстоящие матчи на 30 дней. Найдите компанию. Для клубных матчей — официальные билетные сайты, для медиалиг — информация организаторов.
-        </p>
+  return <section className="rounded-2xl border border-sky-500/25 bg-slate-900/80 p-3 shadow-lg space-y-2.5">
+    <button type="button" aria-expanded={expanded} onClick={()=>setExpanded(value=>!value)}
+      className="flex w-full items-center gap-2 text-left">
+      <Ticket className="h-4 w-4 shrink-0 text-sky-400"/>
+      <span className="min-w-0 flex-1 text-sm font-black text-white">Спортивные события Петербурга</span>
+      <span className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-[11px] font-bold text-sky-300">{visible.length}</span>
+      <ChevronDown className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${expanded?'rotate-180':''}`}/>
+    </button>
+    {expanded&&<>
+      <div className="flex items-center gap-2 overflow-x-auto no-scrollbar text-[11px] font-bold">
+        <button type="button" onClick={()=>setDays(7)} className={`shrink-0 rounded-lg border px-2.5 py-1.5 ${days===7?'border-sky-400 bg-sky-400/15 text-sky-300':'border-slate-700 text-slate-400'}`}>7 дней</button>
+        <button type="button" onClick={()=>setDays(30)} className={`shrink-0 rounded-lg border px-2.5 py-1.5 ${days===30?'border-sky-400 bg-sky-400/15 text-sky-300':'border-slate-700 text-slate-400'}`}>30 дней</button>
+        <span className="mx-0.5 h-5 w-px shrink-0 bg-slate-700"/>
+        {filters.map(item=><button key={item.id} type="button" onClick={()=>setFilter(item.id)}
+          className={`shrink-0 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-[11px] font-bold ${filter===item.id?'bg-sky-400 text-slate-950':'border border-slate-700 text-slate-300'}`}>{item.label}</button>)}
       </div>
-      <span className="shrink-0 rounded-xl border border-sky-500/30 bg-sky-500/10 px-2 py-1 text-[10px] font-black text-sky-300">{visible.length}</span>
-    </div>
-
-    <div className="flex gap-2 text-[11px] font-bold">
-      <button type="button" onClick={()=>setDays(7)} className={`rounded-xl border px-3 py-2 ${days===7?'border-sky-400 bg-sky-400/15 text-sky-300':'border-slate-700 text-slate-400'}`}>7 дней</button>
-      <button type="button" onClick={()=>setDays(30)} className={`rounded-xl border px-3 py-2 ${days===30?'border-sky-400 bg-sky-400/15 text-sky-300':'border-slate-700 text-slate-400'}`}>30 дней</button>
-    </div>
-    <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
-      {filters.map(item=><button key={item.id} type="button" onClick={()=>setFilter(item.id)}
-        className={`whitespace-nowrap rounded-xl px-3 py-1.5 text-[10px] font-black transition ${filter===item.id?'bg-sky-400 text-slate-950':'border border-slate-700 bg-slate-950 text-slate-300'}`}>
-        {item.label}
-      </button>)}
-    </div>
-
-    {loadError&&<p role="alert" className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-300">Не удалось обновить спортивную афишу. Проверьте соединение и перезапустите раздел.</p>}
-    {visible.length===0?<div className="rounded-2xl border border-slate-800 bg-slate-950 p-5 text-center text-xs text-slate-500">{!loaded?'Загружаем события…':'На выбранный период опубликованных событий пока нет. Проверьте другой период.'}</div>:
-    <div className="space-y-3">{visible.map(event=>{
-      const joined=isRegistered(event,currentUser.id);
-      const ticketUrl=verifiedTicketUrl(event);
-      const eventCover=effectiveEventCover(event);
-      const isMedia=event.isMediaLeague===true;
-      const organizerUrl=isMedia?event.organizerUrl:'';
-      return <article key={event.id} className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-950">
-        {eventCover&&<div className="relative block h-32 w-full overflow-hidden">
-          <img src={eventCover} alt={event.title} loading="lazy" className="h-full w-full object-cover"/>
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent"/>
-          <span className="absolute left-2 top-2 flex items-center gap-1 rounded-lg border border-emerald-400/40 bg-slate-950/90 px-2 py-1 text-[9px] font-black text-emerald-300">
-            <ShieldCheck className="h-3 w-3"/> Источник проверен
-          </span>
-          {event.isMediaLeague&&<span className="absolute right-2 top-2 rounded-lg bg-fuchsia-500 px-2 py-1 text-[9px] font-black text-white">МЕДИАЛИГА</span>}
-        </div>}
-        <div className="space-y-2.5 p-3.5">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-wide text-sky-400">{event.league||event.sport}</p>
-            <h4 className="mt-0.5 text-sm font-black leading-snug text-white">{event.title}</h4>
-            <p className="mt-1 text-[11px] text-slate-400">{event.tagline}</p>
+      {loadError&&<p role="alert" className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-2 text-xs text-rose-300">Не удалось обновить афишу. Проверьте подключение.</p>}
+      {visible.length===0?<div className="rounded-xl border border-slate-800 bg-slate-950 p-4 text-center text-xs text-slate-400">{!loaded?'Загружаем события…':'На выбранный период событий пока нет.'}</div>:
+      <div className="space-y-2">{visible.map(event=>{
+        const joined=isRegistered(event,currentUser.id);
+        const ticketUrl=verifiedTicketUrl(event);
+        const eventCover=effectiveEventCover(event);
+        const isMedia=event.isMediaLeague===true;
+        const organizerUrl=isMedia?event.organizerUrl:'';
+        return <article key={event.id} className="rounded-xl border border-slate-800 bg-slate-950 p-2.5">
+          <div className="flex items-start gap-3">
+            {eventCover&&<img src={eventCover} alt="" loading="lazy"
+              onError={e=>{const fallback=presetEventCover(event);if(fallback&& !e.currentTarget.src.endsWith(fallback)){e.currentTarget.src=fallback;}else{e.currentTarget.style.display='none';}}}
+              className="h-20 w-20 shrink-0 rounded-lg object-cover sm:h-24 sm:w-28"/>}
+            <div className="min-w-0 flex-1 space-y-1">
+              <p className="text-[10px] font-bold uppercase text-sky-400">{event.league||event.sport}</p>
+              <h4 className="text-sm font-black leading-tight text-white">{event.title}</h4>
+              <p className="flex items-center gap-1 text-[11px] text-slate-300"><CalendarDays className="h-3 w-3 shrink-0 text-sky-400"/>{when(event)}</p>
+              <p className="flex items-center gap-1 truncate text-[11px] text-slate-400"><MapPin className="h-3 w-3 shrink-0 text-sky-400"/>{event.locationName}</p>
+              <p className="flex items-center gap-1 text-[10px] text-slate-500"><Users className="h-3 w-3"/>{event.participantIds.length} идут</p>
+            </div>
           </div>
-          <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-300">
-            <span className="flex items-center gap-1 rounded-lg border border-slate-800 bg-slate-900 px-2 py-1.5"><CalendarDays className="h-3 w-3 shrink-0 text-sky-400"/>{when(event)}</span>
-            <span className="flex items-center gap-1 rounded-lg border border-slate-800 bg-slate-900 px-2 py-1.5 truncate"><MapPin className="h-3 w-3 shrink-0 text-sky-400"/>{event.locationName}</span>
-          </div>
-          <div className="flex items-center gap-1 text-[10px] font-bold text-slate-400"><Users className="h-3 w-3"/>{event.participantIds.length} из SportBuddy78 собираются идти</div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="mt-2.5 grid grid-cols-2 gap-2">
             <button type="button" disabled={busy===event.id} onClick={()=>void attend(event)}
-              className={`min-h-11 rounded-xl px-3 text-[11px] font-black transition ${joined?'border border-emerald-500/40 bg-emerald-500/10 text-emerald-300':'bg-sky-400 text-slate-950'}`}>
+              className={`min-h-9 rounded-lg px-2 text-[11px] font-bold ${joined?'border border-emerald-500/40 bg-emerald-500/10 text-emerald-300':'bg-sky-400 text-slate-950'}`}>
               {busy===event.id?'Обновляем…':joined?'✓ Я иду':'Иду / ищу компанию'}
             </button>
-            {isMedia && organizerUrl?<a href={organizerUrl} target="_blank" rel="noopener noreferrer" className="flex min-h-11 items-center justify-center gap-1 rounded-xl border border-sky-400/40 bg-sky-400/10 px-3 text-center text-[11px] font-black text-sky-300">Уточнить у организаторов <ExternalLink className="h-3.5 w-3.5"/></a>:ticketUrl?<a href={ticketUrl} target="_blank" rel="noopener noreferrer"
-              className="flex min-h-11 items-center justify-center gap-1 rounded-xl border border-amber-400/40 bg-amber-400/10 px-3 text-center text-[11px] font-black text-amber-300">
-              Купить билет <ExternalLink className="h-3.5 w-3.5"/>
-            </a>:<span className="flex min-h-11 items-center justify-center rounded-xl border border-slate-800 px-3 text-center text-[10px] font-bold text-slate-600">{isMedia?'Информация уточняется':'Билеты уточняются'}</span>}
+            {isMedia&&organizerUrl?<a href={organizerUrl} target="_blank" rel="noopener noreferrer" className="flex min-h-9 items-center justify-center gap-1 rounded-lg border border-sky-500/40 text-center text-[11px] font-bold text-sky-300">Организатор <ExternalLink className="h-3 w-3"/></a>:ticketUrl?<a href={ticketUrl} target="_blank" rel="noopener noreferrer" className="flex min-h-9 items-center justify-center gap-1 rounded-lg border border-amber-400/40 bg-amber-400/10 text-center text-[11px] font-bold text-amber-300">Билеты <ExternalLink className="h-3 w-3"/></a>:<span className="flex min-h-9 items-center justify-center rounded-lg border border-slate-800 text-[11px] text-slate-500">Нет ссылки</span>}
           </div>
-          {joined&&onOpenChat&&<button type="button" onClick={()=>onOpenChat(event)}
-            className="w-full min-h-10 rounded-xl border border-sky-500/35 bg-sky-500/10 text-[11px] font-black text-sky-300">
-            💬 Открыть чат тех, кто идёт
-          </button>}
-          {ticketUrl&&<p className="flex items-center gap-1 text-[9px] text-slate-500"><ShieldCheck className="h-3 w-3 text-emerald-400"/>Официальная ссылка · {event.ticketSourceName}</p>}
-        </div>
-      </article>;
-    })}</div>}
+          {joined&&onOpenChat&&<button type="button" onClick={()=>onOpenChat(event)} className="mt-2 w-full rounded-lg border border-sky-500/30 py-2 text-[11px] font-bold text-sky-300">Открыть чат болельщиков</button>}
+        </article>;
+      })}</div>}
+    </>}
   </section>;
 };
