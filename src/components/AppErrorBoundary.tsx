@@ -1,22 +1,25 @@
 import React from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 
-interface State { hasError: boolean; }
+interface State { hasError: boolean; errorCode: string; }
 
 /**
  * Last-resort mobile error screen. A faulty third-party widget (map, VK ID,
  * media decoder) must not leave the user with a blank Capacitor WebView.
  */
 export class AppErrorBoundary extends React.Component<React.PropsWithChildren, State> {
-  state: State = { hasError: false };
+  state: State = { hasError: false, errorCode: '' };
 
-  static getDerivedStateFromError(): State {
-    return { hasError: true };
+  static getDerivedStateFromError(error: Error): State {
+    const message = String(error?.message || '');
+    const chunkError = /ChunkLoadError|Failed to fetch dynamically imported module|Importing a module script failed|Loading chunk/i.test(message);
+    const code = chunkError ? 'SB78-CHUNK' : error instanceof TypeError ? 'SB78-TYPE' : 'SB78-RENDER';
+    return { hasError: true, errorCode: code };
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo): void {
     // Keep diagnostics in development without exposing internal details in UI.
-    if (import.meta.env.DEV) console.error('[SportBuddy] render error', error, info);
+    console.error('[SportBuddy] render error', error, info);
   }
 
   render(): React.ReactNode {
@@ -30,8 +33,9 @@ export class AppErrorBoundary extends React.Component<React.PropsWithChildren, S
           </div>
           <h1 className="text-lg font-black text-white">Нужно обновить SportBuddy78</h1>
           <p className="mt-2 text-xs leading-relaxed text-slate-400">
-            Мы сохранили ваши данные локально. Перезапустите приложение — это обычно решает проблему.
+            Произошла ошибка загрузки экрана. Если она повторяется, сообщите поддержке код ниже.
           </p>
+          <p className="mt-3 text-xs font-mono text-amber-300">Код: {this.state.errorCode}</p>
           <button
             onClick={() => window.location.reload()}
             className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-500 py-3 text-sm font-black text-slate-950 active:scale-95"
