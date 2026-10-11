@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
+import { Capacitor } from "@capacitor/core";
 import App from "./App";
 import { AppErrorBoundary } from "./components/AppErrorBoundary";
 import { PublicSportId } from "./components/PublicSportId";
@@ -17,7 +18,13 @@ createRoot(document.getElementById("root")!).render(
 // PWA: register the service worker in production only. The worker uses a
 // conservative network-first strategy and never intercepts API/Firestore/
 // storage traffic, so it cannot serve stale data.
-if (import.meta.env.PROD && "serviceWorker" in navigator) {
+if (Capacitor.isNativePlatform() && "serviceWorker" in navigator) {
+  // The APK owns its bundled assets; the website service worker must not cache them.
+  void navigator.serviceWorker.getRegistrations()
+    .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister())))
+    .catch(() => {});
+}
+if (import.meta.env.PROD && !Capacitor.isNativePlatform() && "serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("/sw.js", {updateViaCache:"none"}).catch(() => {
       /* SW unavailable (e.g. unsupported context) — app still works */
