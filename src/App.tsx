@@ -292,7 +292,9 @@ export default function App(): JSX.Element {
   const [isNotifModalOpen, setIsNotifModalOpen] = useState(false);
   const [serverNotifications,setServerNotifications]=useState<AppNotification[]>([]);
   const [notificationsOffline,setNotificationsOffline]=useState(false);
-  const notifications=[...serverNotifications,...localNotifications.filter(n=>!serverNotifications.some(x=>x.id===n.id))];
+  const safeServerNotifications = Array.isArray(serverNotifications) ? serverNotifications : [];
+  const safeLocalNotifications = Array.isArray(localNotifications) ? localNotifications : [];
+  const notifications=[...safeServerNotifications,...safeLocalNotifications.filter(n=>!safeServerNotifications.some(x=>x.id===n.id))];
   useEffect(()=>{
     setServerNotifications([]);setLocalNotifications([]);
     if(!currentUser?.id)return;
@@ -851,7 +853,7 @@ export default function App(): JSX.Element {
   const visibleChatThreads = useMemo(() => {
     const needle=chatSearch.trim().toLowerCase();
     if(!needle)return chatThreads;
-    return chatThreads.filter(thread=>{
+    return (Array.isArray(chatThreads) ? chatThreads : []).filter(thread=>{
       const companion=allUsers.find(user=>user.id===thread.companionId);
       const last=thread.messages[thread.messages.length-1];
       return [thread.trainingTitle,thread.trainingSport,thread.eventTitle,thread.eventSport,companion?.name,companion?.sports?.join(' '),last?.text].filter(Boolean).join(' ').toLowerCase().includes(needle);
@@ -1053,7 +1055,7 @@ export default function App(): JSX.Element {
     // Strict opposite-gender separation. Legacy Firestore profiles without the
     // genderSet flag are treated as confirmed as long as gender is present.
     const blocked = currentUser.blockedUserIds || [];
-    return allUsers.filter(u => {
+    return (Array.isArray(allUsers) ? allUsers : []).filter(u => {
       if (u.id === currentUser.id) return false;
       if (blocked.includes(u.id)) return false;
       if (u.genderSet === false || u.gender === currentUser.gender) return false;
@@ -1069,7 +1071,7 @@ export default function App(): JSX.Element {
 
   // Filtered Trainings
   const filteredTrainings = useMemo(() => {
-    return trainings.filter(tr => {
+    return (Array.isArray(trainings) ? trainings : []).filter(tr => {
       if (!matchesDistrict(tr, trainingDistrictFilter)) return false;
       if (trainingSportFilter !== 'Все' && tr.sport !== trainingSportFilter) return false;
       if (trainingLevelFilter !== 'all' && tr.level !== trainingLevelFilter) return false;
@@ -1092,7 +1094,7 @@ export default function App(): JSX.Element {
   );
 
   const actualJoinedTrainings = useMemo(
-    () => trainings.filter((t) => actualJoinedTrainingIds.has(t.id)),
+    () => (Array.isArray(trainings) ? trainings : []).filter((t) => actualJoinedTrainingIds.has(t.id)),
     [trainings, actualJoinedTrainingIds]
   );
 
@@ -4239,7 +4241,7 @@ export default function App(): JSX.Element {
                 onClick={() => {
                   triggerHapticImpact('light');
                   setLocalNotifications(prev => prev.map(n => ({ ...n, read: true })));
-                  void readNotifications(serverNotifications.filter(n=>!n.read).map(n=>n.id)).catch(()=>notify('Не удалось отметить уведомления','err'));
+                  void readNotifications(safeServerNotifications.filter(n=>!n.read).map(n=>n.id)).catch(()=>notify('Не удалось отметить уведомления','err'));
                 }}
                 className="text-emerald-400 font-bold hover:underline"
               >

@@ -51,7 +51,7 @@ const WeekBars: React.FC<{ credits: ReturnType<typeof getCredits> }> = ({ credit
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       out.push({
         label: labels[d.getDay()] ?? '',
-        count: credits.filter((c) => c.dayKey === key).length
+        count: (Array.isArray(credits) ? credits : []).filter((c) => c.dayKey === key).length
       });
     }
     return out;
@@ -163,11 +163,11 @@ const ProfileStatsInner: React.FC<ProfileStatsSectionProps> = ({ user, trainings
   const streak = useMemo(() => getWorkoutStreak(user.id), [user.id, expanded]);
 
   const attended = useMemo(
-    () => trainings.filter((t) => joinedTrainingIds.has(t.id) && t.createdBy !== user.id).length,
+    () => (Array.isArray(trainings) ? trainings : []).filter((t) => joinedTrainingIds.has(t.id) && t.createdBy !== user.id).length,
     [trainings, joinedTrainingIds]
   );
   const created = useMemo(
-    () => trainings.filter((t) => t.createdBy === user.id).length,
+    () => (Array.isArray(trainings) ? trainings : []).filter((t) => t.createdBy === user.id).length,
     [trainings, user.id]
   );
 
