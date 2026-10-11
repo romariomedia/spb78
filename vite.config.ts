@@ -27,7 +27,8 @@ export default defineConfig({
   },
   build: {
     target: "es2020",
-    sourcemap: false,
+    // Source maps only for internal diagnostic APKs, never normal RuStore releases.
+    sourcemap: process.env.SB78_DIAGNOSTIC === "1" ? "hidden" : false,
     cssCodeSplit: true,
     assetsInlineLimit: 4096,
     chunkSizeWarningLimit: 700,
