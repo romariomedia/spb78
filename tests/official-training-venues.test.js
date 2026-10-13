@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { build } from 'esbuild';
 const bundle = await build({entryPoints:['src/services/venues.ts'],bundle:true,write:false,platform:'node',format:'esm',plugins:[{name:'deps',setup(b){
  b.onResolve({filter:/\/adminAuth$/},()=>({path:'admin',namespace:'fake'}));
- b.onResolve({filter:/\/serverApi$/},()=>({path:'base',namespace:'fake'}));
- b.onLoad({filter:/.*/,namespace:'fake'},args=>({contents:args.path==='admin'?'export const getAdminSession=()=>({sessionId:"test"})':'export const apiBase=()=>"https://sportbuddy78.pro"',loader:'js'}));
+ b.onResolve({filter:/\/apiEndpoint$/},()=>({path:'base',namespace:'fake'}));
+ b.onLoad({filter:/.*/,namespace:'fake'},args=>({contents:args.path==='admin'?'export const getAdminSession=()=>({sessionId:"test"})':'export const apiFetch=(path,init)=>fetch("https://sportbuddy78.pro"+path,init)',loader:'js'}));
 }}]});
 const {mergeVenueCatalog,loadOfficialTrainingVenues}=await import('data:text/javascript;base64,'+Buffer.from(bundle.outputFiles[0].text).toString('base64'));
 test('admin catalog keeps hidden and unmapped venues, excludes archived; public catalog stays private',()=>{

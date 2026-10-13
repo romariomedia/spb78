@@ -331,8 +331,8 @@ async function syncAdminEvent(
   });
 }
 
-export async function toggleEventRegistration(eventId: string, _userId: string): Promise<OfficialEvent | null> {
-  const result = await callServer<{event:OfficialEvent}>('/api/sportbuddy-mutation', {action:'event', eventId});
+export async function toggleEventRegistration(eventId: string, _userId: string, registered?: boolean): Promise<OfficialEvent | null> {
+  const result = await callServer<{event:OfficialEvent}>('/api/sportbuddy-mutation', {action:'event', eventId, ...(registered === undefined ? {} : {registered})});
   if (result.event) {
     const all=readAll(), idx=all.findIndex(e=>e.id===eventId);
     if(idx>=0){ all[idx]=result.event; writeAll(all); }

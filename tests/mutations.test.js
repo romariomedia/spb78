@@ -617,3 +617,16 @@ test('a saved creation retry still resolves after Premium expires',async t=>{
  t.mock.timers.setTime(Date.parse('2027-02-01T12:00:00Z'));
  const retry=await f.request('a',body);assert.equal(retry.statusCode,200);assert.equal(retry.body.training.id,first.body.training.id);
 });
+
+test('explicit event attendance is idempotent after a lost response and returns the document id', async()=>{
+  const f=fixture({'users/alice':premium(),'events/match':{title:'Match',status:'published',participantsMax:10,participantIds:[]}});
+  for(let i=0;i<2;i++){
+    const result=await f.request('alice',{action:'event',eventId:'match',registered:true});
+    assert.equal(result.statusCode,200);assert.equal(result.body.event.id,'match');
+    assert.deepEqual(result.body.event.participantIds,['alice']);
+  }
+  for(let i=0;i<2;i++){
+    const result=await f.request('alice',{action:'event',eventId:'match',registered:false});
+    assert.equal(result.statusCode,200);assert.deepEqual(result.body.event.participantIds,[]);
+  }
+});

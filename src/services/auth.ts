@@ -1,4 +1,4 @@
-import { apiBase } from './apiEndpoint';
+import { apiFetch } from './apiEndpoint';
 import { detachPushOnLogout } from './notifications';
 import { AuthAccount } from '../lib/types';
 import { triggerHapticNotification } from './native';
@@ -112,7 +112,7 @@ export async function loginWithVK(
   }
 
   try {
-    const response = await fetch(`${apiBase()}/api/vk-login`, {
+    const response = await apiFetch(`/api/vk-login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

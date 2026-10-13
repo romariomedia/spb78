@@ -1,3 +1,4 @@
+import { isNativeRuntime, nativeHttp } from './nativeHttp';
 /** Native assets live at https://localhost; API requests must reach the VPS. */
 const PRODUCTION_API = 'https://sportbuddy78.pro';
 
@@ -20,7 +21,7 @@ export function publicSiteOrigin(): string {
 
 export async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   if (!path.startsWith('/api/')) throw new Error('Invalid API path');
-  const response = await fetch(`${apiBase()}${path}`, init);
+  const response = await (isNativeRuntime() ? nativeHttp : fetch)(`${apiBase()}${path}`, init);
   // A WebView asset fallback or reverse-proxy error page is not API data.
   if (!response.headers.get('content-type')?.toLowerCase().includes('application/json')) {
     throw new Error(`Сервер вернул некорректный ответ (HTTP ${response.status}). Повторите загрузку.`);

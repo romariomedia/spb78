@@ -33,6 +33,7 @@ export const CitySportsEvents:React.FC<Props>=({currentUser,refreshKey,onOpenCha
   const [filter,setFilter]=useState<Filter>('all');
   const [days,setDays]=useState<7|30>(30);
   const [busy,setBusy]=useState('');
+  const [actionError,setActionError]=useState('');
   const [loadError,setLoadError]=useState(false);
   const [loaded,setLoaded]=useState(false);
   const [expanded,setExpanded]=useState(true);
@@ -52,11 +53,13 @@ export const CitySportsEvents:React.FC<Props>=({currentUser,refreshKey,onOpenCha
   const attend=async(event:OfficialEvent)=>{
     if(busy)return;
     setBusy(event.id);
+    setActionError('');
     triggerHapticImpact('medium');
     try{
-      const updated=await toggleEventRegistration(event.id,currentUser.id);
+      const updated=await toggleEventRegistration(event.id,currentUser.id,!isRegistered(event,currentUser.id));
       if(updated)setEvents(items=>items.map(item=>item.id===updated.id?updated:item));
     }catch(error){
+      setActionError(error instanceof Error ? error.message : 'Не удалось изменить участие. Обновите события и повторите попытку.');
       triggerHapticNotification('error');
     }finally{setBusy('');}
   };
@@ -69,6 +72,7 @@ export const CitySportsEvents:React.FC<Props>=({currentUser,refreshKey,onOpenCha
       <span className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-[11px] font-bold text-sky-300">{visible.length}</span>
       <ChevronDown className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${expanded?'rotate-180':''}`}/>
     </button>
+    {actionError&&<p role="alert" className="text-sm text-rose-300">{actionError}</p>}
     {expanded&&<>
       <div className="flex items-center gap-2 overflow-x-auto no-scrollbar text-[11px] font-bold">
         <button type="button" onClick={()=>setDays(7)} className={`shrink-0 rounded-lg border px-2.5 py-1.5 ${days===7?'border-sky-400 bg-sky-400/15 text-sky-300':'border-slate-700 text-slate-400'}`}>7 дней</button>

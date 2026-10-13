@@ -181,6 +181,7 @@ export default function App(): JSX.Element {
   const [authNotice, setAuthNotice] = useState('');
   const [loadError, setLoadError] = useState('');
   const [loadWarning, setLoadWarning] = useState('');
+  const [publicProfilesStale, setPublicProfilesStale] = useState(true);
   const [paymentSuccess, setPaymentSuccess] = useState(() => window.location.pathname === '/success');
   const [welcomeTrialShown, setWelcomeTrialShown] = useState<boolean>(false);
   // Set before async loading starts so a fresh registration can never inherit
@@ -498,6 +499,7 @@ export default function App(): JSX.Element {
       setTrainings(getActiveTrainings(data.trainings));
       setLoadError('');
       setLoadWarning(data.loadWarning ?? '');
+      setPublicProfilesStale(data.publicProfilesStale === true);
       setFeedPosts(data.feedPosts);
       setIsOffline(data.isOffline);
       setPendingSyncCount(getOfflineQueue().length);
@@ -687,9 +689,9 @@ export default function App(): JSX.Element {
           }
         });
       },
-      (code, deviceId) => {
+      (code, deviceId, callbackUrl) => {
         window.dispatchEvent(new CustomEvent('vk-oauth-callback', {
-          detail: { code, device_id: deviceId }
+          detail: { code, device_id: deviceId, url: callbackUrl }
         }));
       }
     );
@@ -2175,9 +2177,9 @@ export default function App(): JSX.Element {
                         <div className="w-16 h-16 rounded-3xl bg-emerald-500/20 border border-emerald-400 mx-auto flex items-center justify-center text-3xl shadow-[0_0_20px_rgba(16,185,129,0.3)]">
                           🎯
                         </div>
-                        <h3 className="text-lg font-bold text-white">Вы просмотрели всех кандидатов!</h3>
+                        <h3 className="text-lg font-bold text-white">{publicProfilesStale ? 'Анкеты пока не загрузились' : 'Вы просмотрели всех кандидатов!'}</h3>
                         <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
-                          Новые спортивные анкеты в Санкт-Петербурге появляются каждый час. Загляните позже или сбросьте фильтры, чтобы посмотреть снова!
+                          {publicProfilesStale ? 'Не удалось получить список с сервера. Нажмите кнопку обновления вверху экрана.' : 'Загляните позже или сбросьте фильтры, чтобы посмотреть анкеты снова.'}
                         </p>
                         <button
                           onClick={() => { triggerHapticImpact('light'); setSwipedIds([]); try { localStorage.removeItem('sportbuddy_swiped_ids_v1'); } catch {} }}
@@ -2270,6 +2272,7 @@ export default function App(): JSX.Element {
 
                 {/* Community leaderboard */}
                 <Leaderboard
+                  incomplete={publicProfilesStale}
                   allUsers={allUsers}
                   currentUserId={CURRENT_USER_ID}
                   onSelectUser={(u) => setSelectedUserModal(u)}

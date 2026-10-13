@@ -51,6 +51,7 @@ export interface AppData {
   isOffline: boolean;
   hasPendingQueue: boolean;
   loadWarning?: string;
+  publicProfilesStale?: boolean;
   profileMissing?: boolean;
 }
 
@@ -617,7 +618,7 @@ export async function loadAppData(): Promise<AppData> {
     if (cached) return { ...cached, isOffline: true, hasPendingQueue, profileMissing: false };
     throw new Error('Нет соединения. Подключитесь к интернету, чтобы загрузить профиль.');
   }
-  const timeout = FIRESTORE_TIMEOUT_MS * 2;
+  const timeout = 35_000; // Wait longer than the API transport; do not discard a successful late response.
   const [profile, users, trainings, feed, privateFields] = await Promise.all([
     readSection(
       getDocFromServer(doc(db, 'users', uid)).then(snap => ({
@@ -663,7 +664,8 @@ export async function loadAppData(): Promise<AppData> {
     isOffline: false,
     hasPendingQueue,
     profileMissing: profile.value.missing,
-    loadWarning: stale ? 'Не все данные удалось обновить. Часть информации может быть устаревшей.' : undefined
+    publicProfilesStale: users.stale,
+    loadWarning: stale ? `Не удалось обновить: ${[profile.stale && 'профиль', users.stale && 'список атлетов', trainings.stale && 'тренировки', feed.stale && 'лента', privateFields.stale && 'личные данные'].filter(Boolean).join(', ')}. Показаны сохранённые данные. Нажмите обновление сверху.` : undefined
   };
   // A failed read never creates or caches a fabricated replacement profile.
   if (!profile.value.missing) saveOfflineCache(result);

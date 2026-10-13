@@ -222,7 +222,7 @@ async function eventMutation(db, uid, body) {
   return db.runTransaction(async tx=>{
     const snap=await tx.get(ref), user=await tx.get(db.collection('users').doc(uid)), chatSnap=await tx.get(chatRef);
     if(!snap.exists || !user.exists) throw Object.assign(new Error('Мероприятие или профиль не найдены'),{status:404});
-    const event=snap.data(), ids=cleanArray(event.participantIds);
+    const event={...snap.data(),id:eventId}, ids=cleanArray(event.participantIds);
     if(event.status!=='published') throw Object.assign(new Error('Регистрация на мероприятие закрыта'),{status:409});
     if(body.operation==='ensureGroupChat'){
       if(!ids.includes(uid))throw Object.assign(new Error('Чат доступен только тем, кто идёт на событие'),{status:403});
@@ -237,6 +237,10 @@ async function eventMutation(db, uid, body) {
       }else tx.set(chatRef,{participantIds:ids},{merge:true});
       return {event,registered:true,chatId:`event_${eventId}`};
     }
+    if(body.registered !== undefined && typeof body.registered !== 'boolean')
+      throw Object.assign(new Error('Некорректный статус участия'),{status:400});
+    if(typeof body.registered === 'boolean' && body.registered === ids.includes(uid))
+      return {registered:body.registered,event,chatId:`event_${eventId}`};
     if(ids.includes(uid)) {
       const next=ids.filter(id=>id!==uid);tx.update(ref,{participantIds:next});
       if(chatSnap.exists)tx.set(chatRef,{participantIds:next},{merge:true});

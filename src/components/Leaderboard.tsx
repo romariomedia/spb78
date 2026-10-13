@@ -11,12 +11,13 @@ import { CollapsibleCard } from './CollapsibleCard';
 
 interface LeaderboardProps {
   allUsers: UserProfile[];
+  incomplete?: boolean;
   currentUserId: string;
   onSelectUser: (user: UserProfile) => void;
 }
 
 const LeaderboardInner: React.FC<LeaderboardProps> = ({
-  allUsers, currentUserId, onSelectUser
+  allUsers, currentUserId, onSelectUser, incomplete
 }) => {
   const [metric, setMetric] = useState<LeaderboardMetric>('workouts');
   const [expanded, setExpanded] = useState(false);
@@ -29,6 +30,9 @@ const LeaderboardInner: React.FC<LeaderboardProps> = ({
   const visible = expanded ? entries : entries.slice(0, 5);
   const maxValue = Math.max(1, entries[0]?.value ?? 1);
 
+  if (incomplete) return <div role="status" className="rounded-2xl border border-amber-500/25 bg-slate-900 p-4 text-sm text-slate-300">
+    Таблица лидеров пока не загрузилась полностью. Обновите данные сверху, чтобы увидеть всех атлетов и рейтинг.
+  </div>;
   return (
     <CollapsibleCard
       storageKey="sportbuddy_leaderboard_open_v1"

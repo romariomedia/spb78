@@ -181,7 +181,7 @@ export async function shareContent(title: string, text: string, url?: string): P
 // Deep Links Handler
 export function setupDeepLinkListener(
   onTrainingOpen: (trainingId: string) => void,
-  onVkCallback?: (code: string, deviceId: string) => void
+  onVkCallback?: (code: string, deviceId: string, callbackUrl: string) => void
 ): () => void {
   let disposed = false;
 
@@ -196,22 +196,23 @@ export function setupDeepLinkListener(
       // running (appUrlOpen) or on a cold start (getLaunchUrl). Handle both.
       const code = url.searchParams.get('code');
       const deviceId = url.searchParams.get('device_id');
-      if (code && deviceId) {
+      if (url.origin === 'https://sportbuddy78.pro' && url.pathname === '/vk-callback' && (code && deviceId || url.searchParams.has('error'))) {
         console.log('[VK Callback] Code received, finishing login...');
         try {
           sessionStorage.setItem('sportbuddy_vk_pending_callback', JSON.stringify({
-            code,
-            device_id: deviceId
+            code: code || 'error',
+            device_id: deviceId || 'error',
+            url: url.href
           }));
         } catch {
           // Storage may be unavailable in a restricted WebView.
         }
 
         if (onVkCallback) {
-          onVkCallback(code, deviceId);
+          onVkCallback(code || 'error', deviceId || 'error', url.href);
         } else {
           window.dispatchEvent(new CustomEvent('vk-oauth-callback', {
-            detail: { code, device_id: deviceId }
+            detail: { code: code || 'error', device_id: deviceId || 'error', url: url.href }
           }));
         }
         return;
@@ -225,7 +226,7 @@ export function setupDeepLinkListener(
         if (id) onTrainingOpen(id);
       }
     } catch (error) {
-      console.warn('[Deep Link] Invalid URL:', rawUrl, error);
+      console.warn('[Deep Link] Invalid URL');
     }
   };
 

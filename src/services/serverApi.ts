@@ -2,7 +2,7 @@ import { auth } from './firebaseAuth';
 
 import { apiFetch, readApiJson } from './apiEndpoint';
 export { apiBase } from './apiEndpoint';
-const REQUEST_TIMEOUT_MS = 15_000;
+const REQUEST_TIMEOUT_MS = 30_000;
 
 export async function callServer<T = Record<string, unknown>>(path: string, body: unknown): Promise<T> {
   const user = auth.currentUser;
@@ -25,6 +25,9 @@ export async function callServer<T = Record<string, unknown>>(path: string, body
       throw error;
     }
     return payload as T;
+  } catch (error) {
+    if (controller.signal.aborted) throw new Error('Сервер не ответил вовремя. Обновите данные перед повторным действием.');
+    throw error;
   } finally {
     window.clearTimeout(timer);
   }

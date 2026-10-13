@@ -1,4 +1,4 @@
-import { apiBase } from './apiEndpoint';
+import { apiFetch } from './apiEndpoint';
 import { auth } from './firebaseAuth';
 export type PremiumPlan = 'monthly' | 'yearly';
 
@@ -51,7 +51,7 @@ export async function createPremiumPayment(plan: PremiumPlan): Promise<PremiumPa
       if (auth.currentUser?.uid !== uid) throw new Error('Аккаунт изменился. Начните оплату заново.');
     }
 
-    const res = await fetch(`${apiBase()}/api/create-payment`, {
+    const res = await apiFetch(`/api/create-payment`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',

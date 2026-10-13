@@ -11,7 +11,7 @@ const {createPremiumPayment}=await import(`data:text/javascript;base64,${Buffer.
 test('client reuses request after network failure even when storage is disabled',async()=>{
   globalThis.sessionStorage={getItem(){throw new Error('disabled');},setItem(){throw new Error('disabled');},removeItem(){throw new Error('disabled');}};
   const requests=[];let fail=true;
-  globalThis.fetch=async(_url,options)=>{requests.push(JSON.parse(options.body));if(fail)throw new Error('network');return {ok:true,json:async()=>({confirmationUrl:'https://yookassa.ru/checkout',paymentId:'p1',amount:'490.00'})};};
+  globalThis.fetch=async(_url,options)=>{requests.push(JSON.parse(options.body));if(fail)throw new Error('network');return Response.json({confirmationUrl:'https://yookassa.ru/checkout',paymentId:'p1',amount:'490.00'});};
   await assert.rejects(createPremiumPayment('monthly'),/network/);fail=false;
   await createPremiumPayment('monthly');assert.equal(requests[0].requestId,requests[1].requestId);
   await createPremiumPayment('monthly');assert.notEqual(requests[1].requestId,requests[2].requestId);

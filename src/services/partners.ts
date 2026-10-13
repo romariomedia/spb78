@@ -1,4 +1,4 @@
-import { apiBase } from './serverApi';
+import { apiFetch } from './apiEndpoint';
 import { auth } from './firebaseAuth';
 
 export interface FeedPartner{
@@ -13,7 +13,7 @@ export async function loadFeedPartners():Promise<{visible:boolean;partners:FeedP
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),15000);
   try {
-  const response=await fetch(`${apiBase()}/api/partners`,{signal:controller.signal,cache:'no-store',headers:{Authorization:`Bearer ${token}`}});
+  const response=await apiFetch(`/api/partners`,{signal:controller.signal,cache:'no-store',headers:{Authorization:`Bearer ${token}`}});
   if(!response.ok)return {visible:false,partners:[]};
   const data=await response.json().catch(()=>({}));
   return {visible:data.visible===true,partners:Array.isArray(data.partners)?data.partners:[]};

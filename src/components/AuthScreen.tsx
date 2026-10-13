@@ -1,3 +1,4 @@
+import { nativeVkAuthorizeUrl, exchangeNativeVkCallback } from '../services/nativeVk';
 import { beginVkRedirect, consumeVkRedirect, cleanVkCallback } from '../services/vkRedirect';
 import { isBetaActive } from '../lib/release';
 import { useEffect, useRef, useState } from 'react';
@@ -91,15 +92,18 @@ export function AuthScreen({ onAuthenticated, initialNotice = '' }: Props) {
   const vkInFlight = useRef(false);
 
   // Shared tail of the VK ID flow: exchange code → profile → local account.
-  const finishVkLogin = async (code: string, deviceId: string) => {
+  const finishVkLogin = async (code: string, deviceId: string, callbackUrl?: string) => {
     if (vkInFlight.current) return;
     vkInFlight.current = true;
     setError('');
     setVkBusy(true);
     try {
-      const tokens = await VKID.Auth.exchangeCode(code, deviceId);
+      const tokens = isNativeApp
+        ? await exchangeNativeVkCallback(localStorage, callbackUrl || '')
+        : await VKID.Auth.exchangeCode(code, deviceId);
       let u: Record<string, unknown> = {};
       try {
+        if (isNativeApp) throw new Error('Profile is verified by our server');
         const info = await VKID.Auth.userInfo(tokens.access_token);
         u = (info.user || {}) as Record<string, unknown>;
       } catch {
@@ -124,8 +128,9 @@ export function AuthScreen({ onAuthenticated, initialNotice = '' }: Props) {
       }
 
       onAuthenticated(result.account, result.isNewAccount ?? false, getHighQualityVKAvatar((u.avatar as string) || ''));
-    } catch {
-      setError('Не удалось обменять код VK ID (VK-EXCHANGE). Начните вход заново. Если окно ВК закрывается или зависает, используйте вход в этой вкладке.');
+    } catch (error) {
+      if (isNativeApp) { setError(error instanceof Error ? error.message : 'Не удалось завершить вход (VK-EXCHANGE).'); }
+      else setError('Не удалось обменять код VK ID (VK-EXCHANGE). Начните вход заново. Если окно ВК закрывается или зависает, используйте вход в этой вкладке.');
     } finally {
       vkInFlight.current = false;
       setVkBusy(false);
@@ -143,9 +148,9 @@ export function AuthScreen({ onAuthenticated, initialNotice = '' }: Props) {
         const raw = sessionStorage.getItem(VK_PENDING_CALLBACK_KEY);
         if (!raw) return;
         sessionStorage.removeItem(VK_PENDING_CALLBACK_KEY);
-        const pending = JSON.parse(raw) as { code?: string; device_id?: string };
+        const pending = JSON.parse(raw) as { code?: string; device_id?: string; url?: string };
         if (pending.code && pending.device_id) {
-          void finishVkLogin(pending.code, pending.device_id);
+          void finishVkLogin(pending.code, pending.device_id, pending.url);
         }
       } catch {
         // Ignore malformed/stale callback data.
@@ -161,7 +166,7 @@ export function AuthScreen({ onAuthenticated, initialNotice = '' }: Props) {
         if (code && deviceId) {
           // This is also a fallback when Android App Links are not yet
           // verified and the callback opens in the browser/WebView.
-          void finishVkLogin(code, deviceId);
+          void finishVkLogin(code, deviceId, url.href);
           window.history.replaceState({}, document.title, '/');
         }
       } catch {
@@ -170,9 +175,10 @@ export function AuthScreen({ onAuthenticated, initialNotice = '' }: Props) {
     };
 
     const handleVkCallback = (e: Event) => {
-      const customEvent = e as CustomEvent<{ code: string; device_id: string }>;
-      const { code, device_id } = customEvent.detail || {};
-      if (code && device_id) void finishVkLogin(code, device_id);
+      const customEvent = e as CustomEvent<{ code: string; device_id: string; url?: string }>;
+      const { code, device_id, url } = customEvent.detail || {};
+      sessionStorage.removeItem(VK_PENDING_CALLBACK_KEY);
+      if (code && device_id) void finishVkLogin(code, device_id, url);
     };
 
     window.addEventListener('vk-oauth-callback', handleVkCallback);
@@ -212,7 +218,7 @@ export function AuthScreen({ onAuthenticated, initialNotice = '' }: Props) {
       }
 
       const container = oAuthContainerRef.current;
-      if (container) {
+      if (container && !isNativeApp) {
         const oAuth = new VKID.OAuthList();
         oAuth
           .render({
@@ -250,6 +256,17 @@ export function AuthScreen({ onAuthenticated, initialNotice = '' }: Props) {
   }, []);
 
   useEffect(() => setNotice(initialNotice), [initialNotice]);
+
+  const handleNativeVk = async () => {
+    setError(''); setVkBusy(true);
+    try {
+      const url = await nativeVkAuthorizeUrl(localStorage);
+      // Capacitor routes navigation to a foreign HTTPS host to Android ACTION_VIEW.
+      // No localhost origin, iframe, popup or WebView cookie dependency.
+      window.location.assign(url);
+    } catch { setError('Не удалось открыть VK ID (VK-START). Повторите попытку.'); }
+    finally { setVkBusy(false); }
+  };
 
   const handleVkRedirect = async () => {
     if (vkInFlight.current) return;
@@ -624,7 +641,9 @@ export function AuthScreen({ onAuthenticated, initialNotice = '' }: Props) {
           >
             <div className="rounded-2xl border border-slate-800 bg-slate-950/45 p-3">
               <div className="relative">
-                <div ref={oAuthContainerRef} className="w-full" />
+                {isNativeApp ? <button type="button" disabled={vkBusy} onClick={handleNativeVk}
+                  className="w-full rounded-xl bg-blue-600 px-4 py-3 font-bold text-white disabled:opacity-50">Войти через VK ID</button>
+                  : <div ref={oAuthContainerRef} className="w-full" />}
                 {vkBusy && (
                   <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-slate-950/70 backdrop-blur-sm">
                     <span className="text-xs font-bold text-slate-200">Открываем VK ID…</span>

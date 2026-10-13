@@ -1,3 +1,5 @@
+import { NativeVkReturn } from './components/NativeVkReturn';
+import { nativeVkReturnIntent } from './services/nativeVk';
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
@@ -6,11 +8,14 @@ import App from "./App";
 import { AppErrorBoundary } from "./components/AppErrorBoundary";
 import { PublicSportId } from "./components/PublicSportId";
 
+const vkReturn = !Capacitor.isNativePlatform() && window.location.pathname.replace(/\/$/, '') === '/vk-callback'
+  ? nativeVkReturnIntent(new URL(window.location.href)) : '';
+if (vkReturn) window.history.replaceState({}, document.title, '/vk-callback');
 const publicMatch=window.location.hash.match(/^#\/id\/([A-Za-z0-9_-]{12,80})\/?$/);
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <AppErrorBoundary>
-      {publicMatch?<PublicSportId slug={publicMatch[1]!}/>:<App />}
+      {vkReturn?<NativeVkReturn intentUrl={vkReturn}/>:publicMatch?<PublicSportId slug={publicMatch[1]!}/>:<App />}
     </AppErrorBoundary>
   </StrictMode>
 );
