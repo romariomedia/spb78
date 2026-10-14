@@ -1,3 +1,4 @@
+import {readAdminUserPage} from '../server/admin-user-page.js';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, Timestamp, FieldValue } from 'firebase-admin/firestore';
@@ -34,33 +35,11 @@ function userRow(doc, privateData = {}, adminData = {}) {
   };
 }
 
-async function listUsers(db, query = '') {
-  const snap = await db.collection('users').limit(250).get();
-  const [privateSnaps, adminSnaps] = await Promise.all([
-    Promise.all(snap.docs.map(doc => db.collection('usersPrivate').doc(doc.id).get().catch(() => null))),
-    Promise.all(snap.docs.map(doc => db.collection('userAdmin').doc(doc.id).get().catch(() => null)))
-  ]);
-  const rows = snap.docs.map((doc,index) => userRow(
-    doc,
-    privateSnaps[index]?.exists ? privateSnaps[index].data() || {} : {},
-    adminSnaps[index]?.exists ? adminSnaps[index].data() || {} : {}
-  ));
-  const needle = text(query, 120).toLowerCase();
-  const filtered = needle ? rows.filter(row =>
-    row.id.toLowerCase().includes(needle) ||
-    row.name.toLowerCase().includes(needle) ||
-    row.email.toLowerCase().includes(needle) ||
-    row.districtId.toLowerCase().includes(needle) ||
-    row.sports.some(sport => sport.toLowerCase().includes(needle))
-  ) : rows;
-  return filtered.sort((a,b) => String(b.registeredAt).localeCompare(String(a.registeredAt))).slice(0, 150);
-}
-
 async function readUserDetails(db, userId) {
   const [snap, privateSnap, adminSnap] = await Promise.all([
     db.collection('users').doc(userId).get(),
-    db.collection('usersPrivate').doc(userId).get().catch(() => null),
-    db.collection('userAdmin').doc(userId).get().catch(() => null)
+    db.collection('usersPrivate').doc(userId).get(),
+    db.collection('userAdmin').doc(userId).get()
   ]);
   if (!snap.exists) throw Object.assign(new Error('User not found.'), { status:404 });
   const data = snap.data() || {};
@@ -93,7 +72,7 @@ export default async function handler(req, res) {
   try {
     const session = await requireAdminSession(db, body.sessionId);
     const operation = String(body.operation || 'list');
-    if (operation === 'list') return res.json({ users: await listUsers(db, body.query) });
+    if (operation === 'list') return res.json(await readAdminUserPage(db, getAuth(), userRow, body.query, body.cursor));
 
     const userId = text(body.userId, 180);
     if (!userId || userId.includes('/')) return res.status(400).json({ error:'User id required.' });
@@ -108,25 +87,29 @@ export default async function handler(req, res) {
     const privateData = privateSnap.exists ? privateSnap.data() || {} : {};
     const adminData = adminSnap.exists ? adminSnap.data() || {} : {};
     let patch = {};
-
-    if (operation === 'setVerification') {
-      const verified = body.verified === true;
-      patch = verified
-        ? { isVerified:true, verifiedAt:new Date().toISOString() }
-        : { isVerified:false, verifiedAt:FieldValue.delete() };
-      await ref.update(patch);
-    } else if (operation === 'setPremiumUntil') {
-      const raw = text(body.premiumUntil, 40);
-      if (!raw) patch = { premiumUntil:FieldValue.delete() };
-      else {
-        const parsed = new Date(raw);
-        if (!Number.isFinite(parsed.getTime())) return res.status(400).json({ error:'Invalid premium date.' });
-        patch = { premiumUntil:Timestamp.fromDate(parsed) };
+    if(['setVerification','setPremiumUntil','setAnalyticsExcluded'].includes(operation)){
+      const reason=text(body.reason,300);
+      if(operation!=='setAnalyticsExcluded' && reason.length<3)return res.status(400).json({error:'Укажите причину изменения (минимум 3 символа).'});
+      if(operation==='setVerification')patch=body.verified===true
+        ?{isVerified:true,verifiedAt:new Date().toISOString()}
+        :{isVerified:false,verifiedAt:FieldValue.delete()};
+      if(operation==='setAnalyticsExcluded')patch={analyticsExcluded:body.excluded===true};
+      if(operation==='setPremiumUntil'){
+        const raw=text(body.premiumUntil,40),date=raw?new Date(raw):null;
+        if(date&&!Number.isFinite(date.getTime()))return res.status(400).json({error:'Invalid premium date.'});
+        patch={premiumUntil:date?Timestamp.fromDate(date):FieldValue.delete()};
       }
-      await ref.update(patch);
-    } else if (operation === 'setAnalyticsExcluded') {
-      patch = { analyticsExcluded: body.excluded === true };
-      await ref.update(patch);
+      await db.runTransaction(async tx=>{
+        const fresh=await tx.get(ref);
+        if(!fresh.exists)throw Object.assign(new Error('User not found.'),{status:404});
+        const old=fresh.data();
+        const snapshot=data=>({isVerified:data.isVerified===true,premiumUntil:iso(data.premiumUntil),analyticsExcluded:data.analyticsExcluded===true});
+        const next={...old,...patch};
+        if(operation==='setPremiumUntil')next.premiumUntil=body.premiumUntil||'';
+        tx.update(ref,patch);
+        await writeAdminAudit(db,session,{action:'user.'+operation,entityType:'user',entityId:userId,before:snapshot(old),after:{...snapshot(next),reason},requestId:String(body.requestId||'')},tx);
+      });
+      return res.json({ok:true,user:await readUserDetails(db,userId)});
     } else if (operation === 'setSuspension') {
       if (text(privateData.email, 180).toLowerCase() === ADMIN_EMAIL) {
         return res.status(400).json({ error:'Нельзя ограничить основной аккаунт администратора.' });

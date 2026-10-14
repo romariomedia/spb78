@@ -32,14 +32,18 @@ export function subscribeAppInvalidation(
 
   const stops = [
     onSnapshot(doc(db, 'users', userId), () => schedule('users'), () => undefined),
-    onSnapshot(collection(db, 'trainings'), () => schedule('trainings'), () => undefined),
-    onSnapshot(collection(db, 'feed'), () => schedule('feed'), () => undefined)
+    onSnapshot(collection(db, 'trainings'), () => schedule('trainings'), () => undefined)
   ];
 
   // Other athletes are fetched through the public API, never a raw collection listener.
   const poll = setInterval(() => schedule('users'), 120_000);
+  // Feed documents are private; only the filtered API may deliver posts.
+  const feedPoll = setInterval(() => {
+    if(typeof document==='undefined'||!document.hidden)schedule('feed');
+  }, 60_000);
   return () => {
     clearInterval(poll);
+    clearInterval(feedPoll);
     if (timer) clearTimeout(timer);
     pending.clear();
     stops.forEach((stop) => stop());

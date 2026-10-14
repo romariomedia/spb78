@@ -80,19 +80,19 @@ async function post<T>(path:string, body:Record<string,unknown>):Promise<T>{
   return data as T;
 }
 
-export async function loadAdminUsers(query=''):Promise<AdminUserRow[]>{
-  const data=await post<{users:AdminUserRow[]}>('/api/admin-users',{operation:'list',query});
-  return data.users;
+export async function loadAdminUsers(query='',cursor:string|null=null):Promise<{users:AdminUserRow[];nextCursor:string|null}>{
+  const data=await post<{users:AdminUserRow[];nextCursor:string|null}>('/api/admin-users',{operation:'list',query,cursor});
+  return data;
 }
 export async function loadAdminUser(userId:string):Promise<AdminUserDetails>{
   const data=await post<{user:AdminUserDetails}>('/api/admin-users',{operation:'get',userId});
   return data.user;
 }
-export async function setAdminUserVerification(userId:string,verified:boolean):Promise<void>{
-  await post('/api/admin-users',{operation:'setVerification',userId,verified,requestId:crypto.randomUUID?.()||String(Date.now())});
+export async function setAdminUserVerification(userId:string,verified:boolean,reason:string):Promise<void>{
+  await post('/api/admin-users',{operation:'setVerification',userId,verified,reason,requestId:crypto.randomUUID?.()||String(Date.now())});
 }
-export async function setAdminUserPremiumUntil(userId:string,premiumUntil:string):Promise<void>{
-  await post('/api/admin-users',{operation:'setPremiumUntil',userId,premiumUntil,requestId:crypto.randomUUID?.()||String(Date.now())});
+export async function setAdminUserPremiumUntil(userId:string,premiumUntil:string,reason:string):Promise<void>{
+  await post('/api/admin-users',{operation:'setPremiumUntil',userId,premiumUntil,reason,requestId:crypto.randomUUID?.()||String(Date.now())});
 }
 export async function setAdminUserAnalyticsExcluded(userId:string,excluded:boolean):Promise<void>{
   await post('/api/admin-users',{operation:'setAnalyticsExcluded',userId,excluded,requestId:crypto.randomUUID?.()||String(Date.now())});

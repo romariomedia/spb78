@@ -20,7 +20,8 @@ function label(entry:AdminAuditEntry){
 }
 export function AdminAuditPanel(){
  const [items,setItems]=useState<AdminAuditEntry[]>([]),[loading,setLoading]=useState(false),[error,setError]=useState('');
- const refresh=async()=>{setLoading(true);setError('');try{setItems(await loadAdminAudit());}catch(e){setError(e instanceof Error?e.message:'Не удалось загрузить журнал');}finally{setLoading(false);}};
+ const [cursor,setCursor]=useState<string|null>(null);
+ const refresh=async(append=false)=>{setLoading(true);setError('');try{const page=await loadAdminAudit(50,append?cursor:null);setItems(old=>append?[...old,...page.entries]:page.entries);setCursor(page.nextCursor);}catch(e){setError(e instanceof Error?e.message:'Не удалось загрузить журнал');}finally{setLoading(false);}};
  useEffect(()=>{void refresh();},[]);
  return <section className="space-y-3">
   <div className="flex items-center justify-between">
@@ -29,10 +30,12 @@ export function AdminAuditPanel(){
   </div>
   {error&&<p className="rounded-xl border border-rose-500/30 bg-rose-950/30 p-3 text-[11px] text-rose-200">{error}</p>}
   <div className="space-y-2">
-   {items.length===0&&!loading&&<p className="rounded-xl border border-slate-800 bg-slate-950 p-4 text-center text-[11px] text-slate-500">Журнал пока пуст.</p>}
+   {items.length===0&&!loading&&!error&&<p className="rounded-xl border border-slate-800 bg-slate-950 p-4 text-center text-[11px] text-slate-500">Журнал пока пуст.</p>}
    {items.map(item=><article key={item.id} className="rounded-2xl border border-slate-800 bg-slate-950 p-3">
     <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-[11px] font-black text-white">{label(item)}</p><p className="mt-0.5 truncate text-[9px] text-slate-500">{item.entityType}{item.entityId?` · ${item.entityId}`:''}</p></div><time className="shrink-0 text-[9px] text-slate-500">{item.createdAt?new Date(item.createdAt).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—'}</time></div>
+    <details className="mt-2 text-sm text-slate-300"><summary>Изменения и причина</summary><p>{item.adminEmail}</p><pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-all">{JSON.stringify({до:item.before,после:item.after},null,2)}</pre></details>
    </article>)}
   </div>
+  {cursor&&<button disabled={loading} onClick={()=>void refresh(true)} className="rounded-xl border border-slate-600 p-3 text-sm">Загрузить более ранние изменения</button>}
  </section>;
 }

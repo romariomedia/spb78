@@ -1,9 +1,10 @@
+import {readOperations} from './operational-config.js';
 import { getFirestore,FieldPath,FieldValue } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
 import { cleanSettings,isQuiet,matchesTraining,mergeInbox } from './notification-policy.js';
 import { matchesAdminPushAudience } from './admin-push.js';
 
-export async function deliverNotification(db,messaging,job,uid) {
+export async function deliverNotification(db,messaging,job,uid,pushEnabled=true) {
   if(uid===job.actorId)return;
   const [userSnap,prefSnap]=await Promise.all([db.collection('users').doc(uid).get(),db.collection('notificationSettings').doc(uid).get()]);
   if(!userSnap.exists)return;
@@ -42,7 +43,7 @@ export async function deliverNotification(db,messaging,job,uid) {
   });
   if(!shouldSend)return;
   // Quiet hours suppress the external alert; the inbox still receives the event.
-  if(job.kind==='push_test'||!isQuiet(prefs)) {
+  if(pushEnabled && (job.kind==='push_test'||!isQuiet(prefs))) {
     const devices=await db.collection('pushDevices').where('uid','==',uid).limit(20).get();
     for(const device of devices.docs) {
       if(device.data().updatedAt<Date.now()-90*86400000){await device.ref.delete();continue;}
@@ -65,6 +66,8 @@ export function startNotificationWorker() {
   async function drain(){
     if(busy||stopped)return;busy=true;dirty=false;
     try {
+      const operations=await readOperations();
+      if(operations.maintenanceMode)return;
       for(const snapshot of jobs) {
         if(stopped)break;
         if(snapshot.data().nextAttemptAt>Date.now())continue;
@@ -95,7 +98,7 @@ export function startNotificationWorker() {
           }else recipients=(job.recipients||[]).slice(job.offset,job.offset+20);
 
           if(job.campaignId)await db.collection('adminPushCampaigns').doc(job.campaignId).set({status:'processing',lastProcessedAt:new Date().toISOString()},{merge:true});
-          for(const uid of recipients)await deliverNotification(db,messaging,job,uid);
+          for(const uid of recipients)await deliverNotification(db,messaging,job,uid,operations.featureFlags.pushEnabled);
           const offset=job.offset+recipients.length;
           if(job.campaignId&&recipients.length){
             await db.collection('adminPushCampaigns').doc(job.campaignId).update({processedCount:FieldValue.increment(recipients.length)});

@@ -1,5 +1,7 @@
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import {effectiveOperations} from '../shared/operational-policy.js';
+import {invalidateOperationalConfig} from '../server/operational-config.js';
 import { requireAdminSession, writeAdminAudit } from '../server/admin-control.js';
 
 if (!getApps().length) {
@@ -11,9 +13,9 @@ export const DEFAULT_APP_CONFIG = {
     activeLeisureEnabled: true,
     datingEnabled: true,
     pushEnabled: true,
-    storiesEnabled: false,
-    sportPassportEnabled: false,
-    boxEnabled: false
+    storiesEnabled: true,
+    sportPassportEnabled: true,
+    boxEnabled: true
   },
   product: {
     freeMatches: 5,
@@ -43,26 +45,22 @@ function sanitizeFeatureFlags(value = {}) {
     boxEnabled:bool(value.boxEnabled)
   };
 }
-function dateOnly(value, fallback) {
-  const v = text(value, 10);
-  return /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : fallback;
-}
 function sanitizeProduct(value = {}) {
   return {
     freeMatches:integer(value.freeMatches, 0, 100, DEFAULT_APP_CONFIG.product.freeMatches),
     matchWindowDays:integer(value.matchWindowDays, 1, 365, DEFAULT_APP_CONFIG.product.matchWindowDays),
-    premiumFreeUntil:dateOnly(value.premiumFreeUntil, DEFAULT_APP_CONFIG.product.premiumFreeUntil),
-    boxLaunchAt:dateOnly(value.boxLaunchAt, DEFAULT_APP_CONFIG.product.boxLaunchAt),
-    minimumAndroidVersion:text(value.minimumAndroidVersion, 40),
-    ruStoreUrl:text(value.ruStoreUrl, 1000),
+    premiumFreeUntil:DEFAULT_APP_CONFIG.product.premiumFreeUntil,
+    boxLaunchAt:DEFAULT_APP_CONFIG.product.boxLaunchAt,
+    minimumAndroidVersion:'',
+    ruStoreUrl:'',
     maintenanceMode:bool(value.maintenanceMode),
     maintenanceMessage:text(value.maintenanceMessage, 300) || DEFAULT_APP_CONFIG.product.maintenanceMessage
   };
 }
 function mergeConfig(data = {}) {
   return {
-    featureFlags:{...DEFAULT_APP_CONFIG.featureFlags, ...(data.featureFlags || {})},
-    product:{...DEFAULT_APP_CONFIG.product, ...(data.product || {})}
+    featureFlags:effectiveOperations(data).featureFlags,
+    product:{...DEFAULT_APP_CONFIG.product, ...(data.product || {}), premiumFreeUntil:'2026-12-31',boxLaunchAt:'2027-01-01',minimumAndroidVersion:'',ruStoreUrl:'',maintenanceMode:effectiveOperations(data).maintenanceMode}
   };
 }
 
@@ -78,6 +76,10 @@ export default async function handler(req,res) {
     const operation = String(body.operation || 'get');
     if (operation === 'get') return res.json({ config:current });
 
+    if(!['saveFeatureFlags','saveProductSettings'].includes(operation))return res.status(400).json({error:'Unknown operation.'});
+    const next=await db.runTransaction(async batch=>{
+    const fresh=await batch.get(ref);
+    const current=mergeConfig(fresh.exists?fresh.data():{});
     let next;
     if (operation === 'saveFeatureFlags') {
       next = { ...current, featureFlags:sanitizeFeatureFlags(body.featureFlags || {}) };
@@ -87,8 +89,8 @@ export default async function handler(req,res) {
       return res.status(400).json({error:'Unknown operation.'});
     }
 
-    const after = { ...next, updatedAt:new Date().toISOString(), updatedBy:String(session.email || 'admin') };
-    await ref.set(after, { merge:false });
+    const after = { ...next, operationsVersion:1, updatedAt:new Date().toISOString(), updatedBy:String(session.email || 'admin') };
+    batch.set(ref,after,{merge:false});
     await writeAdminAudit(db, session, {
       action:operation === 'saveFeatureFlags' ? 'config.flags.update' : 'config.product.update',
       entityType:'appConfig',
@@ -96,7 +98,10 @@ export default async function handler(req,res) {
       before:current,
       after:next,
       requestId:String(body.requestId || '')
+    },batch);
+    return next;
     });
+    invalidateOperationalConfig();
     return res.json({ ok:true, config:next });
   } catch (error) {
     const status = Number(error?.status || 500);

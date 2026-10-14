@@ -12,8 +12,16 @@ export default async function handler(req,res){
   try{
     await requireAdminSession(db,req.body?.sessionId);
     const limit=Math.min(100,Math.max(10,Number(req.body?.limit)||50));
-    const snap=await db.collection('adminAuditLogs').orderBy('createdAtMs','desc').limit(limit).get();
-    return res.json({entries:snap.docs.map(doc=>{
+    let query=db.collection('adminAuditLogs').orderBy('createdAtMs','desc').limit(limit);
+    if(req.body?.cursor){
+      const id=String(req.body.cursor);
+      if(id.includes('/')||id.length>180)return res.status(400).json({error:'Invalid cursor'});
+      const cursor=await db.collection('adminAuditLogs').doc(id).get();
+      if(!cursor.exists)return res.status(409).json({error:'Обновите журнал: курсор больше недоступен.'});
+      query=query.startAfter(cursor);
+    }
+    const snap=await query.get();
+    return res.json({nextCursor:snap.docs.length===limit?snap.docs.at(-1).id:null,entries:snap.docs.map(doc=>{
       const data=doc.data()||{};
       return {
         id:doc.id,

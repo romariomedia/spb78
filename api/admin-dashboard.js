@@ -11,7 +11,7 @@ async function count(db, name) {
     const snap = await db.collection(name).count().get();
     return Number(snap.data().count || 0);
   } catch {
-    return 0;
+    throw new Error('Dashboard count unavailable: '+name);
   }
 }
 
@@ -33,7 +33,7 @@ export default async function handler(req, res) {
       count(db, 'notificationOutbox')
     ]);
 
-    const recentUsersSnap = await db.collection('users').orderBy('registeredAt', 'desc').limit(5).get().catch(() => null);
+    const recentUsersSnap = await db.collection('users').orderBy('registeredAt', 'desc').limit(5).get();
     const recentUsers = recentUsersSnap ? recentUsersSnap.docs.map(doc => {
       const data = doc.data() || {};
       return {

@@ -15,8 +15,8 @@ export default async function handler(req,res){
     const op=String(body.operation||'list');
     if(op==='list'){
       const [reportsSnap,feedSnap,usersSnap]=await Promise.all([
-        db.collection('reports').orderBy('createdAtMs','desc').limit(100).get().catch(()=>null),
-        db.collection('feed').limit(100).get(),
+        db.collection('reports').orderBy('createdAtMs','desc').limit(100).get(),
+        db.collection('feed').orderBy('createdAt','desc').limit(100).get(),
         db.collection('users').limit(150).get()
       ]);
       const reports=reportsSnap?reportsSnap.docs.map(d=>({id:d.id,...d.data()})):[];
@@ -37,8 +37,9 @@ export default async function handler(req,res){
       const ref=db.collection('reports').doc(id),snap=await ref.get();
       if(!snap.exists)return res.status(404).json({error:'Жалоба не найдена.'});
       const before=snap.data()||{},after={...before,status,moderationNote:clean(body.note,500),updatedAt:new Date().toISOString(),updatedAtMs:Date.now(),moderatedBy:String(session.email||'admin')};
-      await ref.set(after,{merge:false});
-      await writeAdminAudit(db,session,{action:'moderation.report.status',entityType:'report',entityId:id,before:{status:before.status},after:{status,note:after.moderationNote},requestId:String(body.requestId||'')});
+      const batch=db.batch();batch.set(ref,after,{merge:false});
+      await writeAdminAudit(db,session,{action:'moderation.report.status',entityType:'report',entityId:id,before:{status:before.status},after:{status,note:after.moderationNote},requestId:String(body.requestId||'')},batch);
+      await batch.commit();
       return res.json({ok:true});
     }
 
@@ -49,8 +50,9 @@ export default async function handler(req,res){
       if(!snap.exists)return res.status(404).json({error:'Публикация не найдена.'});
       const before=snap.data()||{};
       const patch={isHidden:hidden,hiddenReason:hidden?reason:'',hiddenAt:hidden?new Date().toISOString():'',hiddenBy:hidden?String(session.email||'admin'):''};
-      await ref.update(patch);
-      await writeAdminAudit(db,session,{action:hidden?'moderation.post.hide':'moderation.post.restore',entityType:'feedPost',entityId:id,before:{isHidden:before.isHidden===true},after:{isHidden:hidden,reason:patch.hiddenReason},requestId:String(body.requestId||'')});
+      const batch=db.batch();batch.update(ref,patch);
+      await writeAdminAudit(db,session,{action:hidden?'moderation.post.hide':'moderation.post.restore',entityType:'feedPost',entityId:id,before:{isHidden:before.isHidden===true},after:{isHidden:hidden,reason:patch.hiddenReason},requestId:String(body.requestId||'')},batch);
+      await batch.commit();
       return res.json({ok:true});
     }
 

@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+import {enforceOperations} from './server/operational-config.js';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createApiApp } from './server/app.js';
@@ -12,7 +13,7 @@ try {
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
     throw new Error('PORT must be an integer between 1 and 65535');
   }
-  const app = await createApiApp({ apiDir: join(root, 'api') });
+  const app = await createApiApp({ apiDir: join(root, 'api'), enforceOperations });
   const {startNotificationWorker}=await import('./server/notification-worker.js');
   const stopNotifications=startNotificationWorker();
   const {startStoryWorker}=await import('./server/story-worker.js');

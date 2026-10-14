@@ -1,3 +1,5 @@
+import {isNativeRuntime} from './nativeHttp';
+import {pollNotificationInbox} from './notificationPolling';
 import { app } from '../lib/firebase';
 import { auth,authReady } from './firebaseAuth';
 import { callServer,apiBase } from './serverApi';
@@ -46,6 +48,16 @@ export const loadNotificationSettings=()=>callServer<{settings:NotificationSetti
 export const saveNotificationSettings=(settings:NotificationSettings)=>callServer<{settings:NotificationSettings}>('/api/notifications',{action:'settings',settings});
 export const readNotifications=(ids:string[])=>callServer('/api/notifications',{action:'read',ids});
 export function subscribeNotifications(uid:string,onData:(items:AppNotification[])=>void,onError:(failed:boolean)=>void) {
+  if(isNativeRuntime())return pollNotificationInbox<AppNotification>({
+    isCurrent:()=>auth.currentUser?.uid===uid,
+    isVisible:()=>!document.hidden,
+    read:async()=>{
+      await authReady;
+      const data=await callServer<{entries:AppNotification[]}>('/api/notifications',{action:'list'});
+      if(!Array.isArray(data.entries))throw new Error('Не удалось загрузить уведомления');
+      return data.entries.map(n=>({...n,time:new Date(Number((n as AppNotification & {createdAt:number}).createdAt)).toLocaleString('ru-RU',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}));
+    },onData,onError
+  });
   let stopped=false,controller:AbortController|undefined,timer:ReturnType<typeof setTimeout>;
   async function connect(){
     await authReady;

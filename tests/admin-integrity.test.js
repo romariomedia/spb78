@@ -1,0 +1,48 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {build} from 'esbuild';
+async function load(file){
+ const result=await build({entryPoints:[file],bundle:true,format:'esm',platform:'node',write:false,plugins:[{name:'fake-admin',setup(b){
+  b.onResolve({filter:/^firebase-admin\//},a=>({path:a.path,namespace:'fake'}));
+  b.onLoad({filter:/.*/,namespace:'fake'},a=>({contents:{
+   'firebase-admin/app':'export const getApps=()=>[{}],initializeApp=()=>{},cert=x=>x;',
+   'firebase-admin/firestore':'export const getFirestore=()=>globalThis.__integrityDb;'
+  }[a.path],loader:'js'}));
+ }}]});return (await import('data:text/javascript;base64,'+Buffer.from(result.outputFiles[0].text).toString('base64'))).default;
+}
+const config=await load('api/admin-config.js'),moderation=await load('api/admin-moderation.js');
+function fixture(){
+ const rows=new Map([['adminSessions/live',{email:'admin',expiresAt:{toMillis:()=>Date.now()+60000}}],['feed/p',{content:'visible'}]]);
+ const faults={audit:false,reports:false,beforeTransaction:null};
+ const snap=path=>({exists:rows.has(path),data:()=>rows.get(path)});
+ const ref=path=>({path,get:async()=>snap(path),set:async value=>rows.set(path,value)});
+ const writer=()=>{const pending=[];return {
+  get:async r=>snap(r.path),
+  set(r,v){if(faults.audit&&r.path.startsWith('adminAuditLogs/'))throw Error('audit unavailable');pending.push(()=>rows.set(r.path,v));},
+  update(r,v){pending.push(()=>rows.set(r.path,{...rows.get(r.path),...v}));},
+  async commit(){pending.forEach(f=>f());}
+ }};
+ const db={doc:ref,batch:writer,collection(name){return {doc:id=>ref(name+'/'+id),orderBy(){return this},limit(){return this},async get(){if(name==='reports'&&faults.reports)throw Error('reports unavailable');return {docs:[]};}}},async runTransaction(fn){faults.beforeTransaction?.();const tx=writer(),value=await fn(tx);await tx.commit();return value;}};
+ globalThis.__integrityDb=db;
+ return {rows,faults,async request(handler,body){const res={code:200,status(c){this.code=c;return this},json(v){this.body=v;return this}};await handler({method:'POST',body:{sessionId:'live',...body}},res);return res;}};
+}
+test('configuration keeps concurrent product change and writes matching audit atomically',async()=>{
+ const f=fixture();
+ f.faults.beforeTransaction=()=>f.rows.set('appConfig/main',{operationsVersion:1,product:{freeMatches:9}});
+ const res=await f.request(config,{operation:'saveFeatureFlags',featureFlags:{datingEnabled:false}});
+ assert.equal(res.code,200);assert.equal(f.rows.get('appConfig/main').product.freeMatches,9);
+ assert.equal(f.rows.get('appConfig/main').featureFlags.datingEnabled,false);
+ assert.equal([...f.rows.keys()].filter(k=>k.startsWith('adminAuditLogs/')).length,1);
+});
+test('failed audit cannot leave saved config or hidden publication',async()=>{
+ const f=fixture();f.faults.audit=true;
+ assert.equal((await f.request(config,{operation:'saveProductSettings',product:{maintenanceMode:true}})).code,500);
+ assert.equal(f.rows.has('appConfig/main'),false);
+ assert.equal((await f.request(moderation,{operation:'setPostHidden',id:'p',hidden:true,reason:'Review'})).code,500);
+ assert.equal(f.rows.get('feed/p').isHidden,undefined);
+});
+test('failed complaints query produces an error, not an empty successful queue',async()=>{
+ const f=fixture();f.faults.reports=true;
+ const res=await f.request(moderation,{operation:'list'});
+ assert.equal(res.code,500);assert.equal(res.body.reports,undefined);
+});

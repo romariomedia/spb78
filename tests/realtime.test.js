@@ -40,7 +40,7 @@ function listenerFor(name) {
 }
 
 test('изменения разделов копятся и приходят одним вызовом', (t) => {
-  t.mock.timers.enable({ apis: ['setTimeout'] });
+  t.mock.timers.enable({ apis: ['setTimeout','setInterval'] });
   globalThis.__listeners = [];
   globalThis.__stopped = 0;
 
@@ -48,22 +48,23 @@ test('изменения разделов копятся и приходят о�
   const stop = subscribeAppInvalidation((sections) => calls.push([...sections]), 'athlete-a');
 
   assert.equal(listenerFor('users').ref.id, 'athlete-a');
-  assert.equal(globalThis.__listeners.length, 3, 'должны слушаться три коллекции');
+  assert.equal(globalThis.__listeners.length, 2);
+  assert.equal(listenerFor('feed'),undefined,'private feed must not be subscribed directly');
 
-  listenerFor('feed').next();
-  listenerFor('feed').next();
+  listenerFor('users').next();
+  listenerFor('users').next();
   listenerFor('trainings').next();
   assert.deepEqual(calls, [], 'до истечения задержки вызовов быть не должно');
 
   t.mock.timers.tick(350);
-  assert.deepEqual(calls, [['feed', 'trainings']], 'разделы отдаются один раз и без повторов');
+  assert.deepEqual(calls, [['users', 'trainings']], 'разделы отдаются один раз и без повторов');
 
   stop();
-  assert.equal(globalThis.__stopped, 3, 'при отписке слушатели снимаются');
+  assert.equal(globalThis.__stopped, 2, 'при отписке слушатели снимаются');
 });
 
 test('после отписки изменения больше не приходят', (t) => {
-  t.mock.timers.enable({ apis: ['setTimeout'] });
+  t.mock.timers.enable({ apis: ['setTimeout','setInterval'] });
   globalThis.__listeners = [];
   globalThis.__stopped = 0;
 
@@ -74,4 +75,11 @@ test('после отписки изменения больше не прихо�
   t.mock.timers.tick(350);
 
   assert.deepEqual(calls, [], 'вызов после отписки недопустим');
+});
+
+test('feed refreshes through invalidation polling and stops after cleanup',t=>{
+ t.mock.timers.enable({apis:['setTimeout','setInterval']});globalThis.__listeners=[];globalThis.__stopped=0;
+ const calls=[];const stop=subscribeAppInvalidation(s=>calls.push([...s]),'a');
+ t.mock.timers.tick(60000);t.mock.timers.tick(350);assert.deepEqual(calls,[['feed']]);
+ stop();t.mock.timers.tick(120000);assert.equal(calls.length,1);
 });

@@ -93,7 +93,8 @@ service cloud.firestore {
     /* ------------------------------ feed ------------------------------- */
 
     match /feed/{postId} {
-      allow read: if isSignedIn();
+      // Reads use feed-list: hidden posts and moderation metadata never leave the server.
+      allow read: if false;
       allow create, update, delete: if false;
     }
 

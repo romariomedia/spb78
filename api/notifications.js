@@ -15,6 +15,11 @@ export default async function handler(req,res) {
     const {uid}=await getAuth().verifyIdToken(token),db=getFirestore(),body=req.body||{};
     await readUserStatus(db,uid);
     const inbox=db.collection('notificationInboxes').doc(uid),settings=db.collection('notificationSettings').doc(uid);
+    if(body.action==='list') {
+      res.setHeader('Cache-Control','private, no-store');
+      const snap=await inbox.get();
+      return res.json({entries:(snap.data()?.entries||[]).filter(n=>n.createdAt>Date.now()-30*86400000)});
+    }
     if(body.action==='stream') {
       res.set({'Content-Type':'application/x-ndjson','Cache-Control':'no-cache, no-store','X-Accel-Buffering':'no'});res.flushHeaders();
       let ended=false,unsubscribe=()=>{},heartbeat,expiry;

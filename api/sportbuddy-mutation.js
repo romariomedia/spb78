@@ -1,3 +1,4 @@
+import {publicFeedPost} from '../server/public-feed.js';
 import { validateProfileInput } from '../server/profile-input.js';
 import { validateDistrictId } from '../shared/districts.js';
 import { enqueueNotification } from '../server/notification-policy.js';
@@ -268,8 +269,8 @@ async function feedMutation(db, uid, body) {
   const postId=String(body.postId||''); const ref=db.collection('feed').doc(postId);
   if(!postId) throw Object.assign(new Error('Пост не найден'),{status:400});
   return db.runTransaction(async tx=>{const snap=await tx.get(ref);if(!snap.exists)throw Object.assign(new Error('Пост не найден'),{status:404});const post=snap.data();if(post.isHidden===true)throw Object.assign(new Error('Пост недоступен'),{status:404});const likes=cleanArray(post.likes), comments=Array.isArray(post.comments)?post.comments:[];
-    if(body.operation==='like'){const liked=likes.includes(uid), next=liked?likes.filter(x=>x!==uid):[...likes,uid];tx.update(ref,{likes:next});return {liked:!liked,post:{...post,likes:next}};}
-    if(body.operation==='comment'){const content=String(body.content||'').trim().slice(0,500);if(content.length<1)throw Object.assign(new Error('Комментарий пуст'),{status:400});const user=(await tx.get(db.collection('users').doc(uid))).data()||{};const c={id:`c_${randomUUID()}`,postId,authorId:uid,authorName:String(user.name||'Спортсмен'),authorAvatar:String(user.avatar||''),content,createdAt:new Date().toISOString()};const next=[...comments,c];tx.update(ref,{comments:next,commentsCount:next.length});return {comment:c,post:{...post,comments:next,commentsCount:next.length}};}
+    if(body.operation==='like'){const liked=likes.includes(uid), next=liked?likes.filter(x=>x!==uid):[...likes,uid];tx.update(ref,{likes:next});return {liked:!liked,post:publicFeedPost(postId,{...post,likes:next})};}
+    if(body.operation==='comment'){const content=String(body.content||'').trim().slice(0,500);if(content.length<1)throw Object.assign(new Error('Комментарий пуст'),{status:400});const user=(await tx.get(db.collection('users').doc(uid))).data()||{};const c={id:`c_${randomUUID()}`,postId,authorId:uid,authorName:String(user.name||'Спортсмен'),authorAvatar:String(user.avatar||''),content,createdAt:new Date().toISOString()};const next=[...comments,c];tx.update(ref,{comments:next,commentsCount:next.length});return {comment:c,post:publicFeedPost(postId,{...post,comments:next,commentsCount:next.length})};}
     throw Object.assign(new Error('Неизвестная операция ленты'),{status:400});
   });
 }

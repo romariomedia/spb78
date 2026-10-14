@@ -14,7 +14,7 @@ export default async function handler(req,res){
     const operation=String(body.operation||'list');
 
     if(operation==='list'){
-      const snap=await db.collection('sportVerificationRequests').orderBy('updatedAtMs','desc').limit(100).get().catch(()=>null);
+      const snap=await db.collection('sportVerificationRequests').orderBy('updatedAtMs','desc').limit(100).get();
       const requests=(snap?.docs||[]).map(doc=>({id:doc.id,...doc.data()}));
       return res.json({requests});
     }

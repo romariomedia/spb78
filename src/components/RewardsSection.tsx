@@ -13,6 +13,7 @@ import { CollapsibleCard } from './CollapsibleCard';
 import { launchMatchConfetti } from '../services/native';
 
 interface RewardsSectionProps {
+  boxEnabled?:boolean;
   user: UserProfile;
   onUpdateUser: (newUser: UserProfile) => void;
   onOpenModal: (title: string, subtitle: string, content: React.ReactNode) => void;
@@ -20,6 +21,7 @@ interface RewardsSectionProps {
 
 const RewardsSectionInner: React.FC<RewardsSectionProps> = ({
   user,
+  boxEnabled=true,
   onUpdateUser,
   onOpenModal
 }) => {
@@ -30,7 +32,7 @@ const RewardsSectionInner: React.FC<RewardsSectionProps> = ({
 
   // Handle opening a SportBuddy BOX (7, 14, 28 workouts)
   const handleOpenBox = async (tierIdx: number) => {
-    if (openingBoxIdx !== null) return;
+    if (!boxEnabled || openingBoxIdx !== null) return;
     setOpeningBoxIdx(tierIdx);
     try {
       const result = await openSportBuddyBox(user, tierIdx);
@@ -227,7 +229,7 @@ const RewardsSectionInner: React.FC<RewardsSectionProps> = ({
                   {/* Button to open or status */}
                   <button
                     onClick={() => handleOpenBox(idx)}
-                    disabled={beta || isAlreadyClaimed || !isUnlocked || isOpening}
+                    disabled={!boxEnabled || beta || isAlreadyClaimed || !isUnlocked || isOpening}
                     className={`w-full py-2.5 px-3 rounded-xl text-xs font-black transition shadow flex items-center justify-center gap-1.5 ${
                       isAlreadyClaimed
                         ? 'bg-slate-800 text-slate-500 border border-slate-700 cursor-default'

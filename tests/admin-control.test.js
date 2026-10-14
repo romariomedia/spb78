@@ -41,3 +41,12 @@ test('admin audit records actor, entity and snapshots',async()=>{
   assert.equal(entry.action,'venue.update');assert.equal(entry.entityId,'nova');
   assert.deepEqual(entry.before,{price:'1'});assert.deepEqual(entry.after,{price:'2'});
 });
+
+test('audit can be queued in the same atomic transaction without a separate write',async()=>{
+ let direct=false;const queued=[];
+ const db={collection(){return {doc(id){return {id,set(){direct=true;}};}};}};
+ const tx={set(ref,data){queued.push({ref,data});}};
+ await writeAdminAudit(db,{email:'admin'},{action:'config.update',entityType:'config',after:{enabled:false}},tx);
+ assert.equal(direct,false);assert.equal(queued.length,1);
+ assert.equal(queued[0].data.action,'config.update');
+});

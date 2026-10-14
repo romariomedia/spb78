@@ -33,7 +33,7 @@ export function setCurrentUserId(id: string): void {
   if (id.trim()) CURRENT_USER_ID = id;
 }
 // v5 excludes private fields from other athletes' cached profiles.
-const OFFLINE_CACHE_KEY = 'sportbuddy_offline_cache_v5';
+const OFFLINE_CACHE_KEY = 'sportbuddy_offline_cache_v6';
 const OFFLINE_QUEUE_KEY = 'sportbuddy_offline_queue_v4';
 
 /**
@@ -502,7 +502,7 @@ const INITIAL_FEED: FeedPost[] = ENABLE_SAMPLE_DATA ? DEMO_FEED : [];
 // Helper: Get offline cache from localStorage
 function getOfflineCache(): AppData | null {
   try {
-    for (const version of [1,2,3,4]) localStorage.removeItem(`sportbuddy_offline_cache_v${version}`);
+    for (const version of [1,2,3,4,5]) localStorage.removeItem(`sportbuddy_offline_cache_v${version}`);
     const raw = localStorage.getItem(OFFLINE_CACHE_KEY);
     if (!raw) return null;
     return JSON.parse(raw) as AppData;
@@ -608,6 +608,21 @@ async function loadPublicProfiles(): Promise<UserProfile[]> {
 }
 
 /** Load collections independently, scoped to the account that began the request. */
+async function loadPublicFeed(): Promise<FeedPost[]> {
+  const posts = new Map<string, FeedPost>();
+  const seen = new Set<string>();
+  let cursor: string | undefined;
+  do {
+    const page = await callServer<{posts:FeedPost[];nextCursor:string|null}>('/api/feed-list', cursor ? {cursor} : {});
+    if (!Array.isArray(page.posts)) throw new Error('Некорректный ответ ленты');
+    for (const post of page.posts) posts.set(post.id, post);
+    cursor = page.nextCursor || undefined;
+    if (cursor && seen.has(cursor)) throw new Error('Повтор страницы ленты');
+    if (cursor) seen.add(cursor);
+  } while (cursor);
+  return [...posts.values()].sort((a,b)=>timestampValue(b.createdAt)-timestampValue(a.createdAt));
+}
+
 export async function loadAppData(): Promise<AppData> {
   const uid = CURRENT_USER_ID;
   const rawCache = getOfflineCache();
@@ -635,12 +650,7 @@ export async function loadAppData(): Promise<AppData> {
     readSection(getDocsFromServer(collection(db, 'trainings')).then(snap => snap.docs.map(item =>
       ({ ...item.data(), id: item.id }) as Training
     )), () => cached?.trainings ?? INITIAL_TRAININGS, timeout),
-    readSection(getDocsFromServer(collection(db, 'feed')).then(snap => snap.docs.map(item =>
-      ({ ...item.data(), id: item.id }) as FeedPost
-    // Свежие публикации — строго сверху: порядок задаёт дата, а не строковый id.
-    // У старых документов id вида «post-1», у новых — «post_<время>_<random>»,
-    // поэтому лексикографический порядок не совпадал с хронологией.
-    ).filter(post => post.isHidden !== true).sort((a, b) => timestampValue(b.createdAt) - timestampValue(a.createdAt))), () => (cached?.feedPosts ?? []).filter(post => post.isHidden !== true), timeout),
+    readSection(loadPublicFeed(), () => (cached?.feedPosts ?? []).filter(post => post.isHidden !== true), timeout),
     readSection(getDocFromServer(doc(db, 'usersPrivate', uid)).then(snap =>
       snap.exists() ? snap.data() as Partial<UserProfile> : {}
     ), () => {
@@ -680,15 +690,14 @@ export async function loadAppData(): Promise<AppData> {
  * всех пользователей, тренировки и приватные поля — лишние запросы и задержка.
  */
 export async function loadFeedPosts(): Promise<FeedPost[]> {
+  const uid = CURRENT_USER_ID;
   const cached = getOfflineCache();
   const section = await readSection(
-    getDocsFromServer(collection(db, 'feed')).then((snap) => snap.docs
-      .map((item) => ({ ...item.data(), id: item.id }) as FeedPost)
-      .filter(post => post.isHidden !== true)
-      .sort((a, b) => timestampValue(b.createdAt) - timestampValue(a.createdAt))),
+    loadPublicFeed(),
     () => cached?.feedPosts ?? [],
-    FIRESTORE_TIMEOUT_MS * 2
+    35_000
   );
+  if (CURRENT_USER_ID !== uid) throw new Error('Аккаунт изменился во время загрузки.');
 
   if (!section.stale) {
     const mirror = getOfflineCache();

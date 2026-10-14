@@ -7,11 +7,11 @@ import { sharePreviewImage, sharePreviewPage } from './share-preview.js';
 // Explicit routes prevent an accidentally copied maintenance script becoming an API.
 export const API_ROUTES = Object.freeze([
   'create-payment', 'payment-webhook', 'verify-profile', 'delete-expired-profile', 'analytics-session',
-  'send-password-reset', 'vk-login', 'feed-create', 'admin-request-otp',
+  'send-password-reset', 'vk-login', 'feed-list', 'feed-create', 'admin-request-otp',
   'admin-verify-otp', 'admin-session', 'admin-dashboard', 'admin-audit', 'admin-users', 'admin-user-lifecycle', 'admin-analytics', 'admin-sport-id-verification', 'admin-config', 'admin-push', 'admin-announcements', 'admin-partners', 'admin-official-trainings', 'admin-moderation', 'app-config', 'announcements', 'partners', 'report', 'admin-mutate-event', 'admin-event-results', 'admin-mutate-venue', 'admin-mutate-leisure', 'sportbuddy-mutation', 'sport-passport', 'sport-id-verification', 'public-sport-id', 'public-profiles', 'notifications', 'stories', 'leisure', 'venues'
 ]);
 
-export async function createApiApp({ apiDir }) {
+export async function createApiApp({ apiDir, enforceOperations }) {
   // Import every required handler before making any health endpoint available.
   const handlers = [];
   for (const name of API_ROUTES) {
@@ -47,7 +47,7 @@ export async function createApiApp({ apiDir }) {
 
   for (const [name, handler] of handlers) {
     app.all(`/api/${name}`, async (req, res, next) => {
-      try { await handler(req, res); } catch (error) { next(error); }
+      try { if(enforceOperations && await enforceOperations(name,req,res))return; await handler(req, res); } catch (error) { next(error); }
     });
   }
   app.use((_req, res) => res.status(404).json({ error: 'Not found' }));

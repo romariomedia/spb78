@@ -40,6 +40,7 @@ export function AdminDashboard() {
       </button>
     </div>
     {error&&<div className="rounded-xl border border-rose-500/40 bg-rose-950/30 p-3 text-xs text-rose-200">{error}</div>}
+    {data&&<p className="text-sm text-slate-400">Обновлено: {new Date(data.generatedAt).toLocaleString('ru-RU')}{error?' · ниже последние успешно загруженные данные':''}</p>}
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-7">
       {cards.map(([key,label,Icon])=><div key={key} className="rounded-2xl border border-slate-800 bg-slate-950 p-3">
         <div className="flex items-center gap-2 text-slate-400"><Icon className="h-4 w-4"/><span className="text-[10px] font-bold">{label}</span></div>

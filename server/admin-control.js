@@ -23,9 +23,10 @@ function compactSnapshot(value) {
 
 export async function writeAdminAudit(db, session, {
   action, entityType, entityId = '', before = null, after = null, requestId = ''
-}) {
+}, writer = null) {
   const id = randomUUID();
-  await db.collection('adminAuditLogs').doc(id).set({
+  const ref=db.collection('adminAuditLogs').doc(id);
+  const entry={
     id,
     adminEmail: String(session?.email || 'admin'),
     adminKey: String(session?.adminKey || ''),
@@ -37,7 +38,8 @@ export async function writeAdminAudit(db, session, {
     requestId: String(requestId || '').slice(0, 180),
     createdAt: new Date().toISOString(),
     createdAtMs: Date.now()
-  });
+  };
+  if(writer)writer.set(ref,entry);else await ref.set(entry);
 }
 
 export function requireProductionAdminSecrets() {

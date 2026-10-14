@@ -50,3 +50,20 @@ test('health, route forwarding and JSON errors', async t => {
   });
   assert.equal(malformed.status, 400);
 });
+
+test('operational gate blocks before handler while health and admin recovery remain available',async t=>{
+ const {effectiveOperations,operationDenial}=await import('../shared/operational-policy.js');
+ const config=effectiveOperations({operationsVersion:1,product:{maintenanceMode:true}});
+ const apiDir=await fixture(t);
+ const app=await createApiApp({apiDir,enforceOperations:async(name,req,res)=>{
+  const denial=operationDenial(config,name,req.body?.action);
+  if(!denial)return false;res.status(denial.status).json(denial);return true;
+ }});
+ const server=app.listen(0,'127.0.0.1');await once(server,'listening');
+ t.after(()=>new Promise(resolve=>server.close(resolve)));
+ const base='http://127.0.0.1:'+server.address().port;
+ assert.equal((await fetch(base+'/api/stories')).status,503);
+ assert.equal((await fetch(base+'/api/health')).status,200);
+ assert.equal((await fetch(base+'/api/admin-config')).status,200);
+ assert.equal((await fetch(base+'/api/payment-webhook')).status,200);
+});

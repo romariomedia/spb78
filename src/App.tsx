@@ -1,3 +1,4 @@
+import {useOperationalConfig} from './services/operationalConfig';
 import { DistrictSelect } from './components/DistrictSelect';
 import { districtLabel, getDistrict, matchesDistrict } from '../shared/districts.js';
 import { PhotoEditor } from './components/PhotoEditor';
@@ -176,6 +177,7 @@ const FeedEmptyPlaceholder: React.FC = () => (
 const AVATAR_FALLBACK = '/avatar-placeholder.svg';
 
 export default function App(): JSX.Element {
+  const operations=useOperationalConfig();
   // Auth State
   const [account, setAccount] = useState<AuthAccount | null>(() => getSessionAccount());
   const [authNotice, setAuthNotice] = useState('');
@@ -527,7 +529,8 @@ export default function App(): JSX.Element {
       if (document.visibilityState === 'hidden') return;
       const feedOnly = sections.size === 1 && sections.has('feed');
       if (feedOnly) {
-        void loadFeedPosts().then(setFeedPosts).catch(() => undefined);
+        const owner = account.id;
+        void loadFeedPosts().then(posts => {if(getSessionAccount()?.id===owner)setFeedPosts(posts);}).catch(() => undefined);
         return;
       }
       void fetchAllData();
@@ -1922,6 +1925,8 @@ export default function App(): JSX.Element {
       {(loadError || loadWarning) && <div role="status" className="mx-4 my-2 rounded-xl bg-amber-500/15 p-3 text-sm text-amber-200">
         {loadError || loadWarning}
       </div>}
+      {(operations.maintenanceMode||operations.error)&&<div role="status" className="mx-4 my-3 rounded-xl bg-amber-950 p-4 text-sm text-amber-100">{operations.maintenanceMode?operations.maintenanceMessage:operations.error}</div>}
+      {((activeTab==='discover'&&!operations.featureFlags.datingEnabled)||(activeTab==='leisure'&&!operations.featureFlags.activeLeisureEnabled)||(activeTab==='profile'&&profileSection==='passport'&&!operations.featureFlags.sportPassportEnabled))&&<div role="status" className="mx-4 my-3 rounded-xl bg-slate-900 p-4 text-slate-200">Раздел временно отключён. Другие разделы доступны через нижнее меню.</div>}
       <AppAnnouncements placement={activeTab} />
 
       {/* Offline Pending Action Toast */}
@@ -1954,7 +1959,7 @@ export default function App(): JSX.Element {
             transition={{ type: 'spring', stiffness: 350, damping: 30 }}
           >
             {/* ==================== TAB 1: DISCOVER (ЗНАКОМСТВА) ==================== */}
-            {activeTab === 'discover' && (
+            {activeTab === 'discover' && operations.featureFlags.datingEnabled && (
               <div className="space-y-4">
                 {/* Mode Switcher & Filters Header */}
                 <div id="sb-discover-controls" className="flex flex-wrap gap-2 items-center justify-between bg-slate-900/80 p-3 rounded-2xl border border-slate-800">
@@ -2371,7 +2376,7 @@ export default function App(): JSX.Element {
             )}
 
             {/* ==================== TAB 3: CHATS (ЧАТЫ) — PREMIUM ONLY ==================== */}
-            {activeTab === 'leisure' && currentUser && (
+            {activeTab === 'leisure' && operations.featureFlags.activeLeisureEnabled && currentUser && (
               <Suspense fallback={<p className="p-8 text-slate-400">Загружаем активный отдых…</p>}>
                 <LeisureSection key={currentUser.id} user={currentUser} users={allUsers} isPremium={isPremium} initialEventId={leisureEventId}
                   onOpenUser={setSelectedUserModal} onOpenTariff={() => {setProfileSection('tariff');handleTabChange('profile');}} />
@@ -2879,7 +2884,7 @@ export default function App(): JSX.Element {
                     refreshKey={eventsRefreshKey} />
                 )}
 
-                {currentUser && <Stories key={currentUser.id} user={currentUser} canPublish={canPublishToFeed} onLocked={()=>{requirePublishingVerification();}}/>}
+                {currentUser && operations.featureFlags.storiesEnabled && <Stories key={currentUser.id} user={currentUser} canPublish={canPublishToFeed} onLocked={()=>{requirePublishingVerification();}}/>}
 
                 {/* Live broadcast & gallery publishing */}
                 <div className="grid grid-cols-2 gap-2.5">
@@ -3039,7 +3044,7 @@ export default function App(): JSX.Element {
                   />
                 )}
 
-                {profileSection === 'passport' && (
+                {profileSection === 'passport' && operations.featureFlags.sportPassportEnabled && (
                   <SportPassportView
                     user={currentUser}
                     onBack={() => setProfileSection('overview')}
@@ -3098,13 +3103,13 @@ export default function App(): JSX.Element {
                   </div>
                 </div>
 
-                <SportPassportCard
+                {operations.featureFlags.sportPassportEnabled && <SportPassportCard
                   user={currentUser}
                   onOpen={() => {
                     triggerHapticImpact('light');
                     setProfileSection('passport');
                   }}
-                />
+                />}
 
                 {/* Countdown to the next signed-up training */}
                 <div className="space-y-2">
@@ -3200,6 +3205,7 @@ export default function App(): JSX.Element {
 
                 {/* Full-Featured Rewards, Medals & SportBuddy BOX section */}
                 <RewardsSection
+                  boxEnabled={operations.featureFlags.boxEnabled}
                   user={currentUser}
                   onUpdateUser={setCurrentUser}
                   onOpenModal={openRewardModal}

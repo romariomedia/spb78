@@ -138,3 +138,10 @@ test('leisure invitations require interest, available places and an open future 
     assert.equal(f.rows.has('notificationInboxes/b'),allowed);
   }
 });
+
+test('global push pause keeps inbox and does not send deferred surprise alerts',async()=>{
+ const f=fixture({'users/b':{},'pushDevices/d':{uid:'b',token:'token',updatedAt:Date.now()}}),j=job();
+ await deliverNotification(f.db,f.messaging,j,'b',false);
+ assert.equal(f.rows.get('notificationInboxes/b').entries.length,1);assert.equal(f.sends.length,0);
+ await deliverNotification(f.db,f.messaging,j,'b',true);assert.equal(f.sends.length,0);
+});

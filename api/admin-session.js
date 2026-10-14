@@ -13,12 +13,14 @@ export default async function handler(req, res) {
   try {
     if (action !== 'revoke') return res.status(400).json({ error: 'Unknown operation.' });
     const session = await requireAdminSession(db, sessionId);
+    const batch=db.batch();
     await writeAdminAudit(db, session, {
       action: 'session.revoke',
       entityType: 'adminSession',
       entityId: String(sessionId || '')
-    });
-    await session.ref.delete();
+    },batch);
+    batch.delete(session.ref);
+    await batch.commit();
     return res.status(200).json({ ok: true });
   } catch (error) {
     const status = Number(error?.status || 500);

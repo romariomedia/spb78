@@ -19,7 +19,7 @@ export default async function handler(req,res){
     const last7=days14.slice(-7),prev7=days14.slice(0,7);
     const [usersSnap,activitySnap,adminAuth]=await Promise.all([
       db.collection('users').get(),
-      db.collection('analyticsDaily').where('day','in',days14).get().catch(()=>null),
+      db.collection('analyticsDaily').where('day','in',days14).get(),
       getAuth().getUserByEmail(ADMIN_EMAIL).catch(()=>null)
     ]);
 
