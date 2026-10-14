@@ -1,3 +1,4 @@
+import { useBackLayer } from '../hooks/useMobileNavigation';
 import React, { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import {
   ArrowLeft, Building2, CheckCircle2, ChevronLeft, ChevronRight, Clock3, ExternalLink,
@@ -176,6 +177,7 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, o
   const [sport, setSport] = useState<string>('Все');
   const [sort, setSort] = useState<SortMode>('recommended');
   const [selected, setSelected] = useState<SportVenue | null>(null);
+  useBackLayer(isOpen, () => { if (selected) setSelected(null); else onClose(); });
   const [showOnlyReady, setShowOnlyReady] = useState(false);
   const [catalog, setCatalog] = useState<SportVenue[]>(SPB_VENUES);
   const [catalogLoading, setCatalogLoading] = useState(false);

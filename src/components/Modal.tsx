@@ -1,3 +1,4 @@
+import { backLayers, useBackLayer } from '../hooks/useMobileNavigation';
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
@@ -22,23 +23,23 @@ export const Modal: React.FC<ModalProps> = ({
   footer,
   maxWidth = 'md'
 }) => {
+  useBackLayer(isOpen, onClose);
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose();
+    if (!isOpen) return;
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !event.defaultPrevented) {
+        event.preventDefault();
+        backLayers.closeTop();
       }
     };
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-      window.addEventListener('keydown', handleKeyDown);
-    } else {
-      document.body.style.overflow = 'unset';
-    }
+    window.addEventListener('keydown', handleKeyDown);
     return () => {
-      document.body.style.overflow = 'unset';
+      document.body.style.overflow = overflow;
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   const maxWClasses = {
     sm: 'max-w-sm',
@@ -68,11 +69,12 @@ export const Modal: React.FC<ModalProps> = ({
 
           {/* Dialog content */}
           <motion.div
+            role="dialog" aria-modal="true" aria-label={title}
             initial={{ scale: 0.92, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.95, opacity: 0, y: 15 }}
             transition={{ type: "spring", damping: 24, stiffness: 320 }}
-            className={`relative w-full ${maxWClasses} bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden z-10 flex flex-col max-h-[94vh]`}
+            className={`relative w-full ${maxWClasses} bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden z-10 flex flex-col max-h-[94dvh]`}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -83,7 +85,7 @@ export const Modal: React.FC<ModalProps> = ({
               </div>
               <button
                 onClick={handleClose}
-                className="p-2 text-slate-400 hover:text-slate-100 bg-slate-800 hover:bg-slate-700 rounded-full transition-colors active:scale-90"
+                className="min-h-11 min-w-11 p-2 text-slate-400 hover:text-slate-100 bg-slate-800 hover:bg-slate-700 rounded-full transition-colors active:scale-90"
                 aria-label="Закрыть"
               >
                 <X className="w-5 h-5" />

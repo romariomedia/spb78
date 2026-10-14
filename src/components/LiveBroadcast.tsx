@@ -1,3 +1,4 @@
+import { useBackLayer } from '../hooks/useMobileNavigation';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Radio, Square, Video, VideoOff, Mic, MicOff, SwitchCamera, X, MapPin, AlertCircle
@@ -47,6 +48,7 @@ export const LiveBroadcast: React.FC<LiveBroadcastProps> = ({
   const chunksRef = useRef<Blob[]>([]);
 
   const [recording, setRecording] = useState(false);
+  useBackLayer(isOpen, () => { if (!recording) onClose(); });
   const [seconds, setSeconds] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [micOn, setMicOn] = useState(true);

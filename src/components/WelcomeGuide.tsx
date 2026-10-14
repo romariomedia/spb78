@@ -1,3 +1,4 @@
+import { useBackLayer } from '../hooks/useMobileNavigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowRight, ChevronLeft, ChevronRight, X, Zap, MapPin, BookOpen } from 'lucide-react';
 import { triggerHapticImpact, triggerHapticNotification } from '../services/native';
@@ -10,6 +11,7 @@ export function hasSeenWelcomeGuide():boolean {try{return localStorage.getItem(G
 export function markWelcomeGuideSeen():void {try{localStorage.setItem(GUIDE_SEEN_KEY,'1');}catch{/* Optional device preference. */}}
 interface WelcomeGuideProps {isOpen:boolean;onClose:()=>void;userName?:string;onStart?:()=>void;initialSlide?:number}
 export function WelcomeGuide({isOpen,onClose,userName,onStart,initialSlide=0}:WelcomeGuideProps){
+ useBackLayer(isOpen, onClose);
  const slides=guideChapters();
  const [index,setIndex]=useState(0);
  const dialog=useRef<HTMLDivElement>(null),scroll=useRef<HTMLDivElement>(null),closeButton=useRef<HTMLButtonElement>(null);

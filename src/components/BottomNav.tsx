@@ -38,6 +38,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   ];
 
   const handleTabClick = (id: TabType) => {
+    if (activeTab === id) { onChangeTab(id); return; }
     if (activeTab !== id) {
       triggerHapticImpact('light');
       onChangeTab(id);

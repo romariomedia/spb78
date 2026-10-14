@@ -1,7 +1,9 @@
+import { useBackLayer } from '../hooks/useMobileNavigation';
 import { useEffect, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 export function MediaDialog({title,onClose,children,busy=false}:{title:string;onClose:()=>void;children:ReactNode;busy?:boolean}) {
+ useBackLayer(true, () => { if (!busy) onClose(); });
  const ref=useRef<HTMLDialogElement>(null);
  useEffect(()=>{const d=ref.current;d?.showModal();return()=>d?.close();},[]);
  return createPortal(<dialog ref={ref} className="sb-media-dialog" aria-label={title} onCancel={e=>{e.preventDefault();if(!busy)onClose();}}>

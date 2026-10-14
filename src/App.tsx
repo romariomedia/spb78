@@ -1,3 +1,4 @@
+import { useMobileNavigation } from './hooks/useMobileNavigation';
 import {useOperationalConfig} from './services/operationalConfig';
 import { DistrictSelect } from './components/DistrictSelect';
 import { districtLabel, getDistrict, matchesDistrict } from '../shared/districts.js';
@@ -11,7 +12,7 @@ import { subscribeNotifications,restorePush,readNotifications } from './services
 import { trainingGenderError, trainingGenderLabel } from './lib/trainingEligibility';
 import { BetaNotice } from './components/BetaNotice';
 import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense, JSX } from 'react';
-import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
+import { motion, AnimatePresence, useMotionValue, useTransform, useReducedMotion } from 'framer-motion';
 import { 
   Users, Dumbbell, Newspaper, MapPin, Heart, X as CloseIcon, 
   Filter, Plus, Share2, MessageCircle, Send, Zap, Crown, 
@@ -177,6 +178,7 @@ const FeedEmptyPlaceholder: React.FC = () => (
 const AVATAR_FALLBACK = '/avatar-placeholder.svg';
 
 export default function App(): JSX.Element {
+  const reduceMotion = useReducedMotion();
   const operations=useOperationalConfig();
   // Auth State
   const [account, setAccount] = useState<AuthAccount | null>(() => getSessionAccount());
@@ -723,6 +725,7 @@ export default function App(): JSX.Element {
   }, []);
 
   const handleTabChange = (newTab: TabType) => {
+    if (newTab === activeTab) { window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
     const tabOrder: TabType[] = ['discover', 'trainings', 'leisure', 'chats', 'feed', 'profile'];
     const oldIdx = tabOrder.indexOf(activeTab);
     const newIdx = tabOrder.indexOf(newTab);
@@ -731,6 +734,13 @@ export default function App(): JSX.Element {
     if (newTab !== 'chats') setOpenChatId(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  const mobileGestures = useMobileNavigation(activeTab, handleTabChange, () => {
+    if (openChatId) { setOpenChatId(null); return true; }
+    if (activeTab === 'profile' && profileSection !== 'overview') { setProfileSection('overview'); return true; }
+    if (activeTab !== 'discover') { handleTabChange('discover'); return true; }
+    return false;
+  }, !!openChatId || (activeTab === 'profile' && profileSection === 'edit'));
 
   const isPremium = currentUser ? isPremiumActive(currentUser) : false;
   /** Feed posts, gallery media and broadcasts require Premium + trusted verification. */
@@ -1948,15 +1958,15 @@ export default function App(): JSX.Element {
       )}
 
       {/* 2. Main Tab Body with Framer Motion Animation */}
-      <main className="sb-main relative z-10 mx-auto w-full max-w-md px-4 pt-3 lg:max-w-5xl">
+      <main {...mobileGestures} className="sb-main relative z-10 mx-auto w-full max-w-md px-4 pt-3 lg:max-w-5xl">
         <AnimatePresence mode="wait" custom={direction}>
           <motion.div
             key={activeTab}
             custom={direction}
-            initial={{ opacity: 0, x: direction * 40 }}
+            initial={{ opacity: 0, x: reduceMotion ? 0 : direction * 40 }}
             animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: direction * -40 }}
-            transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+            exit={{ opacity: 0, x: reduceMotion ? 0 : direction * -40 }}
+            transition={reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 350, damping: 30 }}
           >
             {/* ==================== TAB 1: DISCOVER (ЗНАКОМСТВА) ==================== */}
             {activeTab === 'discover' && operations.featureFlags.datingEnabled && (
@@ -2058,7 +2068,8 @@ export default function App(): JSX.Element {
                         {/* Interactive Drag gesture for smooth native cards */}
                         <motion.div
                           key={currentCandidate.id}
-                          style={{ x: dragX, rotate }}
+                          data-no-tab-swipe
+                          style={{ x: dragX, rotate, touchAction: 'pan-y' }}
                           drag="x"
                           dragConstraints={{ left: 0, right: 0 }}
                           dragElastic={0.9}
