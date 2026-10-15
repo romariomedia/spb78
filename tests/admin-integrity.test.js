@@ -6,11 +6,12 @@ async function load(file){
   b.onResolve({filter:/^firebase-admin\//},a=>({path:a.path,namespace:'fake'}));
   b.onLoad({filter:/.*/,namespace:'fake'},a=>({contents:{
    'firebase-admin/app':'export const getApps=()=>[{}],initializeApp=()=>{},cert=x=>x;',
-   'firebase-admin/firestore':'export const getFirestore=()=>globalThis.__integrityDb;export const FieldPath={documentId:()=> "__name__"};'
+   'firebase-admin/auth':'export const getAuth=()=>globalThis.__integrityAuth;',
+   'firebase-admin/firestore':'export const Timestamp={fromDate:x=>x},FieldValue={delete:()=>null};export const getFirestore=()=>globalThis.__integrityDb;export const FieldPath={documentId:()=> "__name__"};'
   }[a.path],loader:'js'}));
  }}]});return (await import('data:text/javascript;base64,'+Buffer.from(result.outputFiles[0].text).toString('base64'))).default;
 }
-const config=await load('api/admin-config.js'),moderation=await load('api/admin-moderation.js'),eventAdmin=await load('api/admin-mutate-event.js');
+const config=await load('api/admin-config.js'),moderation=await load('api/admin-moderation.js'),eventAdmin=await load('api/admin-mutate-event.js'),usersAdmin=await load('api/admin-users.js');
 function fixture(){
  const rows=new Map([['adminSessions/live',{email:'admin',expiresAt:{toMillis:()=>Date.now()+60000}}],['feed/p',{content:'visible'}]]);
  const faults={audit:false,reports:false,beforeTransaction:null};
@@ -58,4 +59,27 @@ test('event change and audit commit together, audit failure leaves original even
  const saved=await f.request(eventAdmin,{operation:'update',eventId:'e',patch:{title:'New title'}});
  assert.equal(saved.code,200);assert.equal(f.rows.get('events/e').title,'New title');
  assert.equal([...f.rows.keys()].filter(k=>k.startsWith('adminAuditLogs/')).length,1);
+});
+
+for (const initiallyDisabled of [true,false]) test(`suspension audit failure restores actual Auth state ${initiallyDisabled}`,async()=>{
+ const f=fixture();f.rows.set('users/u',{activeLooking:true,isSuspended:initiallyDisabled});
+ let disabled=initiallyDisabled;
+ globalThis.__integrityAuth={getUser:async()=>({disabled}),updateUser:async(_id,patch)=>{disabled=patch.disabled;}};
+ f.faults.audit=true;
+ const failed=await f.request(usersAdmin,{operation:'setSuspension',userId:'u',suspended:true,reason:'Review'});
+ assert.equal(failed.code,500);assert.equal(disabled,initiallyDisabled);
+ assert.equal(f.rows.get('users/u').isSuspended,initiallyDisabled);
+ f.faults.audit=false;
+ const saved=await f.request(usersAdmin,{operation:'setSuspension',userId:'u',suspended:true,reason:'Review'});
+ assert.equal(saved.code,200);assert.equal(disabled,true);
+ assert.equal(f.rows.get('users/u').isSuspended,true);
+ assert.equal([...f.rows.keys()].filter(k=>k.startsWith('adminAuditLogs/')).length,1);
+});
+test('failed Auth compensation is reported explicitly',async()=>{
+ const f=fixture();f.rows.set('users/u',{activeLooking:true});f.faults.audit=true;
+ let writes=0;
+ globalThis.__integrityAuth={getUser:async()=>({disabled:false}),updateUser:async()=>{if(++writes===2)throw Error('Auth unavailable');}};
+ const result=await f.request(usersAdmin,{operation:'setSuspension',userId:'u',suspended:true,reason:'Review'});
+ assert.equal(result.code,503);assert.match(result.body.error,/Firebase Authentication/);
+ assert.equal(f.rows.get('users/u').isSuspended,undefined);
 });

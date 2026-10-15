@@ -137,47 +137,40 @@ export default async function handler(req, res) {
             restoredBy:String(session.email || ADMIN_EMAIL)
           };
 
-      await getAuth().updateUser(userId, { disabled:suspended });
+      const auth = getAuth();
+      const authBefore = await auth.getUser(userId);
+      await auth.updateUser(userId, { disabled:suspended });
       try {
-        const batch = db.batch();
-        batch.update(ref, userPatch);
-        batch.set(adminRef, adminPatch, { merge:true });
-        await batch.commit();
+        await db.runTransaction(async tx => {
+          const [fresh, freshAdmin] = await Promise.all([tx.get(ref), tx.get(adminRef)]);
+          if (!fresh.exists) throw Object.assign(new Error('User not found.'), {status:404});
+          const old = fresh.data() || {};
+          const oldAdmin = freshAdmin.exists ? freshAdmin.data() || {} : {};
+          const previousLooking = oldAdmin.previousActiveLooking ?? (old.activeLooking !== false);
+          const nextUser = {...userPatch, activeLooking:suspended ? false : previousLooking === true};
+          const nextAdmin = suspended ? {...adminPatch, previousActiveLooking:previousLooking} : adminPatch;
+          tx.update(ref, nextUser);
+          tx.set(adminRef, nextAdmin, {merge:true});
+          await writeAdminAudit(db, session, {
+            action:'user.setSuspension', entityType:'user', entityId:userId,
+            before:{isSuspended:old.isSuspended === true, suspensionReason:text(oldAdmin.suspensionReason,300)},
+            after:{isSuspended:suspended, suspensionReason:suspended ? reason : ''},
+            requestId:String(body.requestId || '')
+          }, tx);
+        });
       } catch (error) {
-        await getAuth().updateUser(userId, { disabled:!suspended }).catch(() => undefined);
+        try {
+          await auth.updateUser(userId, {disabled:authBefore.disabled === true});
+        } catch (restoreError) {
+          console.error('[admin-users] Auth rollback failed', {userId, code:restoreError?.code});
+          throw Object.assign(new Error('Изменение не сохранено, восстановить статус входа не удалось. Проверьте аккаунт в Firebase Authentication перед повтором.'), {status:503});
+        }
         throw error;
       }
-      patch = userPatch;
+      return res.json({ok:true, user:await readUserDetails(db,userId)});
     } else {
       return res.status(400).json({ error:'Unknown operation.' });
     }
-
-    const [afterSnap, afterAdminSnap] = await Promise.all([ref.get(), adminRef.get()]);
-    const after = afterSnap.data() || {};
-    const afterAdmin = afterAdminSnap.exists ? afterAdminSnap.data() || {} : {};
-    await writeAdminAudit(db, session, {
-      action:`user.${operation}`,
-      entityType:'user',
-      entityId:userId,
-      before:{
-        isVerified:before.isVerified === true,
-        verifiedAt:iso(before.verifiedAt),
-        premiumUntil:iso(before.premiumUntil),
-        isSuspended:before.isSuspended === true,
-        analyticsExcluded:before.analyticsExcluded === true,
-        suspensionReason:text(adminData.suspensionReason, 300)
-      },
-      after:{
-        isVerified:after.isVerified === true,
-        verifiedAt:iso(after.verifiedAt),
-        premiumUntil:iso(after.premiumUntil),
-        isSuspended:after.isSuspended === true,
-        analyticsExcluded:after.analyticsExcluded === true,
-        suspensionReason:text(afterAdmin.suspensionReason, 300)
-      },
-      requestId:String(body.requestId || '')
-    });
-    return res.json({ ok:true, user:await readUserDetails(db, userId) });
   } catch (error) {
     const status = Number(error?.status || (error?.code === 'auth/user-not-found' ? 404 : 500));
     if (status === 500) console.error('[admin-users]', error);
