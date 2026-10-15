@@ -83,3 +83,14 @@ test('failed Auth compensation is reported explicitly',async()=>{
  assert.equal(result.code,503);assert.match(result.body.error,/Firebase Authentication/);
  assert.equal(f.rows.get('users/u').isSuspended,undefined);
 });
+
+test('admin saves valid Android update policy and rejects invalid or incomplete settings',async()=>{
+ const f=fixture();
+ const product={minimumAndroidVersion:'12',ruStoreUrl:'https://www.rustore.ru/catalog/app/ru.sportbuddy.mobile'};
+ assert.equal((await f.request(config,{operation:'saveProductSettings',product})).code,200);
+ assert.equal(f.rows.get('appConfig/main').product.minimumAndroidVersion,'12');
+ for(const patch of [{minimumAndroidVersion:'1.2'},{ruStoreUrl:''},{ruStoreUrl:'https://example.com'}]){
+  assert.equal((await f.request(config,{operation:'saveProductSettings',product:{...product,...patch}})).code,400);
+  assert.equal(f.rows.get('appConfig/main').product.minimumAndroidVersion,'12');
+ }
+});

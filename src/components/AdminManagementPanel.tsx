@@ -315,11 +315,11 @@ export function AdminManagementPanel(){
           <input type="date" disabled value={config.product.boxLaunchAt} onChange={e=>setConfig({...config,product:{...config.product,boxLaunchAt:e.target.value}})} className="mt-1 w-full bg-transparent text-xs font-bold text-white outline-none"/>
         </label>
       </div>
-      <label className="block rounded-xl border border-slate-800 bg-slate-950 p-3 text-sm text-slate-400">Минимальная версия Android
-        <input disabled value={config.product.minimumAndroidVersion} onChange={e=>setConfig({...config,product:{...config.product,minimumAndroidVersion:e.target.value}})} placeholder="например 1.0.8" className="mt-1 w-full bg-transparent text-xs font-bold text-white outline-none"/>
+      <label className="block rounded-xl border border-slate-800 bg-slate-950 p-3 text-sm text-slate-400">Рекомендуемая минимальная сборка Android (version_code)
+        <input inputMode="numeric" value={config.product.minimumAndroidVersion} onChange={e=>setConfig({...config,product:{...config.product,minimumAndroidVersion:e.target.value}})} placeholder="например 12; пусто — выключено" className="mt-1 w-full bg-transparent text-xs font-bold text-white outline-none"/>
       </label>
       <label className="block rounded-xl border border-slate-800 bg-slate-950 p-3 text-sm text-slate-400">Ссылка RuStore
-        <input disabled value={config.product.ruStoreUrl} onChange={e=>setConfig({...config,product:{...config.product,ruStoreUrl:e.target.value}})} placeholder="https://..." className="mt-1 w-full bg-transparent text-xs font-bold text-white outline-none"/>
+        <input value={config.product.ruStoreUrl} onChange={e=>setConfig({...config,product:{...config.product,ruStoreUrl:e.target.value}})} placeholder="https://www.rustore.ru/catalog/app/ru.sportbuddy.mobile" className="mt-1 w-full bg-transparent text-xs font-bold text-white outline-none"/>
       </label>
       <label className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950 p-3">
         <div><p className="text-sm font-black text-white">Технические работы</p><p className="text-sm text-slate-500">Флаг для режима обслуживания</p></div>

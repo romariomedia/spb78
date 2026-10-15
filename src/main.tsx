@@ -1,3 +1,4 @@
+import {AndroidUpdateNotice} from './components/AndroidUpdateNotice';
 import { NativeVkReturn } from './components/NativeVkReturn';
 import { nativeVkReturnIntent } from './services/nativeVk';
 import { StrictMode } from "react";
@@ -15,6 +16,7 @@ const publicMatch=window.location.hash.match(/^#\/id\/([A-Za-z0-9_-]{12,80})\/?$
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <AppErrorBoundary>
+      <AndroidUpdateNotice />
       {vkReturn?<NativeVkReturn intentUrl={vkReturn}/>:publicMatch?<PublicSportId slug={publicMatch[1]!}/>:<App />}
     </AppErrorBoundary>
   </StrictMode>

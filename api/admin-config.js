@@ -1,3 +1,4 @@
+import {androidUpdatePolicy} from '../shared/android-update.js';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import {effectiveOperations} from '../shared/operational-policy.js';
@@ -46,13 +47,19 @@ function sanitizeFeatureFlags(value = {}) {
   };
 }
 function sanitizeProduct(value = {}) {
+  const update = androidUpdatePolicy(value);
+  if (String(value.minimumAndroidVersion || '').trim() && !update.minimumAndroidVersion)
+    throw Object.assign(new Error('Укажите целый положительный version_code сборки Android.'), {status:400});
+  if (String(value.ruStoreUrl || '').trim() && !update.ruStoreUrl)
+    throw Object.assign(new Error('Нужна HTTPS-ссылка RuStore на ru.sportbuddy.mobile.'), {status:400});
+  if (update.minimumAndroidVersion && !update.ruStoreUrl)
+    throw Object.assign(new Error('Сначала укажите ссылку опубликованного приложения в RuStore.'), {status:400});
   return {
     freeMatches:integer(value.freeMatches, 0, 100, DEFAULT_APP_CONFIG.product.freeMatches),
     matchWindowDays:integer(value.matchWindowDays, 1, 365, DEFAULT_APP_CONFIG.product.matchWindowDays),
     premiumFreeUntil:DEFAULT_APP_CONFIG.product.premiumFreeUntil,
     boxLaunchAt:DEFAULT_APP_CONFIG.product.boxLaunchAt,
-    minimumAndroidVersion:'',
-    ruStoreUrl:'',
+    ...update,
     maintenanceMode:bool(value.maintenanceMode),
     maintenanceMessage:text(value.maintenanceMessage, 300) || DEFAULT_APP_CONFIG.product.maintenanceMessage
   };
@@ -60,7 +67,7 @@ function sanitizeProduct(value = {}) {
 function mergeConfig(data = {}) {
   return {
     featureFlags:effectiveOperations(data).featureFlags,
-    product:{...DEFAULT_APP_CONFIG.product, ...(data.product || {}), premiumFreeUntil:'2026-12-31',boxLaunchAt:'2027-01-01',minimumAndroidVersion:'',ruStoreUrl:'',maintenanceMode:effectiveOperations(data).maintenanceMode}
+    product:{...DEFAULT_APP_CONFIG.product, ...(data.product || {}), premiumFreeUntil:'2026-12-31',boxLaunchAt:'2027-01-01',...androidUpdatePolicy(data.product),maintenanceMode:effectiveOperations(data).maintenanceMode}
   };
 }
 
