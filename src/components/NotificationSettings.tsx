@@ -3,8 +3,8 @@ import {DEFAULT_SETTINGS,NotificationSettings as Settings,loadNotificationSettin
 export function NotificationSettings() {
   const [prefs,setPrefs]=useState<Settings>(DEFAULT_SETTINGS),[enabled,setEnabled]=useState(pushEnabled),[busy,setBusy]=useState(false),[ready,setReady]=useState(false),[feedback,setFeedback]=useState('');
   useEffect(()=>{let live=true;loadNotificationSettings().then(r=>{if(live){setPrefs(r.settings);setReady(true);}}).catch(()=>{if(live)setFeedback('Не удалось загрузить настройки. Откройте окно повторно.');});return()=>{live=false;};},[]);
-  const update=async(next:Settings)=>{setBusy(true);try{const r=await saveNotificationSettings(next);setPrefs(r.settings);setFeedback('Настройки сохранены');}catch{setFeedback('Не удалось сохранить настройки');}finally{setBusy(false);}};
-  const toggle=async()=>{setBusy(true);try{if(enabled)await disablePush();else await enablePush();setEnabled(pushEnabled());setFeedback(enabled?'Push на этом устройстве выключены':'Устройство подключено. Новые уведомления будут приходить сюда.');}catch(e){setFeedback(e instanceof Error?e.message:'Ошибка подключения');}finally{setBusy(false);}};
+  const update=async(next:Settings)=>{setBusy(true);try{const r=await saveNotificationSettings(next);setPrefs(r.settings);setFeedback('Настройки сохранены');}catch{setFeedback('Не удалось сохранить настройки');}finally{setEnabled(pushEnabled());setBusy(false);}};
+  const toggle=async()=>{setBusy(true);try{if(enabled)await disablePush();else await enablePush();setEnabled(pushEnabled());setFeedback(enabled?'Push на этом устройстве выключены':'Устройство подключено. Новые уведомления будут приходить сюда.');}catch(e){setFeedback(e instanceof Error?e.message:'Ошибка подключения');}finally{setEnabled(pushEnabled());setBusy(false);}};
   return <div className="rounded-2xl border border-emerald-500/30 bg-slate-950 p-4 space-y-3">
     <p className="text-sm font-bold text-white">Будьте на связи со своими</p>
     <p className="text-xs text-slate-400">Чаты, друзья и спорт рядом. История сохраняется в аккаунте; push включаются отдельно на каждом устройстве.</p>

@@ -1,3 +1,4 @@
+import {notificationPayload} from '../shared/native-push.js';
 import {readOperations} from './operational-config.js';
 import { getFirestore,FieldPath,FieldValue } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
@@ -48,7 +49,7 @@ export async function deliverNotification(db,messaging,job,uid,pushEnabled=true)
     for(const device of devices.docs) {
       if(device.data().updatedAt<Date.now()-90*86400000){await device.ref.delete();continue;}
       try {
-        await messaging.send({token:device.data().token,data:{title:job.title,body:job.message,link:job.link,eventId:job.eventId,tag:job.kind==='message'?job.link:job.eventId,recipient:uid},webpush:{headers:{TTL:'3600',Urgency:'normal'}}});
+        await messaging.send(notificationPayload(device.data(),job,uid));
       }catch(e){
         if(['messaging/registration-token-not-registered','messaging/invalid-registration-token'].includes(e.code))await device.ref.delete();
         else throw e;

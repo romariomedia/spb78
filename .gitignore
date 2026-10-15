@@ -7,3 +7,5 @@ dist/
 *.jks
 *.keystore
 coverage/
+
+android/app/google-services.json

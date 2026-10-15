@@ -1,3 +1,4 @@
+import {initializeNativePush} from './services/nativePush';
 import {AndroidUpdateNotice} from './components/AndroidUpdateNotice';
 import { NativeVkReturn } from './components/NativeVkReturn';
 import { nativeVkReturnIntent } from './services/nativeVk';
@@ -8,6 +9,8 @@ import { Capacitor } from "@capacitor/core";
 import App from "./App";
 import { AppErrorBoundary } from "./components/AppErrorBoundary";
 import { PublicSportId } from "./components/PublicSportId";
+
+void initializeNativePush();
 
 const vkReturn = !Capacitor.isNativePlatform() && window.location.pathname.replace(/\/$/, '') === '/vk-callback'
   ? nativeVkReturnIntent(new URL(window.location.href)) : '';

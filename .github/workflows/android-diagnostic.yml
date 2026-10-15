@@ -53,6 +53,10 @@ jobs:
           npm test
           npm run build
           test -n "$(find dist/assets -name '*.js.map' -print -quit)"
+      - name: Configure Firebase Android push
+        env:
+          FIREBASE_ANDROID_GOOGLE_SERVICES_JSON: ${{ secrets.FIREBASE_ANDROID_GOOGLE_SERVICES_JSON }}
+        run: node scripts/prepare-android-firebase.mjs
       - name: Sync Android project
         run: npx cap sync android
       - name: Prepare existing release certificate

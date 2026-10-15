@@ -8,7 +8,7 @@ import {deliverNotification} from '../server/notification-worker.js';
 function fixture(records={}) {
   const rows=new Map(Object.entries(records)),sends=[];
   const snap=ref=>({id:ref.id,ref,exists:rows.has(ref.path),data:()=>structuredClone(rows.get(ref.path))});
-  const ref=(name,id)=>({id,path:name+'/'+id,async get(){return snap(this);},async delete(){rows.delete(this.path);}});
+  const ref=(name,id)=>({id,path:name+'/'+id,async get(){return snap(this);},async set(value){rows.set(this.path,structuredClone(value));},async delete(){rows.delete(this.path);}});
   const db={
     collection(name){return {
       doc:id=>ref(name,id),
@@ -144,4 +144,26 @@ test('global push pause keeps inbox and does not send deferred surprise alerts',
  await deliverNotification(f.db,f.messaging,j,'b',false);
  assert.equal(f.rows.get('notificationInboxes/b').entries.length,1);assert.equal(f.sends.length,0);
  await deliverNotification(f.db,f.messaging,j,'b',true);assert.equal(f.sends.length,0);
+});
+
+
+test('Android background payload has visible notification and omits private content; web stays data-only',async()=>{
+ const f=fixture({'users/b':{},'pushDevices/d':{uid:'b',token:'token',platform:'android',updatedAt:Date.now()}});
+ const event={...job(),title:'Private name',message:'Private message'};
+ await deliverNotification(f.db,f.messaging,event,'b');
+ const message=f.sends[0];assert.equal(message.notification.title,'SportBuddy78');
+ assert.equal(message.android.notification.channelId,'sportbuddy');
+ assert.equal(message.data.recipient,'b');assert.equal(message.data.link,event.link);
+ assert.equal(JSON.stringify(message).includes('Private'),false);
+ const web=fixture({'users/b':{},'pushDevices/d':{uid:'b',token:'token',updatedAt:Date.now()}});
+ await deliverNotification(web.db,web.messaging,event,'b');assert.equal(web.sends[0].notification,undefined);
+});
+
+test('device registration records Android platform under authenticated owner',async()=>{
+ const f=fixture({'users/a':{}}),token='android-token-long-enough';
+ const result=await request(f,'a',{action:'register',uid:'b',token,platform:'android'});
+ assert.equal(result.statusCode,200);
+ const device=[...f.rows].find(([key])=>key.startsWith('pushDevices/'))[1];
+ assert.equal(device.uid,'a');assert.equal(device.platform,'android');
+ assert.equal((await request(f,'a',{action:'register',token,platform:'other'})).statusCode,400);
 });

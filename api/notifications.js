@@ -56,7 +56,8 @@ export default async function handler(req,res) {
       const ref=db.collection('pushDevices').doc(notificationId(pushToken));
       if(body.action==='register') {
         if(!(await db.collection('users').doc(uid).get()).exists)throw fail('Профиль не найден',404);
-        await ref.set({uid,token:pushToken,updatedAt:Date.now()});
+        if(body.platform!==undefined&&!['android','web'].includes(body.platform))throw fail('Некорректная платформа');
+        await ref.set({uid,token:pushToken,platform:body.platform==='android'?'android':'web',updatedAt:Date.now()});
       }else await db.runTransaction(async tx=>{const s=await tx.get(ref);if(s.data()?.uid===uid)tx.delete(ref);});
       return res.json({ok:true});
     }

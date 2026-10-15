@@ -42,6 +42,10 @@ jobs:
           npm ci --include=dev
           npm test
           npm run build
+      - name: Configure Firebase Android push
+        env:
+          FIREBASE_ANDROID_GOOGLE_SERVICES_JSON: ${{ secrets.FIREBASE_ANDROID_GOOGLE_SERVICES_JSON }}
+        run: node scripts/prepare-android-firebase.mjs
       - name: Sync Capacitor Android
         run: npx cap sync android
       - name: Prepare private signing file
