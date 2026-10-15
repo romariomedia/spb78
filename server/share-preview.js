@@ -1,3 +1,4 @@
+import { trainingVisible } from './public-activities.js';
 import sharp from 'sharp';
 import { cert, getApps, initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
@@ -28,6 +29,7 @@ async function readModel(kind,id){
     const snap=await db.collection('trainings').doc(id).get();
     if(!snap.exists)return null;
     const item=snap.data()||{};
+    if(!trainingVisible(item))return null;
     const when=clean(item.dateLabel,100)||[clean(item.dateKey,10),clean(item.time,5)].filter(Boolean).join(' · ');
     return {
       kind,id,

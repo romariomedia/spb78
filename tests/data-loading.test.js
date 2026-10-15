@@ -12,12 +12,13 @@ const bundled = await build({
       const sources = {
         'firebase/firestore': `export const collection=(_db,name)=>name; export const doc=(_db,name,id)=>name+'/'+id;
           const read=async path=>{const value=globalThis.__sbReads[path];if(value instanceof Error)throw value;return value;};
-          export const getDocsFromServer=path=>{if(['users','feed'].includes(path))throw Error('Raw collection read forbidden');return read(path)},getDocFromServer=read;`,
+          export const getDocsFromServer=path=>{if(['users','feed','trainings'].includes(path))throw Error('Raw collection read forbidden');return read(path)},getDocFromServer=read;`,
         '../lib/firebase': 'export const db={};',
         './native': 'export const triggerHapticImpact=()=>{};',
         './schedule': 'export const getActiveTrainings=x=>x;',
         './reset': 'export const createFreshProfile=(id,extra={})=>({id,name:"New",...extra});',
         './serverApi': `export const callServer=async(path)=>{
+          if(path==='/api/activities-list'){const value=globalThis.__sbReads.trainings;if(value instanceof Error)throw value;return {items:value.docs.map(d=>({id:d.id,...d.data()})),nextCursor:null};}
           if(path==='/api/feed-list'){const value=globalThis.__sbReads.feed;if(value instanceof Error)throw value;return {posts:value.docs.map(d=>({id:d.id,...d.data()})),nextCursor:null};}
           if(path!=='/api/public-profiles')throw new Error('Unexpected mutation');
           const value=globalThis.__sbReads.users;if(value instanceof Error)throw value;
@@ -100,7 +101,7 @@ test('membership on a second device uses server participants', () => {
   reset();storage.set('sportbuddy_offline_cache_v4',JSON.stringify({allUsers:[{email:'secret',friendIds:['other']}]}));
   await repository.loadAppData();
   assert.equal(storage.has('sportbuddy_offline_cache_v4'),false);
-  assert.equal(storage.has('sportbuddy_offline_cache_v6'),true);
+  assert.equal(storage.has('sportbuddy_offline_cache_v7'),true);
  });
 
 test('legacy null arrays and unknown medal tier do not break the loaded profile', async () => {

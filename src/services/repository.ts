@@ -1,9 +1,8 @@
+import {loadActivities} from './activities';
 import { createTrainingRequest } from './trainingRequests';
 import { hasPremiumAccess } from '../../shared/access-policy.js';
 import { 
-  collection, 
   doc, 
-  getDocsFromServer,
   getDocFromServer 
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -33,7 +32,7 @@ export function setCurrentUserId(id: string): void {
   if (id.trim()) CURRENT_USER_ID = id;
 }
 // v5 excludes private fields from other athletes' cached profiles.
-const OFFLINE_CACHE_KEY = 'sportbuddy_offline_cache_v6';
+const OFFLINE_CACHE_KEY = 'sportbuddy_offline_cache_v7';
 const OFFLINE_QUEUE_KEY = 'sportbuddy_offline_queue_v4';
 
 /**
@@ -502,7 +501,7 @@ const INITIAL_FEED: FeedPost[] = ENABLE_SAMPLE_DATA ? DEMO_FEED : [];
 // Helper: Get offline cache from localStorage
 function getOfflineCache(): AppData | null {
   try {
-    for (const version of [1,2,3,4,5]) localStorage.removeItem(`sportbuddy_offline_cache_v${version}`);
+    for (const version of [1,2,3,4,5,6]) localStorage.removeItem(`sportbuddy_offline_cache_v${version}`);
     const raw = localStorage.getItem(OFFLINE_CACHE_KEY);
     if (!raw) return null;
     return JSON.parse(raw) as AppData;
@@ -647,9 +646,7 @@ export async function loadAppData(): Promise<AppData> {
     ),
     readSection(loadPublicProfiles(), () => cached?.allUsers ?? [], timeout),
     // No orderBy: legacy records without createdAt must remain visible.
-    readSection(getDocsFromServer(collection(db, 'trainings')).then(snap => snap.docs.map(item =>
-      ({ ...item.data(), id: item.id }) as Training
-    )), () => cached?.trainings ?? INITIAL_TRAININGS, timeout),
+    readSection(loadActivities<Training>('trainings'), () => cached?.trainings ?? INITIAL_TRAININGS, timeout),
     readSection(loadPublicFeed(), () => (cached?.feedPosts ?? []).filter(post => post.isHidden !== true), timeout),
     readSection(getDocFromServer(doc(db, 'usersPrivate', uid)).then(snap =>
       snap.exists() ? snap.data() as Partial<UserProfile> : {}

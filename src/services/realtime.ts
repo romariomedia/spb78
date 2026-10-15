@@ -1,4 +1,4 @@
-import { doc, collection, onSnapshot, Unsubscribe } from 'firebase/firestore';
+import { doc, onSnapshot, Unsubscribe } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
 /** Коллекции, изменения в которых делают локальное зеркало устаревшим. */
@@ -31,17 +31,18 @@ export function subscribeAppInvalidation(
   };
 
   const stops = [
-    onSnapshot(doc(db, 'users', userId), () => schedule('users'), () => undefined),
-    onSnapshot(collection(db, 'trainings'), () => schedule('trainings'), () => undefined)
+    onSnapshot(doc(db, 'users', userId), () => schedule('users'), () => undefined)
   ];
 
   // Other athletes are fetched through the public API, never a raw collection listener.
+  const trainingPoll=setInterval(()=>{if(typeof document==='undefined'||!document.hidden)schedule('trainings');},30_000);
   const poll = setInterval(() => schedule('users'), 120_000);
   // Feed documents are private; only the filtered API may deliver posts.
   const feedPoll = setInterval(() => {
     if(typeof document==='undefined'||!document.hidden)schedule('feed');
   }, 60_000);
   return () => {
+    clearInterval(trainingPoll);
     clearInterval(poll);
     clearInterval(feedPoll);
     if (timer) clearTimeout(timer);

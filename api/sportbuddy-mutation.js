@@ -1,3 +1,6 @@
+import { eventStart } from '../shared/event-time.js';
+import { publicProfile } from '../server/public-profile.js';
+import { projectActivity } from '../server/public-activities.js';
 import {publicFeedPost} from '../server/public-feed.js';
 import { validateProfileInput } from '../server/profile-input.js';
 import { validateDistrictId } from '../shared/districts.js';
@@ -224,7 +227,7 @@ async function eventMutation(db, uid, body) {
     const snap=await tx.get(ref), user=await tx.get(db.collection('users').doc(uid)), chatSnap=await tx.get(chatRef);
     if(!snap.exists || !user.exists) throw Object.assign(new Error('Мероприятие или профиль не найдены'),{status:404});
     const event={...snap.data(),id:eventId}, ids=cleanArray(event.participantIds);
-    if(event.status!=='published') throw Object.assign(new Error('Регистрация на мероприятие закрыта'),{status:409});
+    if(event.status!=='published'||event.adminHidden===true) throw Object.assign(new Error('Регистрация на мероприятие закрыта'),{status:409});
     if(body.operation==='ensureGroupChat'){
       if(!ids.includes(uid))throw Object.assign(new Error('Чат доступен только тем, кто идёт на событие'),{status:403});
       if(!chatSnap.exists){
@@ -247,6 +250,9 @@ async function eventMutation(db, uid, body) {
       if(chatSnap.exists)tx.set(chatRef,{participantIds:next},{merge:true});
       return {registered:false,event:{...event,participantIds:next},chatId:`event_${eventId}`};
     }
+    const startsAt = eventStart(event);
+    if (!Number.isFinite(startsAt)) throw Object.assign(new Error('Организатор ещё не указал точную дату события. Запись временно закрыта.'), {status:409});
+    if (startsAt <= Date.now()) throw Object.assign(new Error('Событие уже началось. Новая запись закрыта.'), {status:409});
     const max=Number(event.participantsMax);
     if(!Number.isInteger(max)||max<1||ids.length>=max) throw Object.assign(new Error('Нет доступных мест'),{status:409});
     const next=[...ids,uid];tx.update(ref,{participantIds:next});
@@ -321,7 +327,7 @@ async function assertEventThreadActive(db, uid, thread) {
   const eventSnap=await db.collection('events').doc(String(thread.eventId)).get();
   if(!eventSnap.exists)throw Object.assign(new Error('Событие не найдено'),{status:404});
   const event=eventSnap.data()||{};
-  if(event.status!=='published')throw Object.assign(new Error('Чат события находится в архиве'),{status:409,code:'CHAT_ARCHIVED'});
+  if(event.status!=='published'||event.adminHidden===true)throw Object.assign(new Error('Чат события находится в архиве'),{status:409,code:'CHAT_ARCHIVED'});
   if(!cleanArray(event.participantIds).includes(uid))throw Object.assign(new Error('Вы больше не участник события'),{status:403});
   return event;
 }
@@ -836,7 +842,7 @@ async function ratingMutation(db,uid,body){
     const organizerToParticipant=uid===t.createdBy, allowedTarget=organizerToParticipant?cleanArray(t.participantIds).includes(targetId)&&targetId!==uid:targetId===t.createdBy; if(!allowedTarget)throw Object.assign(new Error('Недопустимый адресат оценки'),{status:403});
     if(organizerToParticipant&&cleanArray(t.ratedParticipantIds).includes(targetId))throw Object.assign(new Error('Участник уже оценён'),{status:409}); if(!organizerToParticipant&&cleanArray(t.organizerRatedByParticipantIds).includes(uid))throw Object.assign(new Error('Организатор уже оценён'),{status:409});
     const rating={id:ratingRef.id,trainingId,trainingTitle:String(t.title||''),sport:String(t.sport||''),organizerId:String(t.createdBy),organizerName:String(organizer.name||''),organizerAvatar:String(organizer.avatar||''),participantId:organizerToParticipant?targetId:uid,stars,tags:Array.isArray(body.tags)?body.tags.slice(0,10):[],...(String(body.comment||'').trim()?{comment:String(body.comment).trim().slice(0,500)}:{}),createdAt:new Date().toLocaleDateString('ru-RU'),timestamp:Date.now(),kind:organizerToParticipant?'organizer_to_participant':'participant_to_organizer',reviewerId:uid,reviewerName:String(reviewer.name||''),reviewerAvatar:String(reviewer.avatar||''),targetUserId:targetId};
-    const nextCount=Number(target.ratingCount||0)+1,nextSum=Number(target.ratingSum||0)+stars;const trainingUpdate=organizerToParticipant?{ratedParticipantIds:[...cleanArray(t.ratedParticipantIds),targetId]}:{organizerRatedByParticipantIds:[...cleanArray(t.organizerRatedByParticipantIds),uid]};tx.create(ratingRef,rating);tx.update(targetRef,{ratingCount:nextCount,ratingSum:nextSum,rating:Number((nextSum/nextCount).toFixed(1)),ratingsReceived:[rating,...(Array.isArray(target.ratingsReceived)?target.ratingsReceived:[])]});tx.update(trainingRef,trainingUpdate);return {rating,training:{...t,...trainingUpdate},target:{...target,ratingCount:nextCount,ratingSum:nextSum,rating:Number((nextSum/nextCount).toFixed(1))}};
+    const nextCount=Number(target.ratingCount||0)+1,nextSum=Number(target.ratingSum||0)+stars;const trainingUpdate=organizerToParticipant?{ratedParticipantIds:[...cleanArray(t.ratedParticipantIds),targetId]}:{organizerRatedByParticipantIds:[...cleanArray(t.organizerRatedByParticipantIds),uid]};tx.create(ratingRef,rating);tx.update(targetRef,{ratingCount:nextCount,ratingSum:nextSum,rating:Number((nextSum/nextCount).toFixed(1)),ratingsReceived:[rating,...(Array.isArray(target.ratingsReceived)?target.ratingsReceived:[])]});tx.update(trainingRef,trainingUpdate);return {rating,training:{...t,...trainingUpdate},target:publicProfile(targetId,{...target,ratingCount:nextCount,rating:Number((nextSum/nextCount).toFixed(1))})};
   });
 }
 
@@ -911,6 +917,8 @@ export default async function handler(req,res) {
       case 'chat': result = await chatMutation(db, decoded.uid, body); break;
       default: throw Object.assign(new Error('Неизвестная операция'), { status:400 });
     }
+    if(result?.training)result.training=projectActivity('trainings',result.training.id||body.trainingId,result.training);
+    if(result?.event)result.event=projectActivity('events',result.event.id||body.eventId,result.event);
     return res.status(200).json({ ok:true, ...result });
   } catch(error) { console.error('[sportbuddy-mutation]',error); return res.status(error.code?.startsWith?.('auth/') ? 401 : error.status || 500).json({ error:error.message || 'Server error', code:error.code }); }
 }

@@ -1,6 +1,7 @@
+import { eventStart } from '../shared/event-time.js';
 import { randomUUID } from 'node:crypto';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, FieldPath } from 'firebase-admin/firestore';
 import { enqueueNotification } from '../server/notification-policy.js';
 import { requireAdminSession, writeAdminAudit } from '../server/admin-control.js';
 
@@ -46,9 +47,7 @@ function sanitizeEvent(input, id, existing = null) {
   const ticketVerified = input?.ticketVerified === true;
   const dateKey = text(input?.dateKey, 10);
   const time = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(input?.time || '')) ? String(input.time) : '';
-  const startsAt = /^\d{4}-\d{2}-\d{2}$/.test(dateKey) && time
-    ? Date.parse(`${dateKey}T${time}:00+03:00`)
-    : Number(input?.startsAt);
+  const startsAt = eventStart({dateKey, time, startsAt:input?.startsAt});
 
   const event = {
     id,
@@ -98,6 +97,7 @@ function sanitizeEvent(input, id, existing = null) {
   if (!category || !sport || !status || participantsMax === null || lat === null || lng === null || !event.time) {
     throw Object.assign(new Error('Invalid event fields.'), { status: 400 });
   }
+  if(status==='published'&&!Number.isFinite(startsAt))throw Object.assign(new Error('Для публикации укажите точную дату и время события.'),{status:400});
   if (category === 'spectator') {
     if (!Number.isFinite(event.startsAt)) {
       throw Object.assign(new Error('Для городского события укажите точную дату и время.'), { status: 400 });
@@ -119,6 +119,15 @@ export default async function handler(req, res) {
 
   try {
     const session = await requireAdminSession(db, sessionId);
+    if (operation === 'list') {
+      const cursor=req.body?.cursor;
+      if(cursor!==undefined&&(typeof cursor!=='string'||!cursor||cursor.includes('/')||cursor.length>180))return res.status(400).json({error:'Invalid cursor'});
+      let query=db.collection('events').orderBy(FieldPath.documentId()).limit(100);
+      if(cursor)query=query.startAfter(cursor);
+      const snap=await query.get();
+      res.setHeader('Cache-Control','private, no-store');
+      return res.json({events:snap.docs.map(doc=>({...doc.data(),id:doc.id})),nextCursor:snap.docs.length===100?snap.docs.at(-1).id:null});
+    }
     if (!eventId || String(eventId).includes('/')) return res.status(400).json({ error: 'Event id required.' });
     if (!['create','update','delete'].includes(operation)) return res.status(400).json({ error: 'Unknown operation.' });
     if (operation === 'create' && (!event || typeof event !== 'object')) return res.status(400).json({ error: 'Event payload required.' });
@@ -175,16 +184,17 @@ export default async function handler(req, res) {
         };
         enqueueNotification(tx, db, notify);
       }
-    });
-
-    await writeAdminAudit(db, session, {
+      await writeAdminAudit(db, session, {
       action:`event.${operation}`,
       entityType:'event',
       entityId:String(eventId),
       before:auditBefore,
       after:auditAfter,
       requestId:String(requestId || '')
+    }, tx);
     });
+
+
 
     return res.status(200).json({ ok:true, event:auditAfter });
   } catch (error) {

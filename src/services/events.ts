@@ -1,6 +1,7 @@
+import {eventStart} from '../../shared/event-time.js';
 import { callServer } from './serverApi';
-import { collection, getDocs } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import {loadActivities} from './activities';
+import {apiFetch} from './apiEndpoint';
 import {
   OfficialEvent, EventCategory, EventStatus, UserProfile,
   ADMIN_EMAIL, EVENT_MIN_PARTICIPANTS, EVENT_MAX_PARTICIPANTS
@@ -10,7 +11,9 @@ import { triggerHapticImpact, triggerHapticNotification } from './native';
 import { hasAdminSession, getAdminSession, adminMutateEvent } from './adminAuth';
 import { ENABLE_SAMPLE_DATA } from '../lib/sampleData';
 
-const EVENTS_KEY = 'sportbuddy_official_events_v1';
+const EVENTS_KEY = 'sportbuddy_official_events_v2';
+let adminEvents:OfficialEvent[]=[];
+let adminEventsSession='';
 /* --------------------------------- access ---------------------------------- */
 
 /** E-mail identifies the only person allowed to request an admin OTP. */
@@ -44,6 +47,7 @@ function requireAdminSession(): void {
 function readAll(): OfficialEvent[] {
   let stored: OfficialEvent[] | null = null;
   try {
+    localStorage.removeItem('sportbuddy_official_events_v1');
     const raw = localStorage.getItem(EVENTS_KEY);
     if (raw) stored = JSON.parse(raw) as OfficialEvent[];
   } catch {
@@ -167,16 +171,26 @@ const SEED_EVENTS: OfficialEvent[] = ENABLE_SAMPLE_DATA ? [
 
 /* --------------------------------- queries --------------------------------- */
 
-export async function refreshEvents(): Promise<OfficialEvent[]> {
-  const snap = await getDocs(collection(db, 'events'));
-  const events = snap.docs.map(d => ({ id:d.id, ...(d.data() as Omit<OfficialEvent,'id'>) }))
-    .sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
-  writeAll(events);
-  return events;
+export async function refreshEvents(includeDrafts = false): Promise<OfficialEvent[]> {
+  if(includeDrafts){
+    const session=getAdminSession();if(!session)throw new Error('admin-otp-required');
+    const events:OfficialEvent[]=[];let cursor:string|undefined;const seen=new Set<string>();
+    do {
+      const response=await apiFetch('/api/admin-mutate-event',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({operation:'list',sessionId:session.sessionId,...(cursor?{cursor}:{})})});
+      const page=await response.json();
+      if(!response.ok||!Array.isArray(page.events))throw new Error(page.error||'Не удалось загрузить события');
+      events.push(...page.events);cursor=page.nextCursor||undefined;
+      if(cursor&&seen.has(cursor))throw new Error('Повтор страницы');if(cursor)seen.add(cursor);
+    }while(cursor);
+    if(getAdminSession()?.sessionId!==session.sessionId)throw new Error('Сессия администратора изменилась');
+    adminEvents=events;adminEventsSession=session.sessionId;return events;
+  }
+  const events = await loadActivities<OfficialEvent>('events');
+  writeAll(events);return events;
 }
 
 export function getEvents(includeeDrafts = false): OfficialEvent[] {
-  return readAll()
+  return (includeeDrafts && getAdminSession()?.sessionId===adminEventsSession ? adminEvents : readAll())
     .filter((e) => (includeeDrafts ? true : e.status === 'published'))
     .sort((a, b) => {
       const aStart=Number(a.startsAt||0),bStart=Number(b.startsAt||0);
@@ -270,6 +284,7 @@ export function validateEventDraft(draft: EventDraft): string | null {
   if (draft.participantsMax < EVENT_MIN_PARTICIPANTS || draft.participantsMax > EVENT_MAX_PARTICIPANTS) {
     return `Количество участников — от ${EVENT_MIN_PARTICIPANTS} до ${EVENT_MAX_PARTICIPANTS}`;
   }
+  if(draft.status==='published'&&!Number.isFinite(eventStart(draft)))return 'Для публикации укажите точную дату и время события';
   if (draft.category === 'spectator') {
     if (!draft.dateKey || !/^\d{4}-\d{2}-\d{2}$/.test(draft.dateKey)) return 'Укажите точную дату события';
     if (!draft.officialSourceUrl) return 'Добавьте официальный источник расписания';
@@ -292,7 +307,7 @@ export async function createEvent(draft: EventDraft, adminId: string): Promise<O
     isOfficial: true
   };
   await syncAdminEvent('create', id, { event: { ...event } as unknown as Record<string, unknown> });
-  const refreshed = await refreshEvents();
+  const refreshed = await refreshEvents(true);
   triggerHapticNotification('success');
   return refreshed.find(item => item.id === id) || event;
 }
@@ -300,14 +315,14 @@ export async function createEvent(draft: EventDraft, adminId: string): Promise<O
 export async function updateEvent(id: string, patch: Partial<OfficialEvent>): Promise<OfficialEvent | null> {
   requireAdminSession();
   await syncAdminEvent('update', id, { patch: patch as Record<string, unknown> });
-  const refreshed = await refreshEvents();
+  const refreshed = await refreshEvents(true);
   return refreshed.find(item => item.id === id) || null;
 }
 
 export async function removeEvent(id: string): Promise<void> {
   requireAdminSession();
   await syncAdminEvent('delete', id, {});
-  await refreshEvents();
+  await refreshEvents(true);
   triggerHapticImpact('medium');
 }
 
@@ -344,7 +359,7 @@ export async function toggleEventRegistration(eventId: string, _userId: string, 
 
 /** Aggregated numbers for the admin dashboard */
 export function getAdminStats() {
-  const all = readAll();
+  const all = getEvents(true);
   return {
     total: all.length,
     published: all.filter((e) => e.status === 'published').length,

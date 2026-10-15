@@ -6,11 +6,11 @@ async function load(file){
   b.onResolve({filter:/^firebase-admin\//},a=>({path:a.path,namespace:'fake'}));
   b.onLoad({filter:/.*/,namespace:'fake'},a=>({contents:{
    'firebase-admin/app':'export const getApps=()=>[{}],initializeApp=()=>{},cert=x=>x;',
-   'firebase-admin/firestore':'export const getFirestore=()=>globalThis.__integrityDb;'
+   'firebase-admin/firestore':'export const getFirestore=()=>globalThis.__integrityDb;export const FieldPath={documentId:()=> "__name__"};'
   }[a.path],loader:'js'}));
  }}]});return (await import('data:text/javascript;base64,'+Buffer.from(result.outputFiles[0].text).toString('base64'))).default;
 }
-const config=await load('api/admin-config.js'),moderation=await load('api/admin-moderation.js');
+const config=await load('api/admin-config.js'),moderation=await load('api/admin-moderation.js'),eventAdmin=await load('api/admin-mutate-event.js');
 function fixture(){
  const rows=new Map([['adminSessions/live',{email:'admin',expiresAt:{toMillis:()=>Date.now()+60000}}],['feed/p',{content:'visible'}]]);
  const faults={audit:false,reports:false,beforeTransaction:null};
@@ -19,6 +19,8 @@ function fixture(){
  const writer=()=>{const pending=[];return {
   get:async r=>snap(r.path),
   set(r,v){if(faults.audit&&r.path.startsWith('adminAuditLogs/'))throw Error('audit unavailable');pending.push(()=>rows.set(r.path,v));},
+  create(r,v){pending.push(()=>rows.set(r.path,v));},
+  delete(r){pending.push(()=>rows.delete(r.path));},
   update(r,v){pending.push(()=>rows.set(r.path,{...rows.get(r.path),...v}));},
   async commit(){pending.forEach(f=>f());}
  }};
@@ -45,4 +47,15 @@ test('failed complaints query produces an error, not an empty successful queue',
  const f=fixture();f.faults.reports=true;
  const res=await f.request(moderation,{operation:'list'});
  assert.equal(res.code,500);assert.equal(res.body.reports,undefined);
+});
+
+test('event change and audit commit together, audit failure leaves original event intact',async()=>{
+ const f=fixture();f.rows.set('events/e',{id:'e',title:'Original',tagline:'A valid tagline',description:'A sufficiently long description.',category:'competition',sport:'Бег',status:'draft',participantsMax:10,participantIds:[],lat:59.9,lng:30.3,locationName:'Park',address:'Park street',dateLabel:'2027-03-01',dateKey:'2027-03-01',time:'12:00'});
+ f.faults.audit=true;
+ const failed=await f.request(eventAdmin,{operation:'update',eventId:'e',patch:{title:'New title'}});
+ assert.equal(failed.code,500);assert.equal(f.rows.get('events/e').title,'Original');
+ f.faults.audit=false;
+ const saved=await f.request(eventAdmin,{operation:'update',eventId:'e',patch:{title:'New title'}});
+ assert.equal(saved.code,200);assert.equal(f.rows.get('events/e').title,'New title');
+ assert.equal([...f.rows.keys()].filter(k=>k.startsWith('adminAuditLogs/')).length,1);
 });

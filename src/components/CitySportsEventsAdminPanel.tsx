@@ -35,7 +35,7 @@ export const CitySportsEventsAdminPanel:React.FC<Props>=({currentUser,onChanged}
   const [ticketVerified,setTicketVerified]=useState(false);
   const [status,setStatus]=useState<EventStatus>('draft');
 
-  const load=async()=>{const all=await refreshEvents();setEvents(all.filter(e=>e.category==='spectator'));};
+  const load=async()=>{const all=await refreshEvents(true);setEvents(all.filter(e=>e.category==='spectator'));};
   useEffect(()=>{void load().catch(()=>{});},[]);
   const availableTeams=useMemo(()=>isMediaLeague?[]:teamsForLeague(league),[league,isMediaLeague]);
   const availableVenues=useMemo(()=>isMediaLeague?[]:venuesForLeague(league),[league,isMediaLeague]);

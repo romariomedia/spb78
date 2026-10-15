@@ -278,10 +278,10 @@ test('legacy training can lazily create its group chat only for participants',as
 
 test('event registration accepts only published events with space',async()=>{
   for(const status of ['draft','finished']) {
-    const f=fixture({'users/a':premium(),'events/e':{status,participantIds:[],participantsMax:2}});
+    const f=fixture({'users/a':premium(),'events/e':{startsAt:Date.now()+86400000,status,participantIds:[],participantsMax:2}});
     assert.equal((await f.request('a',{action:'event',eventId:'e'})).statusCode,409);
   }
-  const f=fixture({'users/a':premium(),'users/b':premium(),'events/e':{status:'published',participantIds:[],participantsMax:1}});
+  const f=fixture({'users/a':premium(),'users/b':premium(),'events/e':{startsAt:Date.now()+86400000,status:'published',participantIds:[],participantsMax:1}});
   assert.equal((await f.request('a',{action:'event',eventId:'e'})).body.registered,true);
   assert.equal((await f.request('b',{action:'event',eventId:'e'})).statusCode,409);
   assert.equal((await f.request('a',{action:'event',eventId:'e'})).body.registered,false);
@@ -619,7 +619,7 @@ test('a saved creation retry still resolves after Premium expires',async t=>{
 });
 
 test('explicit event attendance is idempotent after a lost response and returns the document id', async()=>{
-  const f=fixture({'users/alice':premium(),'events/match':{title:'Match',status:'published',participantsMax:10,participantIds:[]}});
+  const f=fixture({'users/alice':premium(),'events/match':{startsAt:Date.now()+86400000,title:'Match',status:'published',participantsMax:10,participantIds:[]}});
   for(let i=0;i<2;i++){
     const result=await f.request('alice',{action:'event',eventId:'match',registered:true});
     assert.equal(result.statusCode,200);assert.equal(result.body.event.id,'match');
@@ -629,4 +629,21 @@ test('explicit event attendance is idempotent after a lost response and returns 
     const result=await f.request('alice',{action:'event',eventId:'match',registered:false});
     assert.equal(result.statusCode,200);assert.deepEqual(result.body.event.participantIds,[]);
   }
+});
+
+test('rating response exposes only the public target profile',async()=>{
+ const f=fixture({'users/a':{...premium(),rewardItems:[{code:'PRIVATE'}],email:'legacy@example.invalid',blockedUserIds:['secret'],futureSecret:'secret'},'users/b':premium(),
+ 'trainings/t':{id:'t',title:'Audit',sport:'Бег',createdBy:'a',participantIds:['a','b'],checkedInUserIds:['a','b'],isCompleted:true}});
+ const r=await f.request('b',{action:'rating',trainingId:'t',targetUserId:'a',stars:5});
+ assert.equal(r.statusCode,200);assert.equal(r.body.target.id,'a');assert.equal(r.body.target.rating,5);
+ for(const field of ['rewardItems','email','blockedUserIds','futureSecret','premiumUntil'])assert.equal(r.body.target[field],undefined);
+});
+test('events reject new registration without a future date, but allow leaving and idempotent retry',async()=>{
+ for(const startsAt of [undefined,Date.now()-1,Date.now()]){
+  const event={id:'e',status:'published',participantsMax:10,participantIds:['a'],...(startsAt===undefined?{}:{startsAt})};
+  const f=fixture({'users/a':premium(),'users/b':premium(),'events/e':event});
+  assert.equal((await f.request('b',{action:'event',eventId:'e',registered:true})).statusCode,409);
+  assert.equal((await f.request('a',{action:'event',eventId:'e',registered:true})).statusCode,200);
+  assert.equal((await f.request('a',{action:'event',eventId:'e',registered:false})).statusCode,200);
+ }
 });

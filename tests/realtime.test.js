@@ -48,19 +48,19 @@ test('изменения разделов копятся и приходят о�
   const stop = subscribeAppInvalidation((sections) => calls.push([...sections]), 'athlete-a');
 
   assert.equal(listenerFor('users').ref.id, 'athlete-a');
-  assert.equal(globalThis.__listeners.length, 2);
+  assert.equal(globalThis.__listeners.length, 1);
   assert.equal(listenerFor('feed'),undefined,'private feed must not be subscribed directly');
 
   listenerFor('users').next();
   listenerFor('users').next();
-  listenerFor('trainings').next();
+  assert.equal(listenerFor('trainings'),undefined,'private catalog must use API');
   assert.deepEqual(calls, [], 'до истечения задержки вызовов быть не должно');
 
   t.mock.timers.tick(350);
-  assert.deepEqual(calls, [['users', 'trainings']], 'разделы отдаются один раз и без повторов');
+  assert.deepEqual(calls, [['users']], 'разделы отдаются один раз и без повторов');
 
   stop();
-  assert.equal(globalThis.__stopped, 2, 'при отписке слушатели снимаются');
+  assert.equal(globalThis.__stopped, 1, 'при отписке слушатели снимаются');
 });
 
 test('после отписки изменения больше не приходят', (t) => {
@@ -80,6 +80,6 @@ test('после отписки изменения больше не прихо�
 test('feed refreshes through invalidation polling and stops after cleanup',t=>{
  t.mock.timers.enable({apis:['setTimeout','setInterval']});globalThis.__listeners=[];globalThis.__stopped=0;
  const calls=[];const stop=subscribeAppInvalidation(s=>calls.push([...s]),'a');
- t.mock.timers.tick(60000);t.mock.timers.tick(350);assert.deepEqual(calls,[['feed']]);
+ t.mock.timers.tick(60000);t.mock.timers.tick(350);assert.deepEqual(calls,[['trainings','feed']]);
  stop();t.mock.timers.tick(120000);assert.equal(calls.length,1);
 });

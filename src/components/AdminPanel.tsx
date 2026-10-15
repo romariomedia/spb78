@@ -68,7 +68,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [coords, setCoords] = useState<Coords>(DEFAULT_COORDS);
   const [locationName, setLocationName] = useState('Крестовский остров');
   const [address, setAddress] = useState('Санкт-Петербург');
-  const [dateLabel, setDateLabel] = useState('Суббота, 16 августа');
+  const [dateKey, setDateKey] = useState('');
   const [time, setTime] = useState('11:00');
   const [participantsMax, setParticipantsMax] = useState(30);
   const [prizePool, setPrizePool] = useState('');
@@ -81,7 +81,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const videoInputRef = useRef<HTMLInputElement>(null);
 
   const [events, setEvents] = useState(() => getEvents(true));
-  useEffect(() => { if (isOpen) void refreshEvents().then((items) => setEvents(items)).catch(() => {}); }, [isOpen, refresh]);
+  useEffect(() => { if (isOpen) void refreshEvents(true).then((items) => setEvents(items)).catch(() => setError('Не удалось загрузить события. Повторите попытку.')); }, [isOpen, refresh]);
 
   const resetForm = () => {
     setTitle(''); setTagline(''); setDescription('');
@@ -104,7 +104,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setCoords({ lat: event.lat, lng: event.lng });
     setLocationName(event.locationName);
     setAddress(event.address);
-    setDateLabel(event.dateLabel);
+    setDateKey(event.dateKey || '');
     setTime(event.time);
     setParticipantsMax(event.participantsMax);
     setPrizePool(event.prizePool || '');
@@ -149,7 +149,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       videoUrl: videoUrl || undefined,
       locationName, address,
       lat: coords.lat, lng: coords.lng,
-      dateLabel, time, participantsMax,
+      dateKey, dateLabel:dateKey, time, participantsMax,
       prizePool: prizePool || undefined,
       entryFee: entryFee || undefined,
       status
@@ -171,7 +171,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       } else {
         await createEvent(draft, currentUser.id);
       }
-      setEvents(await refreshEvents());
+      setEvents(await refreshEvents(true));
       resetForm();
       setCreating(false);
       setRefresh(r => r + 1);
@@ -441,7 +441,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     <div>
                       <label className="block font-bold text-slate-300 mb-1">Дата</label>
                       <input
-                        type="text" value={dateLabel} onChange={(e) => setDateLabel(e.target.value)}
+                        type="date" value={dateKey} onChange={(e) => setDateKey(e.target.value)}
                         className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-100 focus:outline-none focus:border-emerald-500"
                       />
                     </div>
@@ -537,7 +537,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     onClick={() => void (async () => {
                       try {
                         await updateEvent(ev.id, { status: ev.status === 'published' ? 'draft' : 'published' });
-                        setEvents(await refreshEvents());
+                        setEvents(await refreshEvents(true));
                         setRefresh(r => r + 1);
                         onEventsChanged();
                       } catch (err) {
@@ -558,7 +558,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       if (confirm(`Удалить «${ev.title}»?`)) {
                         try {
                           await removeEvent(ev.id);
-                          setEvents(await refreshEvents());
+                          setEvents(await refreshEvents(true));
                           setRefresh(r => r + 1);
                           onEventsChanged();
                         } catch (err) {

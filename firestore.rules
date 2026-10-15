@@ -69,24 +69,23 @@ service cloud.firestore {
     /* ---------------------------- trainings ---------------------------- */
 
     match /trainings/{trainingId} {
-      allow read: if isSignedIn();
+      allow read: if false;
       allow create, update, delete: if false;
     }
 
     /* ------------------------ official events -------------------------- */
 
     match /events/{eventId} {
-      allow read: if true;
+      allow read: if false;
       allow create, update, delete: if false;
     }
 
     /* -------------------------- venues catalog -------------------------- */
 
     match /venues/{venueId} {
-      // Athletes can read the managed catalog. All writes go through the
-      // OTP-protected Admin SDK endpoint, so the client can never publish
-      // or "verify" a venue by itself.
-      allow read: if isSignedIn();
+      // Catalog reads use the filtered server API. All writes go through the
+      // OTP-protected Admin SDK endpoint.
+      allow read: if false;
       allow create, update, delete: if false;
     }
 

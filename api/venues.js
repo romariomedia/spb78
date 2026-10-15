@@ -15,7 +15,9 @@ export default async function handler(req,res){
       if(data.archived===true || data.isPublished===false){
         return {id:doc.id,isPublished:false,archived:data.archived===true};
       }
-      return {id:doc.id,...data};
+      const venue={id:doc.id};
+      for(const key of 'name sports address coordinates phone hours priceText rating reviews website status note photos isVerified isPublished contactName amenities updatedAt'.split(' '))if(data[key]!==undefined)venue[key]=data[key];
+      return venue;
     });
     return res.status(200).json({venues});
   }catch(error){
