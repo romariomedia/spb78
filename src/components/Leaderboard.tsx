@@ -1,3 +1,4 @@
+import { AvatarImage } from './AvatarImage';
 import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Trophy, Crown, TrendingUp, Users as UsersIcon } from 'lucide-react';
@@ -124,7 +125,7 @@ const LeaderboardInner: React.FC<LeaderboardProps> = ({
                 {getRankBadge(entry.rank)}
               </span>
 
-              <img
+              <AvatarImage
                 src={entry.user.avatar}
                 alt={entry.user.name}
                 loading="lazy"

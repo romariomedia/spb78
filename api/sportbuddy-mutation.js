@@ -1,3 +1,4 @@
+import { withoutLegacyLoginAvatar } from '../server/avatar-policy.js';
 import { eventStart } from '../shared/event-time.js';
 import { publicProfile } from '../server/public-profile.js';
 import { projectActivity } from '../server/public-activities.js';
@@ -130,7 +131,7 @@ async function syncIdentity(db, uid, candidateName) {
 }
 
 async function profileMutation(db, uid, updates) {
-  updates = validateProfileInput(updates);
+  updates = validateProfileInput(withoutLegacyLoginAvatar(updates));
   const publicAllowed = new Set(['age','gender','genderSet','bio','sports','districtId','locationName','lat','lng','activeLooking','avatar','photoPortfolio','legalAcceptedAt','themeAccent','themeSurface','hasUsedGeolocation','lastSeenAt','lastGeoAt']);
   const privateAllowed = new Set(['phone','hidePhone','birthDate','hideBirthDate','deviceId']);
   const pub={}, priv={};

@@ -582,12 +582,8 @@ export default function App(): JSX.Element {
     setAccount(authAccount);
     setWelcomeTrialShown(false);
     setIsLoading(true);
-    // VK ID already supplies a real photo — counts towards verification
-    if (vkAvatar) {
-      void updateProfile({ avatar: vkAvatar, hasRealPhoto: true }).catch(() => {
-        // The fresh-profile bootstrap retry will persist this on the next sync.
-      });
-    }
+    // Provider photos are used only by fresh-profile bootstrap above.
+    // Signing in on another device must never replace a saved personal photo.
     fetchAllData();
   };
 
