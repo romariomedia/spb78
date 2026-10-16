@@ -51,6 +51,7 @@ export interface AppData {
   hasPendingQueue: boolean;
   loadWarning?: string;
   publicProfilesStale?: boolean;
+  publicProfilesNextCursor?: string | null;
   profileMissing?: boolean;
 }
 
@@ -591,18 +592,30 @@ export async function persistFreshProfile(profile: UserProfile): Promise<UserPro
   return authoritative;
 }
 
-async function loadPublicProfiles(): Promise<UserProfile[]> {
+export async function loadPublicProfilePage(cursor?: string, pageSize = 40): Promise<{profiles: UserProfile[]; nextCursor: string | null}> {
+  const uid = CURRENT_USER_ID;
+  const page = await callServer<{profiles: Record<string, unknown>[]; nextCursor: string | null}>(
+    '/api/public-profiles', {pageSize, ...(cursor ? {cursor} : {})});
+  if (CURRENT_USER_ID !== uid) throw new Error('Аккаунт изменился во время загрузки.');
+  if (!Array.isArray(page.profiles) || (page.nextCursor !== null && typeof page.nextCursor !== 'string'))
+    throw new Error('Сервер не вернул список атлетов. Повторите загрузку.');
+  if (page.nextCursor && page.nextCursor === cursor) throw new Error('Повтор страницы анкет');
+  return {profiles: page.profiles.filter(item => !LEGACY_DEMO_USER_IDS.includes(String(item.id)))
+    .map(item => normalizeUserProfile(item)), nextCursor: page.nextCursor};
+}
+
+export async function loadPublicProfilesByIds(ids: string[]): Promise<UserProfile[]> {
+  const uid = CURRENT_USER_ID;
+  const unique = [...new Set(ids)].filter(id => id && id !== uid);
   const profiles: UserProfile[] = [];
-  let cursor: string | null = null;
-  do {
-    const page: {profiles: Record<string, unknown>[]; nextCursor: string | null} =
-      await callServer('/api/public-profiles', cursor ? {cursor} : {});
-    if (!Array.isArray(page.profiles)) throw new Error('Сервер не вернул список атлетов. Повторите загрузку.');
+  for (let offset = 0; offset < unique.length; offset += 50) {
+    const page = await callServer<{profiles: Record<string, unknown>[]}>(
+      '/api/public-profiles', {ids: unique.slice(offset, offset + 50)});
+    if (CURRENT_USER_ID !== uid) throw new Error('Аккаунт изменился во время загрузки.');
+    if (!Array.isArray(page.profiles)) throw new Error('Не удалось загрузить связанные анкеты');
     profiles.push(...page.profiles.filter(item => !LEGACY_DEMO_USER_IDS.includes(String(item.id)))
       .map(item => normalizeUserProfile(item)));
-    if (page.nextCursor && page.nextCursor === cursor) throw new Error('Не удалось загрузить следующую страницу анкет');
-    cursor = page.nextCursor;
-  } while (cursor);
+  }
   return profiles;
 }
 
@@ -644,7 +657,7 @@ export async function loadAppData(): Promise<AppData> {
         return { user: cached.currentUser, missing: false };
       }, timeout
     ),
-    readSection(loadPublicProfiles(), () => cached?.allUsers ?? [], timeout),
+    readSection(loadPublicProfilePage(), () => ({profiles: cached?.allUsers ?? [], nextCursor: cached?.publicProfilesNextCursor ?? null}), timeout),
     // No orderBy: legacy records without createdAt must remain visible.
     readSection(loadActivities<Training>('trainings'), () => cached?.trainings ?? INITIAL_TRAININGS, timeout),
     readSection(loadPublicFeed(), () => (cached?.feedPosts ?? []).filter(post => post.isHidden !== true), timeout),
@@ -661,10 +674,19 @@ export async function loadAppData(): Promise<AppData> {
   ]);
   if (CURRENT_USER_ID !== uid) throw new Error('Аккаунт изменился во время загрузки.');
   const currentUser = normalizeUserProfile({ ...profile.value.user, ...privateFields.value, id: uid });
-  const stale = [profile, users, trainings, feed, privateFields].some(section => section.stale);
+  // Friends and matches are identities, not a page of discovery results.
+  const loadedIds = new Set(users.value.profiles.map(user => user.id));
+  const relatedIds = [...(currentUser.friendIds ?? []), ...(currentUser.matchIds ?? []),
+    ...(currentUser.friendRequestsReceived ?? []), ...(currentUser.friendRequestsSent ?? [])]
+    .filter(id => !loadedIds.has(id));
+  const related = await readSection(loadPublicProfilesByIds(relatedIds),
+    () => (cached?.allUsers ?? []).filter(user => relatedIds.includes(user.id)), timeout);
+  if (CURRENT_USER_ID !== uid) throw new Error('Аккаунт изменился во время загрузки.');
+  const mergedUsers = new Map([...users.value.profiles, ...related.value].map(user => [user.id, user]));
+  const stale = [profile, users, related, trainings, feed, privateFields].some(section => section.stale);
   const result: AppData = {
     currentUser,
-    allUsers: [currentUser, ...users.value.filter(user => user.id !== uid)],
+    allUsers: [currentUser, ...[...mergedUsers.values()].filter(user => user.id !== uid)],
     trainings: getActiveTrainings(trainings.value),
     feedPosts: feed.value,
     comments: cached?.comments ?? {},
@@ -672,7 +694,8 @@ export async function loadAppData(): Promise<AppData> {
     hasPendingQueue,
     profileMissing: profile.value.missing,
     publicProfilesStale: users.stale,
-    loadWarning: stale ? `Не удалось обновить: ${[profile.stale && 'профиль', users.stale && 'список атлетов', trainings.stale && 'тренировки', feed.stale && 'лента', privateFields.stale && 'личные данные'].filter(Boolean).join(', ')}. Показаны сохранённые данные. Нажмите обновление сверху.` : undefined
+    publicProfilesNextCursor: users.value.nextCursor,
+    loadWarning: stale ? `Не удалось обновить: ${[profile.stale && 'профиль', users.stale && 'список атлетов', related.stale && 'друзья и мэтчи', trainings.stale && 'тренировки', feed.stale && 'лента', privateFields.stale && 'личные данные'].filter(Boolean).join(', ')}. Показаны сохранённые данные. Нажмите обновление сверху.` : undefined
   };
   // A failed read never creates or caches a fabricated replacement profile.
   if (!profile.value.missing) saveOfflineCache(result);

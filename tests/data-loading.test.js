@@ -17,12 +17,15 @@ const bundled = await build({
         './native': 'export const triggerHapticImpact=()=>{};',
         './schedule': 'export const getActiveTrainings=x=>x;',
         './reset': 'export const createFreshProfile=(id,extra={})=>({id,name:"New",...extra});',
-        './serverApi': `export const callServer=async(path)=>{
+        './serverApi': `export const callServer=async(path,body={})=>{
+          if(globalThis.__sbApiHook){const result=await globalThis.__sbApiHook(path,body);if(result!==undefined)return result;}
           if(path==='/api/activities-list'){const value=globalThis.__sbReads.trainings;if(value instanceof Error)throw value;return {items:value.docs.map(d=>({id:d.id,...d.data()})),nextCursor:null};}
           if(path==='/api/feed-list'){const value=globalThis.__sbReads.feed;if(value instanceof Error)throw value;return {posts:value.docs.map(d=>({id:d.id,...d.data()})),nextCursor:null};}
           if(path!=='/api/public-profiles')throw new Error('Unexpected mutation');
           const value=globalThis.__sbReads.users;if(value instanceof Error)throw value;
-          return {profiles:value.docs.map(d=>({id:d.id,...d.data()})),nextCursor:null};
+          const docs=value.docs.filter(d=>body.ids?body.ids.includes(d.id):!body.cursor||d.id>body.cursor);
+          const limit=body.ids?50:(body.pageSize||200);
+          return {profiles:docs.slice(0,limit).map(d=>({id:d.id,...d.data()})),nextCursor:!body.ids&&docs.length>=limit?docs[limit-1].id:null};
         };`
       };
       return { contents: sources[args.path], loader: 'js' };
@@ -36,6 +39,7 @@ const snapshot = (id, value) => ({ id, exists: () => value !== null, data: () =>
 const collectionSnapshot = (items) => ({ docs: items.map(([id, value]) => snapshot(id, value)) });
 let storage;
 function reset() {
+  globalThis.__sbApiHook=undefined;
   Object.defineProperty(globalThis, "navigator", { value: { onLine: true }, configurable: true });
   storage = new Map();
   globalThis.localStorage = { getItem: k => storage.get(k) ?? null, setItem: (k,v) => storage.set(k,v), removeItem: k=>storage.delete(k) };
@@ -123,4 +127,49 @@ test('successful feed API load clears warning without direct Firestore feed acce
  const data=await repository.loadAppData();assert.equal(data.loadWarning,undefined);assert.equal(data.feedPosts[0].content,'Visible');
  globalThis.__sbReads.feed=collectionSnapshot([]);
  assert.deepEqual(await repository.loadFeedPosts(),[]);
+});
+
+
+test('startup fetches one discovery page and hydrates friends outside that page',async()=>{
+  reset();
+  const users=Array.from({length:105},(_,i)=>['u'+String(i).padStart(3,'0'),{name:'Athlete'}]);
+  globalThis.__sbReads.users=collectionSnapshot(users);
+  globalThis.__sbReads['users/alice']=snapshot('alice',{name:'Alice',friendIds:['u099'],matchIds:['u100']});
+  const calls=[];
+  globalThis.__sbApiHook=async(path,body)=>{calls.push({path,body});};
+  const data=await repository.loadAppData();
+  assert.equal(data.publicProfilesNextCursor,'u039');
+  assert.equal(data.publicProfilesStale,false);
+  assert.equal(data.allUsers.length,43); // self + 40 discovery + two identities
+  assert.ok(data.allUsers.some(user=>user.id==='u099'));
+  assert.ok(data.allUsers.some(user=>user.id==='u100'));
+  const requests=calls.filter(c=>c.path==='/api/public-profiles');
+  assert.equal(requests.length,2);
+  assert.deepEqual(requests[1].body.ids,['u099','u100']);
+  const page=await repository.loadPublicProfilePage(data.publicProfilesNextCursor);
+  assert.equal(page.profiles[0].id,'u040');assert.equal(page.nextCursor,'u079');
+});
+
+test('identity requests split at 50 and page requests cannot cross an account change',async()=>{
+  reset();
+  globalThis.__sbReads.users=collectionSnapshot(Array.from({length:110},(_,i)=>['u'+i,{name:'User'}]));
+  const sizes=[];
+  globalThis.__sbApiHook=async(path,body)=>{if(body.ids)sizes.push(body.ids.length);};
+  const ids=Array.from({length:110},(_,i)=>'u'+i);
+  assert.equal((await repository.loadPublicProfilesByIds([...ids,...ids])).length,110);
+  assert.deepEqual(sizes,[50,50,10]);
+  globalThis.__sbApiHook=async()=>{repository.setCurrentUserId('bob');return {profiles:[],nextCursor:null};};
+  await assert.rejects(repository.loadPublicProfilePage(),/Аккаунт изменился/);
+});
+
+test('failed identity read preserves cached friends and marks their section stale',async()=>{
+  reset();
+  globalThis.__sbReads.users=collectionSnapshot(Array.from({length:50},(_,i)=>['u'+String(i).padStart(3,'0'),{name:'User'}]));
+  globalThis.__sbReads['users/alice']=snapshot('alice',{name:'Alice',friendIds:['u049']});
+  await repository.loadAppData();
+  globalThis.__sbApiHook=async(path,body)=>{if(body.ids)throw new Error('offline');};
+  const data=await repository.loadAppData();
+  assert.ok(data.allUsers.some(user=>user.id==='u049'));
+  assert.match(data.loadWarning,/друзья и мэтчи/);
+  assert.equal(data.publicProfilesStale,false);
 });

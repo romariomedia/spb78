@@ -48,3 +48,28 @@ test('cached public page never bypasses caller authentication or suspension',asy
  users.me.isSuspended=true;
  assert.equal((await request()).code,403);
 });
+
+test('bounded pages have independent cache keys and old clients retain 200-item default',async()=>{
+ const users=Object.fromEntries(Array.from({length:205},(_,i)=>['u'+String(i).padStart(3,'0'),{name:'Athlete'}]));
+ const request=fixture(users);
+ const small=await request({pageSize:40});
+ assert.equal(small.body.profiles.length,40);assert.equal(small.body.nextCursor,'u039');
+ assert.equal((await request()).body.profiles.length,200);
+ assert.equal((await request({pageSize:40,cursor:'u039'})).body.profiles[0].id,'u040');
+ for(const pageSize of [0,201,-1,1.5,'40',null]) {
+   if(pageSize===null)continue; // null uses the legacy default
+   assert.equal((await request({pageSize})).code,400);
+ }
+});
+
+test('targeted identity lookup is bounded, deduplicated and projects only public visible users',async()=>{
+ const users={me:{name:'Me'},alice:{name:'Alice',email:'secret'},hidden:{isSuspended:true},demo:{isDemo:true}};
+ const request=fixture(users);
+ const response=await request({ids:['alice','alice','hidden','demo','missing']});
+ assert.equal(response.code,200);assert.deepEqual(response.body,{profiles:[{id:'alice',name:'Alice'}],nextCursor:null});
+ for(const ids of ['alice',[null],['a/b'],Array(51).fill('alice')])assert.equal((await request({ids})).code,400);
+ assert.equal((await request({ids:['alice'],cursor:'a'})).code,400);
+ assert.equal((await request({ids:['alice']},'invalid')).code,401);
+ users.me.isSuspended=true;
+ assert.equal((await request({ids:['alice']})).code,403);
+});

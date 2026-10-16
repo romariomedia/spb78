@@ -32,7 +32,7 @@ const LeaderboardInner: React.FC<LeaderboardProps> = ({
   const maxValue = Math.max(1, entries[0]?.value ?? 1);
 
   if (incomplete) return <div role="status" className="rounded-2xl border border-amber-500/25 bg-slate-900 p-4 text-sm text-slate-300">
-    Таблица лидеров пока не загрузилась полностью. Обновите данные сверху, чтобы увидеть всех атлетов и рейтинг.
+    Таблица лидеров появится после загрузки всех анкет. Мы не показываем неполное количество атлетов как итоговое.
   </div>;
   return (
     <CollapsibleCard
@@ -188,4 +188,5 @@ export const Leaderboard = React.memo(
   LeaderboardInner,
   (prev, next) =>
     prev.allUsers === next.allUsers && prev.currentUserId === next.currentUserId
+    && prev.incomplete === next.incomplete && prev.onSelectUser === next.onSelectUser
 );

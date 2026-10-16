@@ -36,3 +36,6 @@ Use prepare-release.sh and activate-release.sh. Server-only improvement:
 existing APKs benefit without rebuilding. No rules change or database migration.
 Previous release is the rollback. Tests cover concurrency, expiry, errors,
 memory bounds, in-flight invalidation and access checks with warm cache.
+
+Stage 2 now changes startup loading; see `SCALING_STAGE_2.md` for current client
+behavior and the remaining full-directory dependencies.

@@ -29,7 +29,7 @@ import {
   buildChatId, clearChatCache, formatTimeLabel, loadChatHistory, subscribeChatThreads
 } from './services/chats';
 import { 
-  loadAppData, loadFeedPosts, createTraining, toggleJoinTraining, toggleLikeProfile, 
+  loadAppData, loadPublicProfilePage, loadFeedPosts, createTraining, toggleJoinTraining, toggleLikeProfile,
   createPost, createComment, toggleLikePost, PremiumTrainingRequiredError,
   updateProfile, syncOfflineQueue, persistFreshProfile, syncProfileIdentity, setCurrentUserId, CURRENT_USER_ID, getOfflineQueue 
 } from './services/repository';
@@ -186,6 +186,11 @@ export default function App(): JSX.Element {
   const [loadError, setLoadError] = useState('');
   const [loadWarning, setLoadWarning] = useState('');
   const [publicProfilesStale, setPublicProfilesStale] = useState(true);
+  const [profilesNextCursor, setProfilesNextCursor] = useState<string | null>(null);
+  const [profilesLoading, setProfilesLoading] = useState(false);
+  const [profilesError, setProfilesError] = useState('');
+  const directoryEpoch = useRef(0);
+  const directoryRequest = useRef<number | null>(null);
   const [paymentSuccess, setPaymentSuccess] = useState(() => window.location.pathname === '/success');
   const [welcomeTrialShown, setWelcomeTrialShown] = useState<boolean>(false);
   // Set before async loading starts so a fresh registration can never inherit
@@ -392,6 +397,10 @@ export default function App(): JSX.Element {
   }, []);
 
   const fetchAllData = useCallback(async () => {
+    const epoch = ++directoryEpoch.current;
+    directoryRequest.current = null;
+    setProfilesLoading(false);
+    setProfilesError('');
     setIsRefreshing(true);
     try {
       await authReady;
@@ -402,7 +411,7 @@ export default function App(): JSX.Element {
       if (firebaseUid) setCurrentUserId(firebaseUid);
       else if (activeSession) setCurrentUserId(activeSession.firebaseUid ?? activeSession.id);
       const data = await loadAppData();
-      if (getSessionAccount()?.id !== activeSession?.id) return;
+      if (directoryEpoch.current !== epoch || getSessionAccount()?.id !== activeSession?.id) return;
       void refreshWorkoutCredits(CURRENT_USER_ID).catch(() => {});
       void refreshRatings(CURRENT_USER_ID).catch(() => {});
       void refreshMyCheckIns(CURRENT_USER_ID).catch(() => {});
@@ -497,6 +506,7 @@ export default function App(): JSX.Element {
         profile = syncProfileMedals(profile);
       }
 
+      if (directoryEpoch.current !== epoch || getSessionAccount()?.id !== activeSession?.id) return;
       setCurrentUser(profile);
       setAllUsers(data.allUsers.map(u => (u.id === profile.id ? profile : u)));
       // Server participantIds are shared across devices; local journals cannot override them.
@@ -504,17 +514,64 @@ export default function App(): JSX.Element {
       setLoadError('');
       setLoadWarning(data.loadWarning ?? '');
       setPublicProfilesStale(data.publicProfilesStale === true);
+      setProfilesNextCursor(data.publicProfilesNextCursor ?? null);
       setFeedPosts(data.feedPosts);
       setIsOffline(data.isOffline);
       setPendingSyncCount(getOfflineQueue().length);
     } catch (err) {
+      if (directoryEpoch.current !== epoch) return;
       console.error('Data loading failure:', err);
       setLoadError('Не удалось загрузить данные. Проверьте соединение и повторите попытку.');
     } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
+      if (directoryEpoch.current === epoch) {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
     }
   }, [account?.id]);
+
+  const loadMoreProfiles = useCallback(async (complete = false) => {
+    if (!profilesNextCursor || !currentUser || isRefreshing || isOffline || directoryRequest.current !== null) return;
+    const epoch = directoryEpoch.current;
+    const uid = currentUser.id;
+    directoryRequest.current = epoch;
+    setProfilesLoading(true);
+    setProfilesError('');
+    let cursor: string | null = profilesNextCursor;
+    const seen = new Set<string>();
+    try {
+      do {
+        if (seen.has(cursor)) throw new Error('Повтор страницы анкет');
+        seen.add(cursor);
+        const page = await loadPublicProfilePage(cursor, complete ? 200 : 40);
+        if (directoryEpoch.current !== epoch || CURRENT_USER_ID !== uid) return;
+        setAllUsers(previous => {
+          const merged = new Map(previous.map(user => [user.id, user]));
+          for (const user of page.profiles) if (user.id !== uid) merged.set(user.id, user);
+          return [...merged.values()];
+        });
+        cursor = page.nextCursor;
+      } while (complete && cursor);
+      setProfilesNextCursor(cursor);
+    } catch {
+      if (directoryEpoch.current === epoch) {
+        setProfilesNextCursor(cursor);
+        setProfilesError('Не удалось загрузить следующие анкеты. Уже загруженные данные сохранены.');
+      }
+    } finally {
+      if (directoryEpoch.current === epoch) {
+        directoryRequest.current = null;
+        setProfilesLoading(false);
+      }
+    }
+  }, [profilesNextCursor, currentUser?.id, isRefreshing, isOffline]);
+
+  // These existing views still need the complete directory. Never calculate a
+  // community total from a discovery page; load it only when the view is used.
+  const needsFullDirectory = activeTab !== 'discover' || discoverViewMode !== 'cards';
+  useEffect(() => {
+    if (needsFullDirectory && !profilesError) void loadMoreProfiles(true);
+  }, [needsFullDirectory, loadMoreProfiles, profilesError]);
 
   /**
    * Realtime Firestore invalidation: posts, profiles and trainings published
@@ -604,6 +661,11 @@ export default function App(): JSX.Element {
   };
 
   const handleLogout = () => {
+    ++directoryEpoch.current;
+    directoryRequest.current = null;
+    setProfilesNextCursor(null);
+    setProfilesLoading(false);
+    setProfilesError('');
     // Full local reset: session, admin OTP session and app state.
     // Firebase identity (e-mail or transport) is dropped in the background.
     if(currentUser?.id)clearChatCache(currentUser.id);
@@ -1934,6 +1996,17 @@ export default function App(): JSX.Element {
       {(operations.maintenanceMode||operations.error)&&<div role="status" className="mx-4 my-3 rounded-xl bg-amber-950 p-4 text-sm text-amber-100">{operations.maintenanceMode?operations.maintenanceMessage:operations.error}</div>}
       {((activeTab==='discover'&&!operations.featureFlags.datingEnabled)||(activeTab==='leisure'&&!operations.featureFlags.activeLeisureEnabled)||(activeTab==='profile'&&profileSection==='passport'&&!operations.featureFlags.sportPassportEnabled))&&<div role="status" className="mx-4 my-3 rounded-xl bg-slate-900 p-4 text-slate-200">Раздел временно отключён. Другие разделы доступны через нижнее меню.</div>}
       <AppAnnouncements placement={activeTab} />
+      {currentUser && profilesNextCursor && <div role="status" className="mx-4 my-3 rounded-2xl border border-emerald-400/20 bg-slate-900 p-4 text-sm text-slate-300">
+        <p>{profilesError || (profilesLoading ? 'Загружаем анкеты…' : needsFullDirectory
+          ? 'Для полного списка людей и рейтинга нужно загрузить остальные анкеты.'
+          : 'Есть ещё анкеты. Посмотрите следующую подборку.')}</p>
+        {!profilesLoading && <button type="button" disabled={isRefreshing || isOffline}
+          onClick={() => void loadMoreProfiles(needsFullDirectory)}
+          className="mt-3 rounded-xl bg-lime-300 px-4 py-2 font-bold text-slate-950 disabled:opacity-50">
+          {profilesError ? 'Повторить загрузку' : 'Загрузить ещё анкеты'}
+        </button>}
+      </div>}
+
 
       {/* Offline Pending Action Toast */}
       {pendingSyncCount > 0 && (
@@ -2189,15 +2262,21 @@ export default function App(): JSX.Element {
                         <div className="w-16 h-16 rounded-3xl bg-emerald-500/20 border border-emerald-400 mx-auto flex items-center justify-center text-3xl shadow-[0_0_20px_rgba(16,185,129,0.3)]">
                           🎯
                         </div>
-                        <h3 className="text-lg font-bold text-white">{publicProfilesStale ? 'Анкеты пока не загрузились' : 'Вы просмотрели всех кандидатов!'}</h3>
+                        <h3 className="text-lg font-bold text-white">{publicProfilesStale ? 'Анкеты пока не загрузились' : profilesNextCursor ? 'Посмотрим следующие анкеты?' : 'Вы просмотрели всех кандидатов!'}</h3>
                         <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
-                          {publicProfilesStale ? 'Не удалось получить список с сервера. Нажмите кнопку обновления вверху экрана.' : 'Загляните позже или сбросьте фильтры, чтобы посмотреть анкеты снова.'}
+                          {publicProfilesStale ? 'Не удалось получить список с сервера. Нажмите кнопку обновления вверху экрана.' : profilesNextCursor ? 'В этой подборке больше нет подходящих анкет. Загрузите следующую страницу с теми же фильтрами.' : 'Загляните позже или сбросьте фильтры, чтобы посмотреть анкеты снова.'}
                         </p>
                         <button
-                          onClick={() => { triggerHapticImpact('light'); setSwipedIds([]); try { localStorage.removeItem('sportbuddy_swiped_ids_v1'); } catch {} }}
+                          disabled={profilesLoading || isRefreshing || (isOffline && !!profilesNextCursor)}
+                          onClick={() => {
+                            if (publicProfilesStale) { void fetchAllData(); return; }
+                            if (profilesNextCursor) { void loadMoreProfiles(); return; }
+                            triggerHapticImpact('light'); setSwipedIds([]);
+                            try { localStorage.removeItem('sportbuddy_swiped_ids_v1'); } catch {}
+                          }}
                           className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold px-6 py-3 rounded-2xl text-sm transition shadow-[0_4px_15px_rgba(16,185,129,0.4)] active:scale-95 inline-flex items-center gap-2"
                         >
-                          <RefreshCw className="w-4 h-4" /> Смотреть анкеты заново
+                          <RefreshCw className="w-4 h-4" /> {profilesLoading ? 'Загружаем…' : publicProfilesStale ? 'Повторить загрузку' : profilesNextCursor ? 'Следующие анкеты' : 'Смотреть анкеты заново'}
                         </button>
                       </div>
                     )}
@@ -2284,7 +2363,7 @@ export default function App(): JSX.Element {
 
                 {/* Community leaderboard */}
                 <Leaderboard
-                  incomplete={publicProfilesStale}
+                  incomplete={publicProfilesStale || !!profilesNextCursor || profilesLoading}
                   allUsers={allUsers}
                   currentUserId={CURRENT_USER_ID}
                   onSelectUser={(u) => setSelectedUserModal(u)}

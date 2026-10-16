@@ -16,15 +16,31 @@ export default async function handler(req,res){
     const db=getFirestore();
     await readUserStatus(db,uid); // A newly authenticated account may still be bootstrapping.
     const cursor=req.body?.cursor;
+    const ids=req.body?.ids;
+    const pageSize=req.body?.pageSize ?? 200;
+    const validId=id=>typeof id==='string' && id.length>0 && id.length<=128 && !id.includes('/');
+    if(ids!==undefined){
+      if(!Array.isArray(ids)||ids.length>50||!ids.every(validId)||cursor!==undefined)
+        return res.status(400).json({error:'Некорректный список атлетов'});
+      const unique=[...new Set(ids)].sort();
+      const page=await publicProfileCache(db).get('ids:'+JSON.stringify(unique),async()=>{
+        const docs=await Promise.all(unique.map(async id=>({id,snapshot:await db.collection('users').doc(id).get()})));
+        return {profiles:docs.filter(({snapshot:s})=>s.exists && s.data().isSuspended!==true && s.data().isDemo!==true)
+          .map(({id,snapshot:s})=>publicProfile(id,s.data())),nextCursor:null};
+      });
+      return res.status(200).json(page);
+    }
+    if(!Number.isInteger(pageSize)||pageSize<1||pageSize>200)
+      return res.status(400).json({error:'Некорректный размер страницы'});
     if(cursor!==undefined && (typeof cursor!=='string'||!cursor||cursor.length>128||cursor.includes('/')))
       return res.status(400).json({error:'Некорректная страница'});
-    const page=await publicProfileCache(db).get(cursor || '', async()=>{
-      let query=db.collection('users').orderBy(FieldPath.documentId()).limit(200);
+    const page=await publicProfileCache(db).get('page:'+JSON.stringify([pageSize,cursor || '']), async()=>{
+      let query=db.collection('users').orderBy(FieldPath.documentId()).limit(pageSize);
       if(cursor)query=query.startAfter(cursor);
       const snap=await query.get();
       const profiles=snap.docs.filter(doc=>doc.data().isSuspended!==true && doc.data().isDemo!==true)
         .map(doc=>publicProfile(doc.id,doc.data()));
-      return {profiles,nextCursor:snap.docs.length===200?snap.docs.at(-1).id:null};
+      return {profiles,nextCursor:snap.docs.length===pageSize?snap.docs.at(-1).id:null};
     });
     return res.status(200).json(page);
   }catch(error){
