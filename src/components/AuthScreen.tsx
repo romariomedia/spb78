@@ -5,12 +5,12 @@ import { useEffect, useRef, useState } from 'react';
 import * as VKID from '@vkid/sdk';
 import { motion } from 'framer-motion';
 import {
-  Fingerprint, AlertCircle, Dumbbell, Landmark, MapPin, MoveRight,
+  AlertCircle, Dumbbell, Landmark, MapPin, MoveRight,
   Mail, Lock, User as UserIcon, Eye, EyeOff, ChevronDown
 } from 'lucide-react';
 import type { AuthAccount } from '../lib/types';
 import {
-  loginWithVK, authenticateBiometric, isBiometricEnabled, TRIAL_DAYS,
+  loginWithVK, TRIAL_DAYS,
   registerAccount, loginWithPassword, requestPasswordRecovery
 } from '../services/auth';
 import {
@@ -85,7 +85,6 @@ export function AuthScreen({ onAuthenticated, initialNotice = '' }: Props) {
   // Gender is chosen once at registration and locked afterwards.
   const [regGender, setRegGender] = useState<'male' | 'female' | null>(null);
 
-  const biometricAvailable = isBiometricEnabled();
 
   const oAuthContainerRef = useRef<HTMLDivElement>(null);
 
@@ -284,17 +283,6 @@ export function AuthScreen({ onAuthenticated, initialNotice = '' }: Props) {
         responseMode: VKID.ConfigResponseMode.Callback, state: '', codeVerifier: '' });
       setVkBusy(false);
     }
-  };
-
-  const handleBiometric = async () => {
-    triggerHapticImpact('medium');
-    setError('');
-    const result = await authenticateBiometric();
-    if (!result.ok || !result.account) {
-      setError(result.error || 'Отпечаток не распознан');
-      return;
-    }
-    onAuthenticated(result.account, false);
   };
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
@@ -606,14 +594,6 @@ export function AuthScreen({ onAuthenticated, initialNotice = '' }: Props) {
             </form>
           )}
 
-          {biometricAvailable && !isRegister && (
-            <button
-              onClick={handleBiometric}
-              className="mt-3 flex w-full items-center justify-center gap-2.5 rounded-2xl border border-emerald-400/35 bg-emerald-400/[0.06] py-3 text-xs font-bold text-emerald-300 transition active:scale-[0.98]"
-            >
-              <Fingerprint className="h-4 w-4" /> Быстрый вход по отпечатку
-            </button>
-          )}
 
           <div className="my-4 flex items-center gap-3">
             <span className="h-px flex-1 bg-slate-800" />

@@ -18,7 +18,7 @@ import {
   Filter, Plus, Share2, MessageCircle, Send, Zap, Crown, 
   ChevronRight, Bell, WifiOff, RefreshCw, Sparkles, Search, CheckCheck, Reply, Trash2,
   Map as MapIcon, SlidersHorizontal, CheckCircle2,
-  Calendar, ShieldAlert, Clock, Lock, UserPlus, Ticket
+  Calendar, ShieldAlert, Clock, Lock, UserPlus, Ticket, LogOut
 } from 'lucide-react';
 
 import { 
@@ -3203,11 +3203,10 @@ export default function App(): JSX.Element {
                   onGoPremium={() => setProfileSection('tariff')}
                 />
 
-                {/* Subscription, promo codes, biometrics & logout */}
+                {/* Subscription and promo codes */}
                 <PromoSection
                   user={currentUser}
                   onUpdateUser={(newUser) => setCurrentUser(newUser)}
-                  onLogout={handleLogout}
                 />
 
                 {/* Full-Featured Rewards, Medals & SportBuddy BOX section */}
@@ -3220,6 +3219,23 @@ export default function App(): JSX.Element {
 
                   </>
                 )}
+
+                <div className="border-t border-slate-800 pt-5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHapticImpact('medium');
+                      handleLogout();
+                    }}
+                    className="flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl border border-rose-400/25 bg-rose-500/5 px-5 py-4 text-base font-bold text-rose-300 transition hover:bg-rose-500/10 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
+                  >
+                    <LogOut className="h-5 w-5 shrink-0" aria-hidden="true" />
+                    Выйти из аккаунта
+                  </button>
+                  <p className="mt-2 text-center text-xs leading-relaxed text-slate-500">
+                    Профиль, фотографии и награды сохранятся.
+                  </p>
+                </div>
               </div>
             )}
           </motion.div>

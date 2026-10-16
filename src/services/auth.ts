@@ -2,7 +2,7 @@ import { apiFetch } from './apiEndpoint';
 import { detachPushOnLogout } from './notifications';
 import { AuthAccount } from '../lib/types';
 import { triggerHapticNotification } from './native';
-import { authReady, getFirebaseUid, signInWithCustomTokenFirebase, signOutFirebase } from './firebaseAuth';
+import { signInWithCustomTokenFirebase, signOutFirebase } from './firebaseAuth';
 import { vkFallbackEmail } from './vkid';
 import { resetLocalProgress } from './reset';
 import { isUsablePersonName, normalizePersonName } from '../../shared/identity-policy.js';
@@ -45,6 +45,7 @@ function writeAccount(account: AuthAccount): void {
 
 function clearLegacyAccountStore(): void {
   try {
+    localStorage.removeItem(BIOMETRIC_KEY);
     localStorage.removeItem(LEGACY_ACCOUNTS_KEY);
     localStorage.removeItem(LEGACY_SESSION_KEY);
   } catch { /* ignore */ }
@@ -137,7 +138,7 @@ export async function loginWithVK(
     const account = makeAccount(firebase.uid, payload.email || email || vkFallbackEmail(vkId), payload.name || fullName, {
       vkId: String(payload.vkId || vkId),
       provider: 'vk',
-      biometricEnabled: readAccount()?.biometricEnabled ?? false,
+      biometricEnabled: false,
       firebaseUid: firebase.uid
     });
 
@@ -261,55 +262,3 @@ export function logout(): void {
   void signOutFirebase();
 }
 
-export function isBiometricEnabled(): boolean { return localStorage.getItem(BIOMETRIC_KEY) !== null; }
-export function getBiometricAccountId(): string | null { return localStorage.getItem(BIOMETRIC_KEY); }
-
-export async function isBiometricSupported(): Promise<boolean> {
-  try {
-    if (typeof window === 'undefined' || !window.PublicKeyCredential) return false;
-    return await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
-  } catch { return false; }
-}
-
-export async function enrollBiometric(account: AuthAccount): Promise<{ ok: boolean; error?: string }> {
-  try {
-    if (await isBiometricSupported()) {
-      const challenge = new Uint8Array(32); crypto.getRandomValues(challenge);
-      const userId = new TextEncoder().encode(account.id);
-      await navigator.credentials.create({
-        publicKey: {
-          challenge, rp: { name: 'SportBuddy СПб' },
-          user: { id: userId, name: account.email, displayName: account.name },
-          pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
-          authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required' },
-          timeout: 60000, attestation: 'none'
-        }
-      });
-    }
-    localStorage.setItem(BIOMETRIC_KEY, account.id);
-    writeAccount({ ...account, biometricEnabled: true });
-    triggerHapticNotification('success');
-    return { ok: true };
-  } catch (err: unknown) {
-    return { ok: false, error: (err as DOMException)?.name === 'NotAllowedError' ? 'Сканирование отменено' : 'Биометрия недоступна на этом устройстве' };
-  }
-}
-
-export async function authenticateBiometric(): Promise<AuthResult> {
-  const accountId = getBiometricAccountId();
-  const account = readAccount();
-  if (!accountId || !account || account.id !== accountId) return { ok: false, error: 'Вход по отпечатку не настроен' };
-  try {
-    await authReady;
-    if (getFirebaseUid() !== account.id) return { ok: false, error: 'Защищённая Firebase-сессия не восстановлена. Войдите по паролю или VK.' };
-    if (await isBiometricSupported()) {
-      const challenge = new Uint8Array(32); crypto.getRandomValues(challenge);
-      await navigator.credentials.get({ publicKey: { challenge, userVerification: 'required', timeout: 60000 } });
-    }
-    setSession(account.id); triggerHapticNotification('success'); return { ok: true, account };
-  } catch (err: unknown) {
-    return { ok: false, error: (err as DOMException)?.name === 'NotAllowedError' ? 'Отпечаток не распознан или отменён' : 'Не удалось выполнить биометрический вход' };
-  }
-}
-
-export function disableBiometric(): void { localStorage.removeItem(BIOMETRIC_KEY); }

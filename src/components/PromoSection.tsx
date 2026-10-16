@@ -2,18 +2,14 @@ import { isBetaActive, BETA_END } from '../lib/release';
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
-  Ticket, Crown, Copy, Check, Gift, Sparkles, Fingerprint,
-  LogOut, CalendarClock, AlertCircle
+  Ticket, Crown, Copy, Check, Gift, Sparkles,
+  CalendarClock, AlertCircle
 } from 'lucide-react';
 import { UserProfile, PromoCode } from '../lib/types';
 import {
   redeemPromoCode, fetchMyPromoCodes, premiumDaysLeft,
   isPremiumActive, isTrialActive, formatDate
 } from '../services/promo';
-import {
-  enrollBiometric, disableBiometric, isBiometricEnabled,
-  getSessionAccount, logout
-} from '../services/auth';
 import { triggerHapticImpact } from '../services/native';
 import { ProgressBar } from './ProgressBar';
 import { CollapsibleCard } from './CollapsibleCard';
@@ -21,15 +17,12 @@ import { CollapsibleCard } from './CollapsibleCard';
 interface PromoSectionProps {
   user: UserProfile;
   onUpdateUser: (user: UserProfile) => void;
-  onLogout: () => void;
 }
 
-export const PromoSection: React.FC<PromoSectionProps> = ({ user, onUpdateUser, onLogout }) => {
+export const PromoSection: React.FC<PromoSectionProps> = ({ user, onUpdateUser }) => {
   const [code, setCode] = useState('');
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
-  const [bioOn, setBioOn] = useState(isBiometricEnabled());
-  const [bioError, setBioError] = useState<string | null>(null);
 
   const [myPromos, setMyPromos] = useState<PromoCode[]>([]);
   useEffect(() => {
@@ -73,26 +66,6 @@ export const PromoSection: React.FC<PromoSectionProps> = ({ user, onUpdateUser, 
     }
   };
 
-  const handleToggleBiometric = async () => {
-    setBioError(null);
-    const account = getSessionAccount();
-    if (!account) {
-      setBioError('Сессия не найдена, войдите заново');
-      return;
-    }
-    if (bioOn) {
-      disableBiometric();
-      setBioOn(false);
-      return;
-    }
-    const result = await enrollBiometric(account);
-    if (!result.ok) {
-      setBioError(result.error || 'Не удалось включить биометрию');
-      return;
-    }
-    setBioOn(true);
-    onUpdateUser({ ...user, biometricEnabled: true });
-  };
 
   return (
     <div className="space-y-5">
@@ -296,76 +269,6 @@ export const PromoSection: React.FC<PromoSectionProps> = ({ user, onUpdateUser, 
         </div>
       </CollapsibleCard>
 
-      {/* ---------------- Security & biometrics ---------------- */}
-      <CollapsibleCard
-        storageKey="sportbuddy_profile_security_open_v1"
-        className="bg-slate-900 border border-slate-800"
-        defaultOpen={false}
-        icon={
-          <div className="w-11 h-11 rounded-2xl bg-slate-950 border border-slate-700 flex items-center justify-center">
-            <Fingerprint className="w-5 h-5 text-emerald-400" />
-          </div>
-        }
-        title="Безопасность и вход"
-        subtitle={user.email || 'Управление аккаунтом'}
-        collapsedSummary={bioOn ? 'Отпечаток пальца включён' : 'Вход по паролю'}
-        badge={
-          <span className={`text-[10px] font-black px-2 py-1 rounded-lg border ${
-            bioOn
-              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-              : 'bg-slate-800 text-slate-400 border-slate-700'
-          }`}>
-            {bioOn ? '👆 ON' : 'OFF'}
-          </span>
-        }
-      >
-
-        <div className="flex items-center justify-between gap-3 bg-slate-950 p-3.5 rounded-2xl border border-slate-800">
-          <div className="min-w-0">
-            <h4 className="text-xs font-bold text-slate-200">Вход по отпечатку пальца</h4>
-            <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
-              Touch ID / Face ID вместо ввода пароля
-            </p>
-            {user.email && (
-              <p className="text-[10px] text-slate-600 mt-1 truncate">Аккаунт: {user.email}</p>
-            )}
-          </div>
-          <button
-            onClick={handleToggleBiometric}
-            className={`relative w-14 h-8 rounded-full transition-colors shrink-0 ${
-              bioOn ? 'bg-emerald-500' : 'bg-slate-700'
-            }`}
-            aria-label="Переключить биометрию"
-          >
-            <motion.span
-              layout
-              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-              className={`absolute top-1 w-6 h-6 bg-white rounded-full shadow flex items-center justify-center ${
-                bioOn ? 'right-1' : 'left-1'
-              }`}
-            >
-              <Fingerprint className={`w-3.5 h-3.5 ${bioOn ? 'text-emerald-600' : 'text-slate-400'}`} />
-            </motion.span>
-          </button>
-        </div>
-
-        {bioError && (
-          <p className="text-[11px] text-rose-400 font-semibold flex items-center gap-1.5">
-            <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {bioError}
-          </p>
-        )}
-
-        <button
-          onClick={() => {
-            triggerHapticImpact('medium');
-            logout();
-            onLogout();
-          }}
-          className="w-full py-3 bg-slate-950 hover:bg-rose-500/10 border border-slate-800 hover:border-rose-500/50 text-rose-400 font-bold rounded-2xl text-xs transition active:scale-95 flex items-center justify-center gap-2"
-        >
-          <LogOut className="w-4 h-4" /> Выйти из аккаунта
-        </button>
-      </CollapsibleCard>
     </div>
   );
 };
