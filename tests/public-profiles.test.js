@@ -40,3 +40,11 @@ test('pagination advances over hidden profiles without exposing private fields',
  assert.equal(JSON.stringify(first.body).includes('secret'),false);
  const second=await request({cursor:first.body.nextCursor});assert.equal(second.body.profiles.length,1);assert.equal(second.body.nextCursor,null);
 });
+test('cached public page never bypasses caller authentication or suspension',async()=>{
+ const users={me:{name:'Me'},other:{name:'Other',email:'private@example.com'}};
+ const request=fixture(users);
+ assert.equal((await request()).code,200);
+ assert.equal((await request({},'invalid')).code,401);
+ users.me.isSuspended=true;
+ assert.equal((await request()).code,403);
+});

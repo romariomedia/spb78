@@ -1,3 +1,4 @@
+import { affectsPublicProfiles, invalidatePublicProfiles } from './public-profile-cache.js';
 import express from 'express';
 import cors from 'cors';
 import { pathToFileURL } from 'node:url';
@@ -47,6 +48,13 @@ export async function createApiApp({ apiDir, enforceOperations }) {
 
   for (const [name, handler] of handlers) {
     app.all(`/api/${name}`, async (req, res, next) => {
+      if (affectsPublicProfiles(name, req.body)) {
+        const json = res.json.bind(res);
+        res.json = body => {
+          if (res.statusCode >= 200 && res.statusCode < 300) invalidatePublicProfiles();
+          return json(body);
+        };
+      }
       try { if(enforceOperations && await enforceOperations(name,req,res))return; await handler(req, res); } catch (error) { next(error); }
     });
   }
