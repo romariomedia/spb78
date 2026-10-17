@@ -1,39 +1,76 @@
 import { AvatarImage } from './AvatarImage';
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Trophy, Crown, TrendingUp, Users as UsersIcon } from 'lucide-react';
-import { UserProfile, LeaderboardMetric } from '../lib/types';
+import { Trophy, TrendingUp, Users as UsersIcon } from 'lucide-react';
+import { LeaderboardMetric } from '../lib/types';
 import { MEDAL_TIERS } from '../lib/medals';
 import {
-  LEADERBOARD_METRICS, buildLeaderboard, getRankBadge, getCommunityStats
+  LEADERBOARD_METRICS, getRankBadge, loadLeaderboard, RankingPage
 } from '../services/leaderboard';
 import { triggerHapticImpact } from '../services/native';
 import { CollapsibleCard } from './CollapsibleCard';
 
 interface LeaderboardProps {
-  allUsers: UserProfile[];
-  incomplete?: boolean;
   currentUserId: string;
-  onSelectUser: (user: UserProfile) => void;
+  refreshKey: number;
+  onSelectUser: (id: string) => Promise<void>;
 }
-
-const LeaderboardInner: React.FC<LeaderboardProps> = ({
-  allUsers, currentUserId, onSelectUser, incomplete
-}) => {
+const LeaderboardInner: React.FC<LeaderboardProps> = ({currentUserId, refreshKey, onSelectUser}) => {
   const [metric, setMetric] = useState<LeaderboardMetric>('workouts');
   const [expanded, setExpanded] = useState(false);
-
-  const entries = useMemo(() => buildLeaderboard(allUsers, metric), [allUsers, metric]);
-  const stats = useMemo(() => getCommunityStats(allUsers), [allUsers]);
-  const config = LEADERBOARD_METRICS.find((m) => m.id === metric)!;
-
-  const myEntry = entries.find((e) => e.user.id === currentUserId);
-  const visible = expanded ? entries : entries.slice(0, 5);
-  const maxValue = Math.max(1, entries[0]?.value ?? 1);
-
-  if (incomplete) return <div role="status" className="rounded-2xl border border-amber-500/25 bg-slate-900 p-4 text-sm text-slate-300">
-    Таблица лидеров появится после загрузки всех анкет. Мы не показываем неполное количество атлетов как итоговое.
+  const [result, setResult] = useState<{owner:string; page:RankingPage} | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [retry, setRetry] = useState(0);
+  const [selectionError, setSelectionError] = useState('');
+  const [selecting, setSelecting] = useState(false);
+  const generation = useRef(0);
+  const busy = useRef(false);
+  useEffect(() => {
+    const epoch = ++generation.current;
+    busy.current = true;
+    setLoading(true); setError(''); setExpanded(false); setResult(null);
+    setSelectionError(''); setSelecting(false);
+    loadLeaderboard(metric).then(page => {
+      if (generation.current === epoch) setResult({owner:currentUserId,page});
+    }).catch(() => {
+      if (generation.current === epoch) setError('Рейтинг не загрузился. Проверьте соединение и повторите попытку.');
+    }).finally(() => {
+      if (generation.current === epoch) {setLoading(false); busy.current=false;}
+    });
+    return () => {++generation.current;};
+  }, [currentUserId, metric, retry, refreshKey]);
+  const page = result?.owner === currentUserId && result.page.metric === metric ? result.page : null;
+  async function loadNext() {
+    if (!page || page.nextOffset === null || busy.current) return;
+    const epoch = generation.current;
+    busy.current=true; setLoading(true); setError('');
+    try {
+      const next = await loadLeaderboard(metric,page.nextOffset,page.version);
+      if (generation.current !== epoch) return;
+      setResult({owner:currentUserId,page:{...next,entries:[...page.entries,...next.entries]}});
+    } catch {
+      if (generation.current === epoch) setError('Не удалось продолжить рейтинг: соединение прервалось или данные обновились. Загрузите рейтинг заново.');
+    } finally {
+      if (generation.current === epoch) {setLoading(false);busy.current=false;}
+    }
+  }
+  async function selectUser(id: string) {
+    if (selecting) return;
+    const epoch=generation.current;
+    setSelecting(true);setSelectionError('');
+    try {await onSelectUser(id);} catch {
+      if(generation.current===epoch)setSelectionError('Анкета недоступна. Повторите попытку позже.');
+    } finally {if(generation.current===epoch)setSelecting(false);}
+  }
+  const config = LEADERBOARD_METRICS.find(m=>m.id===metric)!;
+  if (!page) return <div role="status" className="rounded-2xl border border-slate-800 bg-slate-900 p-4 text-sm text-slate-300">
+    <p>{loading ? 'Загружаем таблицу лидеров…' : error || 'Рейтинг пока недоступен.'}</p>
+    {!loading && <button type="button" onClick={()=>setRetry(value=>value+1)} className="mt-3 rounded-xl bg-lime-300 px-4 py-2 font-bold text-slate-950">Повторить</button>}
   </div>;
+  const {entries,stats,myEntry}=page;
+  const visible=expanded?entries:entries.slice(0,5);
+  const maxValue=Math.max(1,page.maxValue);
   return (
     <CollapsibleCard
       storageKey="sportbuddy_leaderboard_open_v1"
@@ -101,9 +138,10 @@ const LeaderboardInner: React.FC<LeaderboardProps> = ({
             <motion.button
               key={entry.user.id}
               layout
-              onClick={() => { triggerHapticImpact('light'); onSelectUser(entry.user); }}
+              disabled={selecting}
+              onClick={() => { triggerHapticImpact('light'); void selectUser(entry.user.id); }}
               className={`sb-hover-lift relative w-full overflow-hidden text-left p-2.5 rounded-2xl border transition active:scale-[0.99] flex items-center gap-2.5 ${
-                entry.isCurrentUser
+                entry.user.id === currentUserId
                   ? 'bg-emerald-500/10 border-emerald-500/60'
                   : isTop3
                   ? 'bg-gradient-to-r from-amber-950/30 to-slate-950 border-amber-500/30'
@@ -114,7 +152,7 @@ const LeaderboardInner: React.FC<LeaderboardProps> = ({
               <span
                 aria-hidden
                 className={`absolute inset-y-0 left-0 pointer-events-none ${
-                  entry.isCurrentUser ? 'bg-emerald-500/10' : 'bg-slate-800/40'
+                  entry.user.id === currentUserId ? 'bg-emerald-500/10' : 'bg-slate-800/40'
                 }`}
                 style={{ width: `${pct}%` }}
               />
@@ -136,13 +174,11 @@ const LeaderboardInner: React.FC<LeaderboardProps> = ({
 
               <div className="relative z-10 flex-1 min-w-0">
                 <h4 className="text-xs font-extrabold text-white truncate flex items-center gap-1">
-                  {entry.isCurrentUser ? 'Вы' : entry.user.name}
+                  {entry.user.id === currentUserId ? 'Вы' : entry.user.name}
                   <span className="shrink-0" title={MEDAL_TIERS[entry.user.medalTier || 'bronze'].name}>
                     {MEDAL_TIERS[entry.user.medalTier || 'bronze'].emoji}
                   </span>
-                  {entry.user.subscriptionPlan === 'premium' && (
-                    <Crown className="w-3 h-3 fill-amber-400 text-amber-400 shrink-0" />
-                  )}
+
                 </h4>
                 <p className="text-[10px] text-slate-500 truncate">{entry.user.locationName}</p>
               </div>
@@ -167,26 +203,30 @@ const LeaderboardInner: React.FC<LeaderboardProps> = ({
             <>Свернуть рейтинг</>
           ) : (
             <>
-              <UsersIcon className="w-3.5 h-3.5" /> Показать всех ({entries.length})
+              <UsersIcon className="w-3.5 h-3.5" /> Показать больше ({stats.athletes})
             </>
           )}
         </button>
       )}
 
-      {myEntry && myEntry.rank > 3 && (
+      {expanded && page.nextOffset !== null && !error && <button type="button" disabled={loading}
+        onClick={()=>void loadNext()} className="w-full rounded-xl bg-slate-800 px-4 py-3 text-sm font-bold text-lime-300 disabled:opacity-50">
+        {loading ? 'Загружаем…' : 'Следующие 20 атлетов'}
+      </button>}
+      {error && <div role="status" className="text-sm text-amber-200">
+        <p>{error}</p><button type="button" onClick={()=>setRetry(value=>value+1)} className="mt-2 underline">Обновить рейтинг</button>
+      </div>}
+      {selectionError && <p role="status" className="text-sm text-amber-200">{selectionError}</p>}
+      <p className="text-xs text-slate-400">Результаты могут обновляться с задержкой до 30 секунд. <button type="button" disabled={loading} className="underline" onClick={()=>setRetry(value=>value+1)}>Обновить</button></p>
+
+      {myEntry && myEntry.rank > 3 && page.top3Value !== null && (
         <p className="text-[10px] text-slate-500 text-center flex items-center justify-center gap-1.5">
           <TrendingUp className="w-3 h-3 text-emerald-400" />
-          До топ-3 осталось {Math.max(0, (entries[2]?.value ?? 0) - myEntry.value + 1)} {config.unit}
+          До топ-3 осталось {Math.max(0, page.top3Value - myEntry.value + 1)} {config.unit}
         </p>
       )}
     </CollapsibleCard>
   );
 };
 
-/** Memoised: the leaderboard only re-renders when the athlete list changes */
-export const Leaderboard = React.memo(
-  LeaderboardInner,
-  (prev, next) =>
-    prev.allUsers === next.allUsers && prev.currentUserId === next.currentUserId
-    && prev.incomplete === next.incomplete && prev.onSelectUser === next.onSelectUser
-);
+export const Leaderboard = React.memo(LeaderboardInner);

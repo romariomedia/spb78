@@ -29,7 +29,7 @@ import {
   buildChatId, clearChatCache, formatTimeLabel, loadChatHistory, subscribeChatThreads
 } from './services/chats';
 import { 
-  loadAppData, loadPublicProfilePage, loadFeedPosts, createTraining, toggleJoinTraining, toggleLikeProfile,
+  loadAppData, loadPublicProfilePage, loadPublicProfilesByIds, loadFeedPosts, createTraining, toggleJoinTraining, toggleLikeProfile,
   createPost, createComment, toggleLikePost, PremiumTrainingRequiredError,
   updateProfile, syncOfflineQueue, persistFreshProfile, syncProfileIdentity, setCurrentUserId, CURRENT_USER_ID, getOfflineQueue 
 } from './services/repository';
@@ -189,6 +189,9 @@ export default function App(): JSX.Element {
   const [profilesNextCursor, setProfilesNextCursor] = useState<string | null>(null);
   const [profilesLoading, setProfilesLoading] = useState(false);
   const [profilesError, setProfilesError] = useState('');
+  const [trainingIdentityError, setTrainingIdentityError] = useState('');
+  const [trainingIdentityRetry, setTrainingIdentityRetry] = useState(0);
+  const [rankingRefreshKey, setRankingRefreshKey] = useState(0);
   const directoryEpoch = useRef(0);
   const directoryRequest = useRef<number | null>(null);
   const [paymentSuccess, setPaymentSuccess] = useState(() => window.location.pathname === '/success');
@@ -513,6 +516,7 @@ export default function App(): JSX.Element {
       setTrainings(getActiveTrainings(data.trainings));
       setLoadError('');
       setLoadWarning(data.loadWarning ?? '');
+      setRankingRefreshKey(value=>value+1);
       setPublicProfilesStale(data.publicProfilesStale === true);
       setProfilesNextCursor(data.publicProfilesNextCursor ?? null);
       setFeedPosts(data.feedPosts);
@@ -568,10 +572,37 @@ export default function App(): JSX.Element {
 
   // These existing views still need the complete directory. Never calculate a
   // community total from a discovery page; load it only when the view is used.
-  const needsFullDirectory = activeTab !== 'discover' || discoverViewMode !== 'cards';
+  const needsFullDirectory = (activeTab !== 'discover' && activeTab !== 'trainings')
+    || (activeTab === 'discover' && discoverViewMode !== 'cards');
   useEffect(() => {
     if (needsFullDirectory && !profilesError) void loadMoreProfiles(true);
   }, [needsFullDirectory, loadMoreProfiles, profilesError]);
+
+  const relatedTrainingIds = useMemo(() => {
+    const activities = [...(activeTab === 'trainings' ? trainings : []), ...(selectedTraining ? [selectedTraining] : [])];
+    return [...new Set(activities.flatMap(training => [training.createdBy, ...(training.participantIds || [])]))].filter(Boolean);
+  }, [activeTab, trainings, selectedTraining]);
+  useEffect(() => {
+    if (!currentUser || isRefreshing || isOffline) return;
+    let cancelled=false;
+    const uid=currentUser.id, epoch=directoryEpoch.current;
+    const loaded=new Set(allUsers.map(user=>user.id));
+    const missing=relatedTrainingIds.filter(id=>!loaded.has(id));
+    setTrainingIdentityError('');
+    if (!missing.length) return;
+    loadPublicProfilesByIds(missing).then(profiles=>{
+      if(cancelled || epoch!==directoryEpoch.current || CURRENT_USER_ID!==uid)return;
+      setAllUsers(previous=>{
+        const merged=new Map(previous.map(user=>[user.id,user]));
+        for(const user of profiles)if(user.id!==uid)merged.set(user.id,user);
+        return [...merged.values()];
+      });
+    }).catch(()=>{
+      if(!cancelled && epoch===directoryEpoch.current)setTrainingIdentityError('Не удалось загрузить имена и фото части участников тренировок.');
+    });
+    return ()=>{cancelled=true;};
+    // Missing/deleted profiles must not cause an automatic retry loop.
+  }, [relatedTrainingIds, currentUser?.id, isRefreshing, isOffline, trainingIdentityRetry]);
 
   /**
    * Realtime Firestore invalidation: posts, profiles and trainings published
@@ -1996,7 +2027,7 @@ export default function App(): JSX.Element {
       {(operations.maintenanceMode||operations.error)&&<div role="status" className="mx-4 my-3 rounded-xl bg-amber-950 p-4 text-sm text-amber-100">{operations.maintenanceMode?operations.maintenanceMessage:operations.error}</div>}
       {((activeTab==='discover'&&!operations.featureFlags.datingEnabled)||(activeTab==='leisure'&&!operations.featureFlags.activeLeisureEnabled)||(activeTab==='profile'&&profileSection==='passport'&&!operations.featureFlags.sportPassportEnabled))&&<div role="status" className="mx-4 my-3 rounded-xl bg-slate-900 p-4 text-slate-200">Раздел временно отключён. Другие разделы доступны через нижнее меню.</div>}
       <AppAnnouncements placement={activeTab} />
-      {currentUser && profilesNextCursor && <div role="status" className="mx-4 my-3 rounded-2xl border border-emerald-400/20 bg-slate-900 p-4 text-sm text-slate-300">
+      {currentUser && profilesNextCursor && (activeTab === 'discover' || needsFullDirectory) && <div role="status" className="mx-4 my-3 rounded-2xl border border-emerald-400/20 bg-slate-900 p-4 text-sm text-slate-300">
         <p>{profilesError || (profilesLoading ? 'Загружаем анкеты…' : needsFullDirectory
           ? 'Для полного списка людей и рейтинга нужно загрузить остальные анкеты.'
           : 'Есть ещё анкеты. Посмотрите следующую подборку.')}</p>
@@ -2361,12 +2392,20 @@ export default function App(): JSX.Element {
                   onSelectDay={setCalendarDay}
                 />
 
+                {trainingIdentityError && <div role="status" className="rounded-xl bg-slate-900 p-3 text-sm text-amber-200">
+                  {trainingIdentityError} <button type="button" className="underline" onClick={()=>setTrainingIdentityRetry(value=>value+1)}>Повторить</button>
+                </div>}
                 {/* Community leaderboard */}
                 <Leaderboard
-                  incomplete={publicProfilesStale || !!profilesNextCursor || profilesLoading}
-                  allUsers={allUsers}
                   currentUserId={CURRENT_USER_ID}
-                  onSelectUser={(u) => setSelectedUserModal(u)}
+                  refreshKey={rankingRefreshKey}
+                  onSelectUser={async (id) => {
+                    const epoch=directoryEpoch.current, uid=CURRENT_USER_ID;
+                    const user=id===currentUser?.id?currentUser:(await loadPublicProfilesByIds([id]))[0];
+                    if(epoch!==directoryEpoch.current || CURRENT_USER_ID!==uid)return;
+                    if(!user)throw new Error('Анкета недоступна');
+                    setSelectedUserModal(user);
+                  }}
                 />
 
                 {/* Filter chip pills */}

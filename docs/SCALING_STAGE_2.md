@@ -60,3 +60,6 @@ compare totals after completion with the web version. Interrupt connectivity
 while loading more, reconnect and retry. Log out during loading, then sign in
 with another account and check that the old results do not appear. Do not seed
 synthetic users into production just to exercise pagination.
+
+Stage 3 supersedes the full-directory dependency for Trainings and its ranking;
+see `SCALING_STAGE_3.md`. Other view dependencies listed above remain.

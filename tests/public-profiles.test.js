@@ -14,6 +14,7 @@ const {default:handler}=await import('data:text/javascript;base64,'+Buffer.from(
 function fixture(users){
  globalThis.__publicDb={collection(name){assert.equal(name,'users');let cursor='',limit=0;return {
  doc(id){return {get:async()=>({exists:!!users[id],data:()=>users[id]})}},
+ select(...fields){assert.ok(!fields.includes('rewardItems'));assert.ok(!fields.includes('email'));return this},
  orderBy(field){assert.equal(field,'__name__');return this},limit(n){limit=n;return this},startAfter(id){cursor=id;return this},
  async get(){return {docs:Object.keys(users).sort().filter(id=>id>cursor).slice(0,limit).map(id=>({id,data:()=>users[id]}))}}
  }}};
@@ -72,4 +73,29 @@ test('targeted identity lookup is bounded, deduplicated and projects only public
  assert.equal((await request({ids:['alice']},'invalid')).code,401);
  users.me.isSuspended=true;
  assert.equal((await request({ids:['alice']})).code,403);
+});
+
+
+test('server ranking returns bounded pages, full totals and own rank outside first page',async()=>{
+ const users=Object.fromEntries(Array.from({length:45},(_,i)=>['u'+String(i).padStart(3,'0'),{name:'User',totalWorkouts:100-i,totalDailyMedals:2,dailyMedalStreak:3,claimedBoxTiers:[7],email:'SECRET',rewardItems:[{code:'SECRET'}]}]));
+ users.me={name:'Me',totalWorkouts:1};users.hidden={isSuspended:true,totalWorkouts:999};users.demo={isDemo:true,totalWorkouts:999};
+ const request=fixture(users);
+ const first=await request({action:'leaderboard',metric:'workouts'});
+ assert.equal(first.code,200);assert.equal(first.body.entries.length,20);
+ assert.equal(first.body.stats.athletes,46);assert.equal(first.body.stats.boxes,45);
+ assert.equal(first.body.myEntry.rank,46);assert.equal(first.body.nextOffset,20);
+ assert.equal(JSON.stringify(first.body).includes('SECRET'),false);
+ const second=await request({action:'leaderboard',offset:20,version:first.body.version});
+ assert.equal(second.body.entries[0].rank,21);assert.equal(second.body.version,first.body.version);
+ assert.equal((await request({action:'leaderboard',offset:20,version:'expired'})).code,409);
+ assert.equal((await request({action:'leaderboard'},'invalid')).code,401);
+ users.me.isSuspended=true;
+ assert.equal((await request({action:'leaderboard'})).code,403);
+});
+
+test('cold ranking scans more than 500 docs and rejects malformed pagination',async()=>{
+ const request=fixture(Object.fromEntries(Array.from({length:505},(_,i)=>['u'+String(i).padStart(3,'0'),{totalWorkouts:1}])));
+ assert.equal((await request({action:'leaderboard'})).body.stats.athletes,505);
+ for(const body of [{metric:'email'},{offset:-1},{offset:1},{offset:1.2},{offset:'20'}])
+   assert.equal((await request({action:'leaderboard',...body})).code,400);
 });

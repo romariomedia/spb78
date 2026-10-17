@@ -25,7 +25,7 @@ export const LEADERBOARD_METRICS: MetricConfig[] = [
     shortLabel: 'Серия',
     icon: '🔥',
     unit: 'дн.',
-    description: 'Медалей подряд без пропусков (24 ч)'
+    description: 'Засчитанные дни текущего цикла входов'
   },
   {
     id: 'boxes',
@@ -41,7 +41,7 @@ export const LEADERBOARD_METRICS: MetricConfig[] = [
     shortLabel: 'Медали',
     icon: '🥇',
     unit: 'мед.',
-    description: 'Золотые медали за ежедневный вход'
+    description: 'Все накопленные медали за ежедневный вход'
   }
 ];
 
@@ -97,4 +97,32 @@ export function getCommunityStats(allUsers: UserProfile[]) {
     medals: real.reduce((s, u) => s + (u.totalDailyMedals || 0), 0),
     boxes: real.reduce((s, u) => s + (u.claimedBoxTiers || []).length, 0)
   };
+}
+
+export interface RankingEntry {
+  rank: number;
+  value: number;
+  user: Pick<UserProfile, 'id' | 'name' | 'avatar' | 'locationName' | 'medalTier'>;
+}
+export interface RankingPage {
+  metric: LeaderboardMetric;
+  version: string;
+  updatedAt: string;
+  stats: {athletes: number; workouts: number; medals: number; boxes: number};
+  entries: RankingEntry[];
+  myEntry: RankingEntry | null;
+  maxValue: number;
+  top3Value: number | null;
+  nextOffset: number | null;
+}
+export async function loadLeaderboard(metric: LeaderboardMetric, offset = 0, version?: string): Promise<RankingPage> {
+  const uid = CURRENT_USER_ID;
+  const { callServer } = await import('./serverApi');
+  const page = await callServer<RankingPage>('/api/public-profiles', {action:'leaderboard', metric, offset, ...(version ? {version} : {})});
+  if (CURRENT_USER_ID !== uid) throw new Error('Аккаунт изменился во время загрузки.');
+  if (!page || page.metric !== metric || typeof page.version !== 'string' || !Array.isArray(page.entries)
+    || !page.stats || !Number.isFinite(page.stats.athletes)
+    || (page.nextOffset !== null && (!Number.isSafeInteger(page.nextOffset) || page.nextOffset <= offset)))
+    throw new Error('Не удалось получить рейтинг. Повторите загрузку.');
+  return page;
 }

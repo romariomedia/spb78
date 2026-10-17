@@ -1,3 +1,4 @@
+import { loadRanking } from '../server/leaderboard.js';
 import { publicProfileCache } from '../server/public-profile-cache.js';
 import { getApps, initializeApp, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
@@ -15,6 +16,7 @@ export default async function handler(req,res){
     const {uid}=await getAuth().verifyIdToken(token,true);
     const db=getFirestore();
     await readUserStatus(db,uid); // A newly authenticated account may still be bootstrapping.
+    if(req.body?.action === 'leaderboard') return res.status(200).json(await loadRanking(db,uid,req.body));
     const cursor=req.body?.cursor;
     const ids=req.body?.ids;
     const pageSize=req.body?.pageSize ?? 200;
@@ -45,6 +47,6 @@ export default async function handler(req,res){
     return res.status(200).json(page);
   }catch(error){
     const status=error.code?.startsWith?.('auth/')?401:error.status||500;
-    return res.status(status).json({error:status===401?'Требуется повторный вход':status===403?'Аккаунт ограничен':'Не удалось загрузить анкеты'});
+    return res.status(status).json({error:status===401?'Требуется повторный вход':status===403?'Аккаунт ограничен':status===409?'Рейтинг обновился. Загрузите его заново.':status===400?'Некорректный запрос':'Не удалось загрузить анкеты'});
   }
 }
