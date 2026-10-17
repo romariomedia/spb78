@@ -1,3 +1,4 @@
+import { useDeferredFeed } from './services/useDeferredFeed';
 import { socialIdentityKey } from './services/identityLoading';
 import { useMobileNavigation } from './hooks/useMobileNavigation';
 import {useOperationalConfig} from './services/operationalConfig';
@@ -30,7 +31,7 @@ import {
   buildChatId, clearChatCache, formatTimeLabel, loadChatHistory, subscribeChatThreads
 } from './services/chats';
 import { 
-  loadAppData, loadPublicProfilePage, loadPublicProfilesByIds, loadFeedPosts, createTraining, toggleJoinTraining, toggleLikeProfile,
+  loadAppData, loadPublicProfilePage, loadPublicProfilesByIds, createTraining, toggleJoinTraining, toggleLikeProfile,
   createPost, createComment, toggleLikePost, PremiumTrainingRequiredError,
   updateProfile, syncOfflineQueue, persistFreshProfile, syncProfileIdentity, setCurrentUserId, CURRENT_USER_ID, getOfflineQueue 
 } from './services/repository';
@@ -219,6 +220,8 @@ export default function App(): JSX.Element {
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [trainings, setTrainings] = useState<Training[]>([]);
   const [feedPosts, setFeedPosts] = useState<FeedPost[]>([]);
+  const {feedLoading, feedError, refreshFeed} = useDeferredFeed(
+    currentUser?.id ?? null, activeTab === 'feed' && !isRefreshing && !isLoading && !isOffline, setFeedPosts);
   const [userCoords, setUserCoords] = useState<Coords>(DEFAULT_COORDS);
   const [hasCurrentLocation, setHasCurrentLocation] = useState(false);
   const [userLocationLabel, setUserLocationLabel] = useState<string>('Определение локации...');
@@ -417,7 +420,7 @@ export default function App(): JSX.Element {
       const activeSession = getSessionAccount();
       if (firebaseUid) setCurrentUserId(firebaseUid);
       else if (activeSession) setCurrentUserId(activeSession.firebaseUid ?? activeSession.id);
-      const data = await loadAppData();
+      const data = await loadAppData({deferFeed: true});
       if (directoryEpoch.current !== epoch || getSessionAccount()?.id !== activeSession?.id) return;
       void refreshWorkoutCredits(CURRENT_USER_ID).catch(() => {});
       void refreshRatings(CURRENT_USER_ID).catch(() => {});
@@ -524,6 +527,7 @@ export default function App(): JSX.Element {
       setPublicProfilesStale(data.publicProfilesStale === true);
       setProfilesNextCursor(data.publicProfilesNextCursor ?? null);
       setFeedPosts(data.feedPosts);
+      refreshFeed();
       setIsOffline(data.isOffline);
       setPendingSyncCount(getOfflineQueue().length);
     } catch (err) {
@@ -618,13 +622,10 @@ export default function App(): JSX.Element {
   useEffect(() => {
     if (!account) return;
     const unsubscribe = subscribeAppInvalidation((sections) => {
+      if (sections.has('feed')) refreshFeed();
       if (document.visibilityState === 'hidden') return;
       const feedOnly = sections.size === 1 && sections.has('feed');
-      if (feedOnly) {
-        const owner = account.id;
-        void loadFeedPosts().then(posts => {if(getSessionAccount()?.id===owner)setFeedPosts(posts);}).catch(() => undefined);
-        return;
-      }
+      if (feedOnly) return;
       void fetchAllData();
     }, account.id);
     return unsubscribe;
@@ -777,7 +778,7 @@ export default function App(): JSX.Element {
     // receives the App Link and forwards code/device_id to AuthScreen.
     const removeLinkListener = setupDeepLinkListener(
       (trainingId) => {
-        loadAppData().then(data => {
+        loadAppData({deferFeed: true}).then(data => {
           const found = data.trainings.find(t => t.id === trainingId);
           if (found) {
             setSelectedTraining(found);
@@ -3110,6 +3111,8 @@ export default function App(): JSX.Element {
 
                 <PartnerFeedSection key={currentUser?.id} />
 
+                {feedLoading && <p role="status" className="text-sm text-slate-400">Обновляем публикации…</p>}
+                {feedError && <div role="alert" className="rounded-2xl border border-amber-500/30 p-4 text-sm text-amber-200">{feedError}<button type="button" className="mt-2 block min-h-11 font-bold" onClick={refreshFeed}>Повторить загрузку</button></div>}
                 {/* Feed — virtualised: only visible posts stay mounted */}
                 <Virtuoso
                   useWindowScroll
@@ -3132,7 +3135,7 @@ export default function App(): JSX.Element {
                   )}
                   components={{
                     Item: VirtuosoSpacedItem,
-                    EmptyPlaceholder: FeedEmptyPlaceholder
+                    EmptyPlaceholder: feedLoading || feedError ? () => null : FeedEmptyPlaceholder
                   }}
                 />
 

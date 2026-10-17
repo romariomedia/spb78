@@ -173,3 +173,12 @@ test('failed identity read preserves cached friends and marks their section stal
   assert.match(data.loadWarning,/друзья и мэтчи/);
   assert.equal(data.publicProfilesStale,false);
 });
+
+test('deferred startup and training deep link do not request feed or report a false feed failure',async()=>{
+ reset();let reads=0;
+ globalThis.__sbApiHook=async(path)=>{if(path==='/api/feed-list'){reads++;throw Error('feed unavailable');}};
+ const data=await repository.loadAppData({deferFeed:true});
+ assert.equal(reads,0);assert.equal(data.loadWarning,undefined);assert.deepEqual(data.feedPosts,[]);
+ await assert.rejects(repository.loadFeedPosts({strict:true}),/Не удалось обновить публикации/);
+ assert.equal(reads,1);
+});

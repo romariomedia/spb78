@@ -635,7 +635,7 @@ async function loadPublicFeed(): Promise<FeedPost[]> {
   return [...posts.values()].sort((a,b)=>timestampValue(b.createdAt)-timestampValue(a.createdAt));
 }
 
-export async function loadAppData(): Promise<AppData> {
+export async function loadAppData({deferFeed = false}: {deferFeed?: boolean} = {}): Promise<AppData> {
   const uid = CURRENT_USER_ID;
   const rawCache = getOfflineCache();
   const cached = rawCache?.currentUser.id === uid ? rawCache : null;
@@ -660,7 +660,9 @@ export async function loadAppData(): Promise<AppData> {
     readSection(loadPublicProfilePage(), () => ({profiles: cached?.allUsers ?? [], nextCursor: cached?.publicProfilesNextCursor ?? null}), timeout),
     // No orderBy: legacy records without createdAt must remain visible.
     readSection(loadActivities<Training>('trainings'), () => cached?.trainings ?? INITIAL_TRAININGS, timeout),
-    readSection(loadPublicFeed(), () => (cached?.feedPosts ?? []).filter(post => post.isHidden !== true), timeout),
+    deferFeed
+      ? Promise.resolve({value: (cached?.feedPosts ?? []).filter(post => post.isHidden !== true), stale: false})
+      : readSection(loadPublicFeed(), () => (cached?.feedPosts ?? []).filter(post => post.isHidden !== true), timeout),
     readSection(getDocFromServer(doc(db, 'usersPrivate', uid)).then(snap =>
       snap.exists() ? snap.data() as Partial<UserProfile> : {}
     ), () => {
@@ -709,7 +711,7 @@ export async function loadAppData(): Promise<AppData> {
  * новые публикации): полный loadAppData() в этом случае читал бы ещё профиль,
  * всех пользователей, тренировки и приватные поля — лишние запросы и задержка.
  */
-export async function loadFeedPosts(): Promise<FeedPost[]> {
+export async function loadFeedPosts({strict = false}: {strict?: boolean} = {}): Promise<FeedPost[]> {
   const uid = CURRENT_USER_ID;
   const cached = getOfflineCache();
   const section = await readSection(
@@ -718,6 +720,7 @@ export async function loadFeedPosts(): Promise<FeedPost[]> {
     35_000
   );
   if (CURRENT_USER_ID !== uid) throw new Error('Аккаунт изменился во время загрузки.');
+  if (strict && section.stale) throw new Error('Не удалось обновить публикации. Показаны сохранённые данные.');
 
   if (!section.stale) {
     const mirror = getOfflineCache();
