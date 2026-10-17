@@ -1,3 +1,4 @@
+import { socialIdentityKey } from './services/identityLoading';
 import { useMobileNavigation } from './hooks/useMobileNavigation';
 import {useOperationalConfig} from './services/operationalConfig';
 import { DistrictSelect } from './components/DistrictSelect';
@@ -25,7 +26,7 @@ import {
   UserProfile, Training, FeedPost, TabType, AppNotification, ChatThread, ChatMessage 
 } from './lib/types';
 import {
-  loadChatThreads, sendChatMessage, sendTrainingGroupMessage, ensureTrainingGroupChat, ensureEventGroupChat, markThreadAsRead, countUnread, deleteChatMessage, setChatTyping,
+  loadChatThreads, loadCachedChatThreads, mergeKnownChatThreads, chatThreadsForCategory, sendChatMessage, sendTrainingGroupMessage, ensureTrainingGroupChat, ensureEventGroupChat, markThreadAsRead, countUnread, deleteChatMessage, setChatTyping,
   buildChatId, clearChatCache, formatTimeLabel, loadChatHistory, subscribeChatThreads
 } from './services/chats';
 import { 
@@ -189,6 +190,9 @@ export default function App(): JSX.Element {
   const [profilesNextCursor, setProfilesNextCursor] = useState<string | null>(null);
   const [profilesLoading, setProfilesLoading] = useState(false);
   const [profilesError, setProfilesError] = useState('');
+  const [socialIdentityError, setSocialIdentityError] = useState('');
+  const [socialIdentityLoading, setSocialIdentityLoading] = useState(false);
+  const [socialIdentityRetry, setSocialIdentityRetry] = useState(0);
   const [trainingIdentityError, setTrainingIdentityError] = useState('');
   const [trainingIdentityRetry, setTrainingIdentityRetry] = useState(0);
   const [rankingRefreshKey, setRankingRefreshKey] = useState(0);
@@ -572,16 +576,16 @@ export default function App(): JSX.Element {
 
   // These existing views still need the complete directory. Never calculate a
   // community total from a discovery page; load it only when the view is used.
-  const needsFullDirectory = (activeTab !== 'discover' && activeTab !== 'trainings')
+  const needsFullDirectory = (activeTab === 'leisure' || activeTab === 'feed')
     || (activeTab === 'discover' && discoverViewMode !== 'cards');
   useEffect(() => {
     if (needsFullDirectory && !profilesError) void loadMoreProfiles(true);
   }, [needsFullDirectory, loadMoreProfiles, profilesError]);
 
   const relatedTrainingIds = useMemo(() => {
-    const activities = [...(activeTab === 'trainings' ? trainings : []), ...(selectedTraining ? [selectedTraining] : [])];
+    const activities = [...(activeTab === 'trainings' ? trainings : []), ...[selectedTraining, ratingTraining, organizerRatingTraining].filter((item): item is Training => !!item)];
     return [...new Set(activities.flatMap(training => [training.createdBy, ...(training.participantIds || [])]))].filter(Boolean);
-  }, [activeTab, trainings, selectedTraining]);
+  }, [activeTab, trainings, selectedTraining, ratingTraining, organizerRatingTraining]);
   useEffect(() => {
     if (!currentUser || isRefreshing || isOffline) return;
     let cancelled=false;
@@ -856,10 +860,11 @@ export default function App(): JSX.Element {
   useEffect(() => {
     if (!currentUser) return;
     const selected=loadChatThreads(currentUser, allUsers, chatCategory);
-    setChatThreads(selected);
-    const combined=[...loadChatThreads(currentUser,allUsers,'matches'),...loadChatThreads(currentUser,allUsers,'friends')];
-    setAllChatThreads([...new Map(combined.map(thread=>[thread.id,thread])).values()].sort((a,b)=>b.lastMessageAt-a.lastMessageAt));
-  }, [currentUser, allUsers, chatCategory]);
+    setChatThreads(previous=>chatThreadsForCategory(currentUser,chatCategory,mergeKnownChatThreads(currentUser.id,selected,[...allChatThreads,...previous])));
+    loadChatThreads(currentUser,allUsers,'matches');
+    loadChatThreads(currentUser,allUsers,'friends');
+    setAllChatThreads(previous=>mergeKnownChatThreads(currentUser.id,loadCachedChatThreads(currentUser.id),previous));
+  }, [currentUser, chatCategory]);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -907,6 +912,35 @@ export default function App(): JSX.Element {
     ];
     return () => stops.forEach(stop => stop());
   }, [currentUser?.id]);
+
+  const socialIdsKey = socialIdentityKey(currentUser,
+    [...allChatThreads, ...chatThreads.filter(thread=>thread.id===openChatId)], openChatId, isComplaintOpen);
+  useEffect(() => {
+    setSocialIdentityError('');
+    setSocialIdentityLoading(false);
+    if (!currentUser || isRefreshing || isOffline) return;
+    const epoch=directoryEpoch.current, uid=currentUser.id;
+    let cancelled=false;
+    const loaded=new Set(allUsers.map(user=>user.id));
+    const missing=(JSON.parse(socialIdsKey) as string[]).filter(id=>!loaded.has(id));
+    if (!missing.length) return;
+    setSocialIdentityLoading(true);
+    loadPublicProfilesByIds(missing).then(profiles=>{
+      if(cancelled || directoryEpoch.current!==epoch || CURRENT_USER_ID!==uid)return;
+      setAllUsers(previous=>{
+        const merged=new Map(previous.map(user=>[user.id,user]));
+        for(const profile of profiles)if(profile.id!==uid)merged.set(profile.id,profile);
+        return [...merged.values()];
+      });
+    }).catch(()=>{
+      if(!cancelled && directoryEpoch.current===epoch)setSocialIdentityError('Не удалось загрузить часть имён и фотографий друзей и собеседников.');
+    }).finally(()=>{
+      if(!cancelled && directoryEpoch.current===epoch)setSocialIdentityLoading(false);
+    });
+    return ()=>{cancelled=true;};
+    // Stable ID key avoids re-fetching missing profiles on each message/render.
+    // Full refresh and explicit retry allow previously unavailable IDs to recover.
+  }, [socialIdsKey, currentUser?.id, isRefreshing, isOffline, socialIdentityRetry]);
 
   // Scan the latest incoming message for unsafe (non-sport) meeting suggestions
   useEffect(() => {
@@ -2027,6 +2061,13 @@ export default function App(): JSX.Element {
       {(operations.maintenanceMode||operations.error)&&<div role="status" className="mx-4 my-3 rounded-xl bg-amber-950 p-4 text-sm text-amber-100">{operations.maintenanceMode?operations.maintenanceMessage:operations.error}</div>}
       {((activeTab==='discover'&&!operations.featureFlags.datingEnabled)||(activeTab==='leisure'&&!operations.featureFlags.activeLeisureEnabled)||(activeTab==='profile'&&profileSection==='passport'&&!operations.featureFlags.sportPassportEnabled))&&<div role="status" className="mx-4 my-3 rounded-xl bg-slate-900 p-4 text-slate-200">Раздел временно отключён. Другие разделы доступны через нижнее меню.</div>}
       <AppAnnouncements placement={activeTab} />
+      {currentUser && (activeTab==='profile' || activeTab==='chats' || isComplaintOpen) && (socialIdentityLoading || socialIdentityError) &&
+        <div role="status" className="mx-4 my-3 rounded-xl bg-slate-900 p-3 text-sm text-slate-300">
+          {socialIdentityLoading ? 'Загружаем имена и фотографии…' : socialIdentityError}
+          {!socialIdentityLoading && <button type="button" disabled={isOffline || isRefreshing}
+            onClick={()=>setSocialIdentityRetry(value=>value+1)} className="ml-2 text-lime-300 underline disabled:opacity-50">Повторить</button>}
+        </div>}
+
       {currentUser && profilesNextCursor && (activeTab === 'discover' || needsFullDirectory) && <div role="status" className="mx-4 my-3 rounded-2xl border border-emerald-400/20 bg-slate-900 p-4 text-sm text-slate-300">
         <p>{profilesError || (profilesLoading ? 'Загружаем анкеты…' : needsFullDirectory
           ? 'Для полного списка людей и рейтинга нужно загрузить остальные анкеты.'
@@ -2906,7 +2947,7 @@ export default function App(): JSX.Element {
                           const isEvent=thread.kind==='event';
                           const isGroup=isTraining||isEvent;
                           const companion=isGroup?null:allUsers.find(u=>u.id===thread.companionId);
-                          if(!isGroup&&!companion)return null;
+
                           const last=thread.messages[thread.messages.length-1];
                           const metadataUnread=Number(thread.unreadCount?.[CURRENT_USER_ID]);
                           const unread=Number.isFinite(metadataUnread)
@@ -2916,7 +2957,7 @@ export default function App(): JSX.Element {
                             ? `${thread.trainingSport||'Тренировка'} • ${thread.participantIds.length} участников`
                             : isEvent
                               ? `${thread.eventSport||'Событие'} • ${thread.participantIds.length} идут`
-                              : companion!.sports.slice(0,3).join(' • ');
+                              : companion?.sports.slice(0,3).join(' • ') || 'Анкета пока недоступна';
                           const preview=last
                             ? `${last.senderId===CURRENT_USER_ID?'Вы: ':isGroup?messageAuthor(last.senderId)+': ':''}${last.text}`
                             : isTraining?'Группа создана для участников тренировки':isEvent?'Группа создана для тех, кто идёт на событие':'Начните диалог первым!';
@@ -2924,6 +2965,7 @@ export default function App(): JSX.Element {
                           return (
                             <button
                               key={thread.id}
+                              disabled={!isGroup && !companion}
                               onClick={()=>handleOpenChat(thread.id)}
                               className={`w-full text-left bg-slate-900 border hover:border-emerald-500/50 rounded-3xl p-3.5 transition active:scale-[0.99] shadow-lg flex items-center gap-3 ${thread.archivedAt?'border-slate-800/70 opacity-80':'border-slate-800'}`}
                             >
@@ -2935,9 +2977,9 @@ export default function App(): JSX.Element {
                                 ) : (
                                   <>
                                     <AvatarImage
-                                      src={avatarUrl(companion!.avatar,96)||AVATAR_FALLBACK}
+                                      src={avatarUrl(companion?.avatar || '',96)||AVATAR_FALLBACK}
                                       width={48} height={48} loading="lazy" decoding="async"
-                                      alt={companion!.name}
+                                      alt={(companion?.name || 'Собеседник')}
                                       className="w-12 h-12 rounded-full object-cover border-2 border-emerald-500/70"
                                     />
                                     {Date.now()-Number(companion!.lastSeenAt||0)<5*60*1000&&(
@@ -2949,10 +2991,10 @@ export default function App(): JSX.Element {
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center justify-between gap-2">
                                   <h4 className="text-sm font-extrabold text-white truncate flex items-center gap-1">
-                                    {isTraining?thread.trainingTitle:isEvent?thread.eventTitle:companion!.name}
+                                    {isTraining?thread.trainingTitle:isEvent?thread.eventTitle:(companion?.name || 'Собеседник')}
                                     {isGroup ? (
                                       <span className={`text-[8px] font-black ${thread.archivedAt?'text-slate-500':isEvent?'text-sky-300':'text-cyan-300'}`}>{thread.archivedAt?'АРХИВ':'ГРУППА'}</span>
-                                    ) : companion!.subscriptionPlan==='premium'&&(
+                                    ) : companion?.subscriptionPlan==='premium'&&(
                                       <Crown className="w-3 h-3 fill-amber-400 text-amber-400 shrink-0"/>
                                     )}
                                   </h4>

@@ -19,6 +19,25 @@ function readAllThreads(userId = CURRENT_USER_ID): Record<string, ChatThread> {
   }
 }
 
+/** Preserve live conversations when localStorage is unavailable or identities refresh. */
+export function mergeKnownChatThreads(userId: string, cached: ChatThread[], live: ChatThread[]): ChatThread[] {
+  return [...new Map([...cached,...live].filter(thread=>thread.participantIds?.includes(userId))
+    .map(thread=>[thread.id,thread])).values()].sort((a,b)=>b.lastMessageAt-a.lastMessageAt);
+}
+export function chatThreadsForCategory(user: UserProfile, category: 'matches'|'friends'|'trainings'|'events', threads: ChatThread[]): ChatThread[] {
+  const ids=category==='friends' ? user.friendIds || [] : user.matchIds || [];
+  return threads.filter(thread=>thread.participantIds?.includes(user.id) && (category==='trainings'
+    ? thread.kind==='training' : category==='events' ? thread.kind==='event'
+    : thread.kind!=='training' && thread.kind!=='event' && ids.includes(thread.companionId)));
+}
+
+/** All categories are retained when public identity data changes. */
+export function loadCachedChatThreads(userId: string): ChatThread[] {
+  return Object.values(readAllThreads(userId))
+    .filter(thread => Array.isArray(thread.participantIds) && thread.participantIds.includes(userId))
+    .sort((a,b)=>b.lastMessageAt-a.lastMessageAt);
+}
+
 /**
  * Returns only conversations where at least one message was exchanged.
  * Used by the safety complaint flow — an athlete cannot report a person they
@@ -60,7 +79,7 @@ export function formatTimeLabel(timestamp: number): string {
  * No pre-written conversations: every chat starts empty.
  * A thread is created only after a real mutual like or friendship.
  */
-function createEmptyThread(currentUserId: string, companion: UserProfile): ChatThread {
+function createEmptyThread(currentUserId: string, companion: Pick<UserProfile, 'id'>): ChatThread {
   const chatId = buildChatId(currentUserId, companion.id);
   const now = Date.now();
   return {
@@ -79,7 +98,7 @@ function createEmptyThread(currentUserId: string, companion: UserProfile): ChatT
  */
 export function loadChatThreads(
   currentUser: UserProfile,
-  allUsers: UserProfile[],
+  _allUsers: UserProfile[],
   category: 'matches' | 'friends' | 'trainings' | 'events' = 'matches'
 ): ChatThread[] {
   const stored = readAllThreads(currentUser.id);
@@ -97,11 +116,11 @@ export function loadChatThreads(
     ? (currentUser.friendIds || [])
     : currentUser.matchIds;
 
-  const matchedCompanions = allUsers.filter(
-    (u) => u.id !== currentUser.id && ids.includes(u.id)
-  );
-
-  const threads: ChatThread[] = matchedCompanions.map((companion) => {
+  // A missing display profile must not erase a real relationship/conversation.
+  const companionIds = [...new Set(Array.isArray(ids) ? ids : [])]
+    .filter(id => typeof id === 'string' && id && id !== currentUser.id);
+  const threads: ChatThread[] = companionIds.map(id => {
+    const companion = {id};
     const chatId = buildChatId(currentUser.id, companion.id);
     const existing = stored[chatId];
     if (existing) {
