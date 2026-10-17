@@ -25,3 +25,10 @@ export function socialIdentityKey(user: UserProfile | null, threads: ChatThread[
   }
   return JSON.stringify([...ids].sort());
 }
+
+/** Closed meetings need no profiles; metadata changes preserve the request key. */
+export function leisureIdentityKey(userId: string, event: {createdBy: string; participantIds: string[]} | null): string {
+  if (!event) return '[]';
+  return JSON.stringify([...new Set([event.createdBy, ...event.participantIds])]
+    .filter(id => typeof id === 'string' && id && id !== userId && id.length <= 128 && !id.includes('/')).sort());
+}

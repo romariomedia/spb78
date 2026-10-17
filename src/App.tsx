@@ -574,10 +574,8 @@ export default function App(): JSX.Element {
     }
   }, [profilesNextCursor, currentUser?.id, isRefreshing, isOffline]);
 
-  // These existing views still need the complete directory. Never calculate a
-  // community total from a discovery page; load it only when the view is used.
-  const needsFullDirectory = (activeTab === 'leisure' || activeTab === 'feed')
-    || (activeTab === 'discover' && discoverViewMode !== 'cards');
+  // Feed authors travel with posts; leisure loads only opened meeting identities.
+  const needsFullDirectory = activeTab === 'discover' && discoverViewMode !== 'cards';
   useEffect(() => {
     if (needsFullDirectory && !profilesError) void loadMoreProfiles(true);
   }, [needsFullDirectory, loadMoreProfiles, profilesError]);

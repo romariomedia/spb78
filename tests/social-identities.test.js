@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {build} from 'esbuild';
 async function bundle(entry,plugins=[]){const b=await build({entryPoints:[entry],bundle:true,write:false,platform:'node',format:'esm',plugins});return import('data:text/javascript;base64,'+Buffer.from(b.outputFiles[0].text).toString('base64'));}
-const {socialIdentityKey}=await bundle('src/services/identityLoading.ts');
+const {socialIdentityKey,leisureIdentityKey}=await bundle('src/services/identityLoading.ts');
 const user={id:'me',friendIds:['friend'],matchIds:['match'],friendRequestsReceived:['incoming'],friendRequestsSent:['outgoing']};
 const group={id:'group',kind:'training',participantIds:['me','member'],companionId:'',messages:[{senderId:'former'},{senderId:'latest'}],typingAt:{typing:1},lastMessageAt:3};
 test('identity selection includes live relationships and previews without loading unopened group roster',()=>{
@@ -42,4 +42,12 @@ test('identity refresh keeps the latest live messages and unread metadata',()=>{
  const merged=chats.mergeKnownChatThreads('me',[group],[live]);
  assert.equal(merged.length,1);assert.equal(merged[0].unreadCount.me,7);
  assert.equal(merged[0].messages[0].id,'new');
+});
+
+test('leisure reads only opened meeting identities, excluding self and invalid IDs',()=>{
+ assert.equal(leisureIdentityKey('me',null),'[]');
+ const event={createdBy:'organizer',participantIds:['me','friend','friend','bad/id','',null]};
+ assert.deepEqual(JSON.parse(leisureIdentityKey('me',event)),['friend','organizer']);
+ assert.equal(leisureIdentityKey('me',event),leisureIdentityKey('me',{...event,participantIds:[...event.participantIds].reverse(),title:'changed'}));
+ assert.notEqual(leisureIdentityKey('me',event),leisureIdentityKey('me',{...event,participantIds:['new']}));
 });

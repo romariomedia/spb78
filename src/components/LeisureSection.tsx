@@ -4,6 +4,8 @@ import { LEISURE_DESTINATIONS, LEISURE_REGIONS } from '../../shared/leisure-dest
 import { createLeisureEvent, listLeisureEvents, readLeisureEvent, changeLeisureEvent, listLeisureDestinations, LeisureDraft, LeisureEvent, LeisureDestination } from '../services/leisure';
 import { UserProfile } from '../lib/types';
 import { shareContent, triggerHapticImpact } from '../services/native';
+import { CURRENT_USER_ID, loadPublicProfilesByIds } from '../services/repository';
+import { leisureIdentityKey } from '../services/identityLoading';
 import { leisureShareCopy } from '../services/shareLinks';
 
 interface Props { user:UserProfile; users:UserProfile[]; isPremium:boolean; initialEventId:string; onOpenTariff:()=>void; onOpenUser:(user:UserProfile)=>void }
@@ -25,6 +27,27 @@ export default function LeisureSection({user,users,isPremium,initialEventId,onOp
  const [region,setRegion]=useState('all'),[category,setCategory]=useState<'all'|'destination'|'rink'>('all'),[search,setSearch]=useState(''),[mine,setMine]=useState(false);
  const [place,setPlace]=useState<LeisureDestination|null>(null),[selected,setSelected]=useState<LeisureEvent|null>(null);
  const [draft,setDraft]=useState<LeisureDraft|null>(null);
+ const [participantProfiles,setParticipantProfiles]=useState<UserProfile[]>([]);
+ const [identityError,setIdentityError]=useState(''),[identityLoading,setIdentityLoading]=useState(false),[identityRetry,setIdentityRetry]=useState(0);
+ const knownProfiles=useRef<UserProfile[]>([]);
+ knownProfiles.current=[...participantProfiles,...users,user];
+ const participantKey=leisureIdentityKey(user.id,selected);
+ useEffect(()=>{
+  let cancelled=false;
+  setIdentityError('');setIdentityLoading(false);
+  const known=new Set(knownProfiles.current.map(profile=>profile.id));
+  const missing=(JSON.parse(participantKey) as string[]).filter(id=>!known.has(id));
+  if(!missing.length)return;
+  setIdentityLoading(true);
+  loadPublicProfilesByIds(missing).then(profiles=>{
+   if(cancelled||CURRENT_USER_ID!==user.id)return;
+   setParticipantProfiles(previous=>[...new Map([...previous,...profiles].map(profile=>[profile.id,profile])).values()]);
+  }).catch(()=>{if(!cancelled&&CURRENT_USER_ID===user.id)setIdentityError('Не удалось загрузить имена участников. Попробуйте ещё раз.');})
+   .finally(()=>{if(!cancelled)setIdentityLoading(false);});
+  return()=>{cancelled=true;};
+  // Deleted/hidden identities must not create a render-driven retry loop.
+ },[participantKey,user.id,identityRetry]);
+ const participantsById=new Map([...participantProfiles,...users,user].map(profile=>[profile.id,profile]));
  const requestId=useRef('');const busyRef=useRef(false);
  const [destinations,setDestinations]=useState<LeisureDestination[]>(()=>LEISURE_DESTINATIONS.map(item=>({...item,isPublished:true})) as LeisureDestination[]);
  const [events,setEvents]=useState<LeisureEvent[]>([]),[cursor,setCursor]=useState<string|null>(null);
@@ -94,7 +117,9 @@ export default function LeisureSection({user,users,isPremium,initialEventId,onOp
     <dl className="space-y-3 text-sm break-words">{[['Место сбора',selected.meetingPoint],['Транспорт',selected.transport],['Расходы',selected.costs],['Организатор',selected.organizerName],['Кто может записаться',selected.participantGender==='any'?'Любой':selected.participantGender==='female'?'Женщины':'Мужчины']].map(([label,value])=><div key={label}><dt className="text-slate-400">{label}</dt><dd className="mt-1 text-white">{value}</dd></div>)}</dl>
     <p className="text-sm whitespace-pre-wrap break-words text-slate-200">{selected.description}</p>
     <p className="text-sm font-bold">Участники: {selected.participantIds.length} / {selected.capacity}</p>
-    <div className="flex flex-wrap gap-2">{selected.participantIds.map(id=>{const person=users.find(u=>u.id===id)||(id===user.id?user:null);return person?<button key={id} onClick={()=>onOpenUser(person)} className={secondary}>{person.name}{id===selected.createdBy?' · организатор':''}</button>:<span key={id} className="p-2 text-sm text-slate-400">Участник</span>;})}</div>
+    {identityLoading&&<p role="status" className="text-sm text-slate-400">Загружаем имена участников…</p>}
+    {identityError&&<div role="alert" className="rounded-xl border border-amber-500/30 p-3 text-sm text-amber-200">{identityError}<button type="button" className={secondary+' mt-2 block'} onClick={()=>setIdentityRetry(value=>value+1)}>Повторить загрузку</button></div>}
+    <div className="flex flex-wrap gap-2">{selected.participantIds.map(id=>{const person=participantsById.get(id);return person?<button key={id} onClick={()=>onOpenUser(person)} className={secondary}>{person.name}{id===selected.createdBy?' · организатор':''}</button>:<span key={id} className="p-2 text-sm text-slate-400">Участник</span>;})}</div>
     {!owner&&<button disabled={busy||(!joined&&(closed||full))} onClick={()=>void change(selected,joined?'leave':'join')} className={primary+' w-full'}>{busy?'Обновляем…':joined?'Отменить свою запись':closed?'Запись закрыта':full?'Мест нет':'Присоединиться'}</button>}
     {owner&&selected.status!=='cancelled'&&(cancelConfirm?<div className="space-y-2 rounded-xl bg-rose-950/30 p-3"><p className="text-sm">Отменить встречу и уведомить участников?</p><div className="flex gap-2"><button disabled={busy} className={secondary} onClick={()=>setCancelConfirm(false)}>Оставить</button><button disabled={busy} className={secondary+' text-rose-300'} onClick={()=>void change(selected,'cancel')}>Да, отменить</button></div></div>:<button disabled={busy} className={secondary+' text-rose-300'} onClick={()=>setCancelConfirm(true)}>Отменить встречу</button>)}
     <button
