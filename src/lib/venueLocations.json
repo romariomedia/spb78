@@ -406,5 +406,37 @@
     "sourceUrl": "https://yandex.com/maps/2/saint-petersburg/house/rossiyskiy_prospekt_6/Z0kYcgFpTkAPQFtjfXVzcnRnZw%3D%3D/inside/",
     "precision": "address",
     "checkedAt": "2026-10-06"
+  },
+  "ddx-galereya": {
+    "lat": 59.927563,
+    "lng": 30.360613,
+    "address": "Лиговский проспект, 30А, ТРЦ «Галерея», 5 этаж, Санкт-Петербург",
+    "sourceUrl": "https://www.ddxfitness.ru/clubs/ddx-sankt-peterburg-galereya/",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "fitness-house-fuchika": {
+    "lat": 59.87721864510378,
+    "lng": 30.359276584655753,
+    "address": "ул. Фучика, 2, лит. А, Санкт-Петербург",
+    "sourceUrl": "https://www.fitnesshouse.ru/fh-na-fuchika.html",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "urbanfit-prometey": {
+    "lat": 60.038919,
+    "lng": 30.407236,
+    "address": "проспект Просвещения, 80/1, 4 этаж, Санкт-Петербург",
+    "sourceUrl": "https://urbanfitclub.ru/klubyi-urbanfit/prometej",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "alex-fitness-ushinskogo": {
+    "lat": 60.03458412050068,
+    "lng": 30.41011999734473,
+    "address": "ул. Ушинского, 19, корп. 2, Санкт-Петербург",
+    "sourceUrl": "https://spb.alexfitness.ru/ushinskogo/",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
   }
 }

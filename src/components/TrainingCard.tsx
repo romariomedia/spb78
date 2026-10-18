@@ -70,7 +70,7 @@ const TrainingCardInner: React.FC<TrainingCardProps> = ({
         <div className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-black text-emerald-300">
           <MapPin className="w-3 h-3 shrink-0" />
           <span className="truncate">{tr.venueName}</span>
-          {tr.venueRentalConfirmed && <span className="text-emerald-400">✓ аренда подтверждена организатором</span>}
+          {tr.venueRentalConfirmed && <span className="text-emerald-400">{tr.sport === 'Фитнес-зал' ? '✓ условия посещения уточнены организатором' : '✓ аренда подтверждена организатором'}</span>}
         </div>
       )}
 

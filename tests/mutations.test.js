@@ -647,3 +647,14 @@ test('events reject new registration without a future date, but allow leaving an
   assert.equal((await f.request('a',{action:'event',eventId:'e',registered:false})).statusCode,200);
  }
 });
+
+test('gym companions use the training flow and require venue access confirmation',async()=>{
+  const f=fixture({'users/a':premium(),'users/b':premium()});
+  const draft={...training(),sport:'Фитнес-зал',title:'Вместе в зал',venueId:'ddx-galereya',venueName:'DDX Fitness — Галерея'};
+  assert.equal((await f.request('a',{action:'training',operation:'createTraining',training:draft})).statusCode,400);
+  const created=await f.request('a',{action:'training',operation:'createTraining',training:{...draft,venueRentalConfirmed:true}});
+  assert.equal(created.statusCode,200);
+  assert.equal(created.body.training.sport,'Фитнес-зал');
+  assert.equal(created.body.training.venueId,'ddx-galereya');
+  assert.equal((await f.request('b',{action:'training',operation:'toggleJoinTraining',trainingId:created.body.training.id})).body.joined,true);
+});

@@ -11,7 +11,7 @@ if (!getApps().length) {
 
 const CATEGORIES = new Set(['competition','contest','festival','masterclass','charity','spectator']);
 const STATUSES = new Set(['draft','published','finished']);
-const SPORTS = new Set(['Бег','Футбол','Теннис','Баскетбол','Волейбол','Падел','Настольный теннис','Хоккей','Велопрогулка','Походы','Активный отдых','Воркаут','Общее']);
+const SPORTS = new Set(['Фитнес-зал','Бег','Футбол','Теннис','Баскетбол','Волейбол','Падел','Настольный теннис','Хоккей','Велопрогулка','Походы','Активный отдых','Воркаут','Общее']);
 
 function text(value, max) {
   return typeof value === 'string' ? value.trim().slice(0, max) : '';

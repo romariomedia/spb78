@@ -26,6 +26,7 @@ export interface SportVenue {
 
 export const VENUE_SPORT_FILTERS = [
   'Все',
+  'Фитнес-зал',
   'Футбол',
   'Баскетбол',
   'Волейбол',
@@ -42,6 +43,10 @@ export const VENUE_SPORT_FILTERS = [
  * Статус "verified" появится только после прямого подтверждения площадкой.
  */
 export const SPB_VENUES: SportVenue[] = [
+  {"id": "ddx-galereya", "name": "DDX Fitness — Галерея", "sports": ["Фитнес-зал"], "address": "Лиговский проспект, 30А, ТРЦ «Галерея», 5 этаж, Санкт-Петербург", "website": "https://www.ddxfitness.ru/clubs/ddx-sankt-peterburg-galereya/", "hours": "06:00–24:00", "phone": "+7 499 322-25-07", "status": "curated", "isPublished": true, "isVerified": false, "note": "Тренажёрный зал и кардиозона в центре города. Вход на 5-м этаже. Каждому участнику нужен действующий абонемент или согласованный гостевой визит. SportBuddy помогает найти компанию; посещение клуба оплачивается отдельно."},
+  {"id": "fitness-house-fuchika", "name": "Fitness House — на Фучика", "sports": ["Фитнес-зал"], "address": "ул. Фучика, 2, лит. А, Санкт-Петербург", "website": "https://www.fitnesshouse.ru/fh-na-fuchika.html", "hours": "Пн–Пт 07:00–23:00; Сб–Вс 08:00–22:00", "phone": "+7 812 610-06-06", "status": "curated", "isPublished": true, "isVerified": false, "note": "Тренажёрный зал, кардиозона и бассейн. ТЦ «РИО», вход со стороны «О’КЕЙ». Каждому участнику нужен действующий абонемент или согласованный гостевой визит. SportBuddy помогает найти компанию; посещение клуба оплачивается отдельно."},
+  {"id": "urbanfit-prometey", "name": "URBANFIT — Прометей", "sports": ["Фитнес-зал"], "address": "проспект Просвещения, 80/1, 4 этаж, Санкт-Петербург", "website": "https://urbanfitclub.ru/klubyi-urbanfit/prometej", "hours": "07:00–24:00", "phone": "+7 812 604-63-33", "status": "curated", "isPublished": true, "isVerified": false, "note": "Тренажёрный зал, кардиозона и групповые занятия. Встречу удобно назначить у ресепшена. Каждому участнику нужен действующий абонемент или согласованный гостевой визит. SportBuddy помогает найти компанию; посещение клуба оплачивается отдельно."},
+  {"id": "alex-fitness-ushinskogo", "name": "ALEX FITNESS — Ушинского", "sports": ["Фитнес-зал"], "address": "ул. Ушинского, 19, корп. 2, Санкт-Петербург", "website": "https://spb.alexfitness.ru/ushinskogo/", "hours": "Пн–Пт 06:30–24:00; Сб–Вс 09:00–22:00", "phone": "+7 812 223-45-24", "status": "curated", "isPublished": true, "isVerified": false, "note": "Тренажёрный зал, зона свободных весов, кардиозона и бассейн. Каждому участнику нужен действующий абонемент или согласованный гостевой визит. SportBuddy помогает найти компанию; посещение клуба оплачивается отдельно."},
   { id:'fabrika-futbola', isPublished:true, name:'Фабрика Футбола', sports:['Футбол'], address:'Софийская ул., 14, Санкт-Петербург', phone:'+7 812 322-65-55', hours:'24/7', rating:4.7, reviews:1088, website:'https://xn--80aaacb4bok0apzlgg.xn--p1ai/', status:'curated', note:'Аренда футбольных и мини-футбольных полей.' },
   { id:'arena-krasny-treugolnik', name:'Арена Красный треугольник', sports:['Футбол'], address:'наб. Обводного канала, 136, Санкт-Петербург', phone:'+7 931 002-25-69', hours:'06:00–23:00', rating:4.4, reviews:477, status:'curated' },
   { id:'forward', name:'Футбольный центр Форвард', sports:['Футбол'], address:'просп. Обуховской Обороны, 105, Санкт-Петербург', phone:'+7 812 941-32-84', hours:'24/7', rating:4.4, reviews:381, status:'curated' },

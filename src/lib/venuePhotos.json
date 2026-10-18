@@ -159,5 +159,33 @@
     "url": "/venue-covers/voskhodyashaya-zvezda.webp",
     "checkedAt": "2026-10-05",
     "sourceLabel": "Сайт площадки"
+  },
+  "ddx-galereya": {
+    "url": "/venues/ddx-galereya.webp",
+    "imageUrl": "https://photo-storage.storage.yandexcloud.net/a1a2b546-75da-4374-9c40-5ca03af41c6d",
+    "sourceUrl": "https://www.ddxfitness.ru/clubs/ddx-sankt-peterburg-galereya/",
+    "sourceLabel": "Официальный сайт клуба",
+    "checkedAt": "2026-10-18"
+  },
+  "fitness-house-fuchika": {
+    "url": "/venues/fitness-house-fuchika.webp",
+    "imageUrl": "https://www.fitnesshouse.ru/assets/cache/images/Photos_clubs/fuchika/01-x-9b9.jpg",
+    "sourceUrl": "https://www.fitnesshouse.ru/fh-na-fuchika.html",
+    "sourceLabel": "Официальный сайт клуба",
+    "checkedAt": "2026-10-18"
+  },
+  "urbanfit-prometey": {
+    "url": "/venues/urbanfit-prometey.webp",
+    "imageUrl": "https://api.urbanfitclub.ru/storage/zones/image/01K7PNG6QPBY782HH5RFEPV1XT.png",
+    "sourceUrl": "https://urbanfitclub.ru/klubyi-urbanfit/prometej",
+    "sourceLabel": "Официальный сайт клуба",
+    "checkedAt": "2026-10-18"
+  },
+  "alex-fitness-ushinskogo": {
+    "url": "/venues/alex-fitness-ushinskogo.webp",
+    "imageUrl": "https://spb.alexfitness.ru/assets/images/clubs/spb/ushinskogo/tz_1.jpg",
+    "sourceUrl": "https://spb.alexfitness.ru/ushinskogo/",
+    "sourceLabel": "Официальный сайт клуба",
+    "checkedAt": "2026-10-18"
   }
 }

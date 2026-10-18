@@ -1353,7 +1353,7 @@ export default function App(): JSX.Element {
     if (!getDistrict(newTrDistrict)) { notify('Выберите район места встречи', 'err'); return; }
     if (!newTrLocationSelected) { notify('Выберите место встречи на карте', 'err'); return; }
     if (selectedVenueForTraining && !venueRentalConfirmed) {
-      notify('Подтвердите, что аренда площадки согласована с владельцем', 'err');
+      notify(selectedVenueForTraining.sports.includes('Фитнес-зал') ? 'Подтвердите, что условия посещения клуба уточнены' : 'Подтвердите, что аренда площадки согласована с владельцем', 'err');
       return;
     }
 
@@ -3900,7 +3900,7 @@ export default function App(): JSX.Element {
         title={newTrSport === 'Походы' ? 'Новый поход' : 'Новая тренировка'}
         subtitle={newTrSport === 'Походы'
           ? 'Найдите компанию для активного отдыха и красивого маршрута'
-          : 'Организуйте совместные пробежки или игры'}
+          : 'Найдите компанию для зала, пробежки или игры'}
       >
         <form onSubmit={handleSubmitTraining} className="space-y-4 text-xs">
           {selectedVenueForTraining && (
@@ -3913,7 +3913,7 @@ export default function App(): JSX.Element {
                   <p className="font-black text-emerald-200">Площадка: {selectedVenueForTraining.name}</p>
                   <p className="mt-0.5 text-[11px] text-slate-300">{selectedVenueForTraining.address}</p>
                   <p className="mt-1 text-[10px] text-slate-500">
-                    SportBuddy не бронирует площадку автоматически. Сначала согласуйте дату и время с владельцем.
+                    {selectedVenueForTraining.sports.includes('Фитнес-зал') ? 'Для входа каждому участнику нужен абонемент или согласованный гостевой визит. Выберите на карте точное место встречи.' : 'SportBuddy не бронирует площадку автоматически. Сначала согласуйте дату и время с владельцем.'}
                   </p>
                 </div>
               </div>
@@ -3926,7 +3926,7 @@ export default function App(): JSX.Element {
                   className="mt-0.5 h-4 w-4 accent-emerald-500"
                 />
                 <span className="text-[11px] leading-relaxed text-slate-200">
-                  Я самостоятельно связался с площадкой и подтверждаю, что аренда на выбранное время согласована.
+                  {selectedVenueForTraining.sports.includes('Фитнес-зал') ? 'Я уточнил условия посещения клуба и сообщу участникам, какой абонемент или гостевой визит им потребуется.' : 'Я самостоятельно связался с площадкой и подтверждаю, что аренда на выбранное время согласована.'}
                 </span>
               </label>
             </div>

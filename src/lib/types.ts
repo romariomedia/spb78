@@ -311,6 +311,7 @@ export const AVATAR_GRACE_PERIOD_HOURS = 24;
 /** Core disciplines of SportBuddy СПб */
 export const SPORTS: string[] = [
   'Бег',
+  'Фитнес-зал',
   'Футбол',
   'Теннис',
   'Баскетбол',
@@ -332,6 +333,7 @@ export const SPORT_TAGS: string[] = [...SPORTS, 'Общее'];
 
 export const SPORT_ICONS: Record<string, string> = {
   'Бег': '🏃',
+  'Фитнес-зал': '🏋️',
   'Футбол': '⚽️',
   'Теннис': '🎾',
   'Баскетбол': '🏀',

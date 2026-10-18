@@ -7,7 +7,7 @@ if (!getApps().length) {
   initializeApp({ credential: cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '{}')) });
 }
 
-const SPORTS = new Set(['Футбол','Баскетбол','Волейбол','Теннис','Падел','Настольный теннис','Хоккей']);
+const SPORTS = new Set(['Фитнес-зал','Футбол','Баскетбол','Волейбол','Теннис','Падел','Настольный теннис','Хоккей']);
 const STATUSES = new Set(['curated','needs_confirmation','restricted']);
 
 function cleanString(value, max = 300) {

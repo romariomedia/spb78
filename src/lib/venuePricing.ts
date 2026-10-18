@@ -27,5 +27,5 @@ export function venuePrice(venue: SportVenue): VenuePrice {
     };
   }
   // Old seed prices had no tariff evidence. Do not present them as current prices.
-  return { text: 'Цена по запросу', condition: 'Уточните стоимость выбранного времени' };
+  return { text: 'Цена по запросу', condition: venue.sports?.includes('Фитнес-зал') ? 'Уточните стоимость абонемента или гостевого визита в клубе' : 'Уточните стоимость выбранного времени' };
 }

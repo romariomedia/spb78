@@ -655,7 +655,7 @@ async function trainingMutation(db, uid, body) {
     const venueId = typeof data.venueId === 'string' ? data.venueId.trim().slice(0,120) : '';
     const venueName = typeof data.venueName === 'string' ? data.venueName.trim().slice(0,160) : '';
     const venueRentalConfirmed = data.venueRentalConfirmed === true;
-    if (venueId && !venueRentalConfirmed) throw Object.assign(new Error('Подтвердите аренду выбранной площадки'), { status: 400 });
+    if (venueId && !venueRentalConfirmed) throw Object.assign(new Error('Подтвердите условия посещения выбранной площадки'), { status: 400 });
     const districtId = data.districtId === undefined ? '' : validateDistrictId(data.districtId);
     const training = { id, districtId, participantGender, title:data.title.trim(), sport:String(data.sport || ''), dateKey, time,
       dateLabel:String(data.dateLabel || dateKey), locationName:String(data.locationName || ''), address:String(data.address || ''),

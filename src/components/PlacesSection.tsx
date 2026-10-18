@@ -41,6 +41,7 @@ const STATUS_COPY: Record<SportVenue['status'], { label: string; className: stri
 };
 
 function sportEmoji(sport: string): string {
+  if (sport === 'Фитнес-зал') return '🏋️';
   if (sport === 'Футбол') return '⚽';
   if (sport === 'Баскетбол') return '🏀';
   if (sport === 'Волейбол') return '🏐';
@@ -90,7 +91,7 @@ const VenuePriceInfo: React.FC<{ venue: SportVenue; compact?: boolean }> = ({ ve
       <p className="text-sm font-black text-emerald-300">{price.text}</p>
       <p className="mt-1 text-[11px] leading-relaxed text-slate-400">{price.condition}</p>
       {!compact && price.sourceUrl && <>
-        <p className="mt-2 text-xs leading-relaxed text-slate-400">{price.note} Итоговую цену и свободное время подтвердите перед арендой.</p>
+        <p className="mt-2 text-xs leading-relaxed text-slate-400">{price.note} Итоговую цену и условия подтвердите перед посещением.</p>
         <a href={price.sourceUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-emerald-300">
           Тариф на сайте площадки <ExternalLink className="h-3 w-3" />
         </a>
@@ -320,7 +321,7 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, o
             <section className="rounded-3xl border border-slate-800 bg-slate-900 p-4 space-y-2">
               <h4 className="text-sm font-black">Связаться с площадкой</h4>
               <p className="text-[11px] text-slate-400">
-                SportBuddy пока не бронирует время. Сначала самостоятельно подтвердите аренду у площадки.
+                {selected.sports.includes('Фитнес-зал') ? 'SportBuddy помогает найти компанию в зал. Абонемент или гостевой визит каждый участник оформляет в клубе самостоятельно.' : 'SportBuddy пока не бронирует время. Сначала самостоятельно подтвердите аренду у площадки.'}
               </p>
               <div className="grid grid-cols-2 gap-2 pt-1">
                 {selected.phone ? (
@@ -362,7 +363,7 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, o
                 <div>
                   <h4 className="text-sm font-black text-emerald-200">Организуйте тренировку здесь</h4>
                   <p className="mt-1 text-[11px] leading-relaxed text-slate-300">
-                    Сначала договоритесь с площадкой о времени. SportBuddy не бронирует аренду автоматически.
+                    {selected.sports.includes('Фитнес-зал') ? 'Выберите время и найдите партнёра для занятий. Уточните у клуба условия совместного посещения и место встречи.' : 'Сначала договоритесь с площадкой о времени. SportBuddy не бронирует аренду автоматически.'}
                   </p>
                 </div>
               </div>

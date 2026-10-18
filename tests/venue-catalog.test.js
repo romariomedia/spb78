@@ -44,9 +44,24 @@ test('every curated photo has its own existing lightweight file and traceable so
 test('every published starting tariff includes scope, conditions, source and review date', () => {
   for (const [id, price] of Object.entries(prices)) {
     assert.ok(SPB_VENUES.some(v => v.id === id));
-    assert.ok(price.amount > 0 && price.unit.includes('час'));
+    assert.ok(price.amount > 0 && (price.unit.includes('час') || price.unit === 'месяц'));
     assert.ok(price.condition.length > 10 && price.note.length > 10);
     assert.match(price.sourceUrl, /^https:\/\//);
-    assert.equal(price.checkedAt,'2026-10-05');
+    assert.match(price.checkedAt,/^\d{4}-\d{2}-\d{2}$/);
+  }
+});
+
+const { venueLocation } = await source('src/lib/venueLocation.ts');
+const { SPORTS, SPORT_FILTERS, SPORT_TAGS } = await source('src/lib/types.ts');
+test('gym sport has four distinct mapped clubs without invented ratings or partnership', () => {
+  for(const choices of [SPORTS,SPORT_FILTERS,SPORT_TAGS]) assert.ok(choices.includes('Фитнес-зал'));
+  const gyms=SPB_VENUES.filter(v=>v.sports.includes('Фитнес-зал'));
+  assert.equal(gyms.length,4);
+  for(const gym of gyms){
+    assert.ok(venueLocation(gym));
+    assert.equal(gym.isVerified,false);
+    assert.equal(gym.rating,undefined);
+    assert.match(gym.note,/абонемент/);
+    assert.equal(venueCover(gym).kind,'real');
   }
 });
