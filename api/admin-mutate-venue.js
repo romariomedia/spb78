@@ -33,6 +33,8 @@ function sanitizeVenue(input, id) {
   return {
     id,
     name: cleanString(input?.name, 160),
+    networkId: ['ddx','fitness-house','urbanfit','alex-fitness'].includes(input?.networkId) ? input.networkId : null,
+    checkedAt: optionalString(input?.checkedAt, 10),
     sports,
     address: cleanString(input?.address, 300),
     coordinates: validVenueCoordinates(input?.coordinates) ? { lat: input.coordinates.lat, lng: input.coordinates.lng } : null,
@@ -77,7 +79,7 @@ export default async function handler(req, res) {
     }
 
     if (operation === 'seed') {
-      const venues = Array.isArray(body.venues) ? body.venues.slice(0, 100) : [];
+      const venues = Array.isArray(body.venues) ? body.venues.slice(0, 400) : [];
       if (!venues.length) return res.status(400).json({ error: 'Venue list required.' });
       const existingSnap = await db.collection('venues').get();
       const existingIds = new Set(existingSnap.docs.map(doc => doc.id));

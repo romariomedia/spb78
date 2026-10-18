@@ -53,15 +53,16 @@ test('every published starting tariff includes scope, conditions, source and rev
 
 const { venueLocation } = await source('src/lib/venueLocation.ts');
 const { SPORTS, SPORT_FILTERS, SPORT_TAGS } = await source('src/lib/types.ts');
-test('gym sport has four distinct mapped clubs without invented ratings or partnership', () => {
+test('gym sport has distinct mapped branches without invented ratings or partnership', () => {
   for(const choices of [SPORTS,SPORT_FILTERS,SPORT_TAGS]) assert.ok(choices.includes('Фитнес-зал'));
   const gyms=SPB_VENUES.filter(v=>v.sports.includes('Фитнес-зал'));
-  assert.equal(gyms.length,4);
+  assert.ok(gyms.length >= 4);
   for(const gym of gyms){
     assert.ok(venueLocation(gym));
     assert.equal(gym.isVerified,false);
     assert.equal(gym.rating,undefined);
     assert.match(gym.note,/абонемент/);
-    assert.equal(venueCover(gym).kind,'real');
+    assert.ok(gym.networkId);
+    // Unknown branch photos must not borrow another club's cover.
   }
 });

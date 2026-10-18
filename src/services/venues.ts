@@ -10,6 +10,8 @@ function normalizeVenue(raw: Partial<SportVenue> & { id: string }): SportVenue {
   return {
     id: raw.id,
     name: String(raw.name || ''),
+    networkId: raw.networkId ? String(raw.networkId) : undefined,
+    checkedAt: raw.checkedAt ? String(raw.checkedAt) : undefined,
     sports: Array.isArray(raw.sports) ? raw.sports.map(String).filter(Boolean) : [],
     address: String(raw.address || ''),
     coordinates: validVenueCoordinates(raw.coordinates) ? raw.coordinates : undefined,

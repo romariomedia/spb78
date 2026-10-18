@@ -1,3 +1,4 @@
+import { VENUE_NETWORKS } from '../lib/venueNetworks';
 import { validVenueCoordinates } from '../../shared/venue-location.js';
 import { venueLocation } from '../lib/venueLocation';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -10,6 +11,7 @@ import { adminMutateVenue, refreshVenues, seedVenueCatalog } from '../services/v
 import { uploadMedia } from '../services/cloudinary';
 import { compressImage } from '../services/media';
 import { triggerHapticImpact, triggerHapticNotification } from '../services/native';
+
 
 const SPORT_OPTIONS = VENUE_SPORT_FILTERS.filter(item => item !== 'Все');
 
@@ -246,6 +248,12 @@ export const PlacesAdminPanel: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-2">
                 <input value={draft.name} onChange={e => setDraft(v => ({...v, name:e.target.value}))} placeholder="Название *" className="col-span-2 rounded-xl border border-slate-800 bg-slate-900 px-3 py-2.5 text-xs text-white" />
+                <label className="col-span-2 text-xs text-slate-400">Сеть фитнес-клубов
+                  <select value={draft.networkId || ''} onChange={e => setDraft(v => ({...v, networkId:e.target.value}))} className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2.5 text-white">
+                    <option value="">Самостоятельная площадка</option>
+                    {Object.entries(VENUE_NETWORKS).map(([id,name]) => <option key={id} value={id}>{name}</option>)}
+                  </select>
+                </label>
                 <input value={draft.address} onChange={e => setDraft(v => ({...v, address:e.target.value, coordinates: null}))} placeholder="Адрес *" className="col-span-2 rounded-xl border border-slate-800 bg-slate-900 px-3 py-2.5 text-xs text-white" />
                 <label className="text-xs text-slate-400">Широта
                   <input type="number" step="any" min="-90" max="90" value={Number.isFinite(draft.coordinates?.lat) ? draft.coordinates!.lat : ''} onChange={e => setDraft(v => ({...v, coordinates: {...(v.coordinates ?? {lat:NaN,lng:NaN}), lat:e.target.value === '' ? NaN : Number(e.target.value)}}))} className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2.5 text-white" />

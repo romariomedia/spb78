@@ -410,7 +410,7 @@
   "ddx-galereya": {
     "lat": 59.927563,
     "lng": 30.360613,
-    "address": "Лиговский проспект, 30А, ТРЦ «Галерея», 5 этаж, Санкт-Петербург",
+    "address": "Лиговский проспект, 30А, ТРЦ «Галерея», этаж 5, Санкт-Петербург",
     "sourceUrl": "https://www.ddxfitness.ru/clubs/ddx-sankt-peterburg-galereya/",
     "precision": "venue",
     "checkedAt": "2026-10-18"
@@ -418,7 +418,7 @@
   "fitness-house-fuchika": {
     "lat": 59.87721864510378,
     "lng": 30.359276584655753,
-    "address": "ул. Фучика, 2, лит. А, Санкт-Петербург",
+    "address": "ул. Фучика, д. 2, лит. А",
     "sourceUrl": "https://www.fitnesshouse.ru/fh-na-fuchika.html",
     "precision": "venue",
     "checkedAt": "2026-10-18"
@@ -426,7 +426,7 @@
   "urbanfit-prometey": {
     "lat": 60.038919,
     "lng": 30.407236,
-    "address": "проспект Просвещения, 80/1, 4 этаж, Санкт-Петербург",
+    "address": "г. Санкт-Петербург, проспект Просвещения, 80/1, 4 этаж",
     "sourceUrl": "https://urbanfitclub.ru/klubyi-urbanfit/prometej",
     "precision": "venue",
     "checkedAt": "2026-10-18"
@@ -436,6 +436,614 @@
     "lng": 30.41011999734473,
     "address": "ул. Ушинского, 19, корп. 2, Санкт-Петербург",
     "sourceUrl": "https://spb.alexfitness.ru/ushinskogo/",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "ddx-sankt-peterburg-akademicheskaya": {
+    "lat": 60.011401,
+    "lng": 30.398266,
+    "address": "Гражданский проспект, 41, ТК «Академический», Санкт-Петербург",
+    "sourceUrl": "https://www.ddxfitness.ru/clubs/ddx-sankt-peterburg-akademicheskaya/",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "ddx-sankt-peterburg-astra-moll": {
+    "lat": 59.749483,
+    "lng": 30.310959,
+    "address": "Пулковское шоссе, дом 111, строение 5, Санкт-Петербург",
+    "sourceUrl": "https://www.ddxfitness.ru/clubs/ddx-sankt-peterburg-astra-moll/",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "ddx-sankt-peterburg-gollivud": {
+    "lat": 60.001411,
+    "lng": 30.295739,
+    "address": "Коломяжский проспект 22, ТРК \"Голливуд\", Санкт-Петербург",
+    "sourceUrl": "https://www.ddxfitness.ru/clubs/ddx-sankt-peterburg-gollivud/",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "ddx-sankt-peterburg-dom-mod": {
+    "lat": 59.966254,
+    "lng": 30.311685,
+    "address": "Каменноостровский проспект, 37 литера А, Санкт-Петербург",
+    "sourceUrl": "https://www.ddxfitness.ru/clubs/ddx-sankt-peterburg-dom-mod/",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "ddx-sankt-peterburg-zhemchuzhnaya-plaza": {
+    "lat": 59.849417,
+    "lng": 30.144434,
+    "address": "Петергофское шоссе, 51, ТЦ «Жемчужная Плаза», этаж 3, Санкт-Петербург",
+    "sourceUrl": "https://www.ddxfitness.ru/clubs/ddx-sankt-peterburg-zhemchuzhnaya-plaza/",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "ddx-sankt-peterburg-lomonosovskij": {
+    "lat": 59.877696,
+    "lng": 30.443258,
+    "address": "ул. Бабушкина, 40 стр.1, Санкт-Петербург",
+    "sourceUrl": "https://www.ddxfitness.ru/clubs/ddx-sankt-peterburg-lomonosovskij/",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "ddx-sankt-peterburg-london-moll": {
+    "lat": 59.911914,
+    "lng": 30.448198,
+    "address": "ул. Коллонтай, 3Б, ТЦ «Лондон Молл», Санкт-Петербург",
+    "sourceUrl": "https://www.ddxfitness.ru/clubs/ddx-sankt-peterburg-london-moll/",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "ddx-sankt-peterburg-malina-moll": {
+    "lat": 59.946175,
+    "lng": 30.473981,
+    "address": "Индустриальный проспект, 24, ТЦ «Малина Молл», 4 этаж, Санкт-Петербург",
+    "sourceUrl": "https://www.ddxfitness.ru/clubs/ddx-sankt-peterburg-malina-moll/",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "ddx-sankt-peterburg-murino": {
+    "lat": 60.069007,
+    "lng": 30.435562,
+    "address": "ул. Романовская, 1/31, ТЦ «Небо», этаж 2, Мурино, Ленинградская область",
+    "sourceUrl": "https://www.ddxfitness.ru/clubs/ddx-sankt-peterburg-murino/",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "ddx-sankt-peterburg-nord": {
+    "lat": 60.052681,
+    "lng": 30.33184,
+    "address": "проспект Просвещения, 19, ТРК «Норд», этаж 4, Санкт-Петербург",
+    "sourceUrl": "https://www.ddxfitness.ru/clubs/ddx-sankt-peterburg-nord/",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "ddx-sankt-peterburg-passazh": {
+    "lat": 59.93527,
+    "lng": 30.334447,
+    "address": "Невский проспект, 48, ТД «Пассаж», этаж 3, Санкт-Петербург",
+    "sourceUrl": "https://www.ddxfitness.ru/clubs/ddx-sankt-peterburg-passazh/",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "ddx-sankt-peterburg-prospekt-slavy": {
+    "lat": 59.863328,
+    "lng": 30.404083,
+    "address": "проспект Славы, 50/48, ТЦ «Южный полюс», этаж 1, Санкт-Петербург",
+    "sourceUrl": "https://www.ddxfitness.ru/clubs/ddx-sankt-peterburg-prospekt-slavy/",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "ddx-sankt-peterburg-sennaya": {
+    "lat": 59.925731,
+    "lng": 30.318963,
+    "address": "ул. Ефимова, 3С, ТЦ «Сенная», Санкт-Петербург",
+    "sourceUrl": "https://www.ddxfitness.ru/clubs/ddx-sankt-peterburg-sennaya/",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "ddx-sankt-peterburg-siti-moll": {
+    "lat": 60.005621,
+    "lng": 30.301435,
+    "address": "Коломяжский проспект, 17к2, ТРК «Сити Молл», этаж 4, Санкт-Петербург",
+    "sourceUrl": "https://www.ddxfitness.ru/clubs/ddx-sankt-peterburg-siti-moll/",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "fitness-house-fh-na-bogoslovskoy": {
+    "lat": 59.9853544844022,
+    "lng": 30.381109918330182,
+    "address": "ул. Богословская, дом 6, к1, стр.1",
+    "sourceUrl": "https://www.fitnesshouse.ru/fh-na-bogoslovskoy.html",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "fitness-house-fh-na-bolshevikov": {
+    "lat": 59.91544,
+    "lng": 30.471178,
+    "address": "пр. Большевиков, д.7 к2",
+    "sourceUrl": "https://www.fitnesshouse.ru/fh-na-bolshevikov.html",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "fitness-house-fh-na-chkalovskoy": {
+    "lat": 59.96135,
+    "lng": 30.287068,
+    "address": "ул. Б. Разночинная, д. 25 А",
+    "sourceUrl": "https://www.fitnesshouse.ru/fh-na-chkalovskoy.html",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "fitness-house-fh-na-dalnevostochnom": {
+    "lat": 59.894915,
+    "lng": 30.463587,
+    "address": "ул. Крыленко, д. 14",
+    "sourceUrl": "https://www.fitnesshouse.ru/fh-na-dalnevostochnom.html",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "fitness-house-fh-na-gasheka": {
+    "lat": 59.835225,
+    "lng": 30.403625,
+    "address": "ул. Я. Гашека, д. 17А",
+    "sourceUrl": "https://www.fitnesshouse.ru/fh-na-gasheka.html",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "fitness-house-fh-na-hasanskoj": {
+    "lat": 59.938004,
+    "lng": 30.482802,
+    "address": "Хасанская улица, 10, к2",
+    "sourceUrl": "https://www.fitnesshouse.ru/fh-na-hasanskoj.html",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "fitness-house-fh-na-kamyshovoj": {
+    "lat": 60.00871923103037,
+    "lng": 30.221511823631502,
+    "address": "ул.Камышовая, 36 стр. 1",
+    "sourceUrl": "https://www.fitnesshouse.ru/fh-na-kamyshovoj.html",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "fitness-house-fh-na-komendantskom": {
+    "lat": 60.001073,
+    "lng": 30.265877,
+    "address": "пр. Комендантский, д. 2, лит. А",
+    "sourceUrl": "https://www.fitnesshouse.ru/fh-na-komendantskom.html",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "fitness-house-fh-na-krasnoputilovskoy": {
+    "lat": 59.848854,
+    "lng": 30.30764,
+    "address": "ул. Краснопутиловская, д. 111А",
+    "sourceUrl": "https://www.fitnesshouse.ru/fh-na-krasnoputilovskoy.html",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "fitness-house-fh-na-krestovskom": {
+    "lat": 59.967795,
+    "lng": 30.26214,
+    "address": "пр. Крестовский, д. 24 Б",
+    "sourceUrl": "https://www.fitnesshouse.ru/fh-na-krestovskom.html",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "fitness-house-fh-na-kultury": {
+    "lat": 60.053242,
+    "lng": 30.389593,
+    "address": "пр. Культуры, д. 41, лит. А",
+    "sourceUrl": "https://www.fitnesshouse.ru/fh-na-kultury.html",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "fitness-house-fh-na-ladozhskoy": {
+    "lat": 59.934344,
+    "lng": 30.437769,
+    "address": "пл. Карла Фаберже, д. 8, лит. Е",
+    "sourceUrl": "https://www.fitnesshouse.ru/fh-na-ladozhskoy.html",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "fitness-house-fh-na-leninskom": {
+    "lat": 59.85239296228268,
+    "lng": 30.30156998413061,
+    "address": "пр. Ленинский, д. 160, лит. А",
+    "sourceUrl": "https://www.fitnesshouse.ru/fh-na-leninskom.html",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "fitness-house-fh-na-marshaka": {
+    "lat": 60.03354276497513,
+    "lng": 30.44671406561881,
+    "address": "пр.Маршака, д.10",
+    "sourceUrl": "https://www.fitnesshouse.ru/fh-na-marshaka.html",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "fitness-house-fh-na-marshala-blyuhera": {
+    "lat": 59.97812,
+    "lng": 30.373351,
+    "address": "пр. Маршала Блюхера, д. 9, к. 3",
+    "sourceUrl": "https://www.fitnesshouse.ru/fh-na-marshala-blyuhera.html",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "fitness-house-fh-na-marshala-govorova": {
+    "lat": 59.888803,
+    "lng": 30.279828,
+    "address": "ул. Маршала Говорова, д. 35, к. 4",
+    "sourceUrl": "https://www.fitnesshouse.ru/fh-na-marshala-govorova.html",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "fitness-house-fh-na-mebelnoy": {
+    "lat": 59.99081743793557,
+    "lng": 30.248948109122733,
+    "address": "ул. Мебельная, д. 1, корп. 2А",
+    "sourceUrl": "https://www.fitnesshouse.ru/fh-na-mebelnoy.html",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "fitness-house-fh-na-nalichnoj": {
+    "lat": 59.952069,
+    "lng": 30.232846,
+    "address": "ул. Наличная, д. 44 к 1",
+    "sourceUrl": "https://www.fitnesshouse.ru/fh-na-nalichnoj.html",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "fitness-house-fh-na-novatorov": {
+    "lat": 59.847774,
+    "lng": 30.269704,
+    "address": "Бульвар Новаторов, д. 32",
+    "sourceUrl": "https://www.fitnesshouse.ru/fh-na-novatorov.html",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "fitness-house-fh-na-piskarevskom": {
+    "lat": 59.969574,
+    "lng": 30.415294,
+    "address": "пр. Пискаревский, д. 25, лит. А",
+    "sourceUrl": "https://www.fitnesshouse.ru/fh-na-piskarevskom.html",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "fitness-house-fh-na-politehnicheskoy": {
+    "lat": 59.99338783655131,
+    "lng": 30.357060207678387,
+    "address": "ул. Политехническая д. 6",
+    "sourceUrl": "https://www.fitnesshouse.ru/fh-na-politehnicheskoy.html",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "fitness-house-fh-na-prazhskoy": {
+    "lat": 59.871468,
+    "lng": 30.394255,
+    "address": "ул. Пражская, д. 30/2 A",
+    "sourceUrl": "https://www.fitnesshouse.ru/fh-na-prazhskoy.html",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "fitness-house-fh-na-pulkovskom": {
+    "lat": 59.806695,
+    "lng": 30.320432,
+    "address": "Шереметьевская ул., 13 литера А",
+    "sourceUrl": "https://www.fitnesshouse.ru/fh-na-pulkovskom.html",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "fitness-house-fh-na-salova": {
+    "lat": 59.885320045648115,
+    "lng": 30.368691489042046,
+    "address": "ул. Салова, 61, стр. 1",
+    "sourceUrl": "https://www.fitnesshouse.ru/fh-na-salova.html",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "fitness-house-fh-na-savushkina": {
+    "lat": 59.98793038601633,
+    "lng": 30.228423182555545,
+    "address": "ул. Савушкина, д. 119, корп. 3",
+    "sourceUrl": "https://www.fitnesshouse.ru/fh-na-savushkina.html",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "fitness-house-fh-na-severnom": {
+    "lat": 60.028748,
+    "lng": 30.38679,
+    "address": "Северный пр., д. 40, литер А",
+    "sourceUrl": "https://www.fitnesshouse.ru/fh-na-severnom.html",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "fitness-house-fh-na-shavrova": {
+    "lat": 60.027326665933856,
+    "lng": 30.241617931679027,
+    "address": "ул. Шаврова, д. 26",
+    "sourceUrl": "https://www.fitnesshouse.ru/fh-na-shavrova.html",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "fitness-house-fh-na-stachek": {
+    "lat": 59.88167971239858,
+    "lng": 30.261754846617617,
+    "address": "пр. Стачек 47, лит. Ж",
+    "sourceUrl": "https://www.fitnesshouse.ru/fh-na-stachek.html",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "fitness-house-fh-na-tallinskom": {
+    "lat": 59.794935,
+    "lng": 30.145736,
+    "address": "Таллинское шоссе, 25",
+    "sourceUrl": "https://www.fitnesshouse.ru/fh-na-tallinskom.html",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "fitness-house-fh-na-veteranov": {
+    "lat": 59.83413,
+    "lng": 30.171895,
+    "address": "пр. Ветеранов, 121",
+    "sourceUrl": "https://www.fitnesshouse.ru/fh-na-veteranov.html",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "fitness-house-fh-na-zarechnoj": {
+    "lat": 60.07184387468895,
+    "lng": 30.313293676211845,
+    "address": "Парнас, Заречная улица, д. 15, к. 1, стр. 1",
+    "sourceUrl": "https://www.fitnesshouse.ru/fh-na-zarechnoj.html",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "fitness-house-fh-novogorelovo": {
+    "lat": 59.788107919062384,
+    "lng": 30.158596537656845,
+    "address": "п. Новогорелово, ул. Современников, 2А, ТЦ «KRONUNG НОВОГОРЕЛОВО»",
+    "sourceUrl": "https://www.fitnesshouse.ru/fh-novogorelovo.html",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "fitness-house-fh-prestige-na-gasheka": {
+    "lat": 59.83541940978107,
+    "lng": 30.40392540740968,
+    "address": "ул. Я. Гашека, д. 17А",
+    "sourceUrl": "https://www.fitnesshouse.ru/fh-prestige-na-gasheka.html",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "fitness-house-fh-prestige-na-hoshimina": {
+    "lat": 60.052847,
+    "lng": 30.311179,
+    "address": "Выборгское шоссе, д. 15А",
+    "sourceUrl": "https://www.fitnesshouse.ru/fh-prestige-na-hoshimina.html",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "fitness-house-fh-prestige-na-pulkovskom": {
+    "lat": 59.80671661965145,
+    "lng": 30.32094698413066,
+    "address": "Шереметьевская ул., 13",
+    "sourceUrl": "https://www.fitnesshouse.ru/fh-prestige-na-pulkovskom.html",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "fitness-house-fh-v-devyatkino": {
+    "lat": 60.058309,
+    "lng": 30.483682,
+    "address": "ул. Главная, 60",
+    "sourceUrl": "https://www.fitnesshouse.ru/fh-v-devyatkino.html",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "fitness-house-fh-v-gatchine": {
+    "lat": 59.563501,
+    "lng": 30.093113,
+    "address": "ул. Генерала Кныша, д. 2 А",
+    "sourceUrl": "https://www.fitnesshouse.ru/fh-v-gatchine.html",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "fitness-house-fh-v-kudrovo": {
+    "lat": 59.910203,
+    "lng": 30.514459,
+    "address": "г. Кудрово, Европейский пр. 21, стр.1, лит.В",
+    "sourceUrl": "https://www.fitnesshouse.ru/fh-v-kudrovo.html",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "fitness-house-fh-v-lahte": {
+    "lat": 59.99446232539795,
+    "lng": 30.147498751341935,
+    "address": "пр. Лахтинский, д. 85",
+    "sourceUrl": "https://www.fitnesshouse.ru/fh-v-lahte.html",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "fitness-house-fh-v-murino": {
+    "lat": 60.056786,
+    "lng": 30.427547,
+    "address": "г. Мурино, ул. Шувалова д.11",
+    "sourceUrl": "https://www.fitnesshouse.ru/fh-v-murino.html",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "fitness-house-fh-v-ohta-molle": {
+    "lat": 59.940145,
+    "lng": 30.418366,
+    "address": "ТРЦ \"Охта Молл\", Брантовская дор., 3",
+    "sourceUrl": "https://www.fitnesshouse.ru/fh-v-ohta-molle.html",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "fitness-house-fh-v-rybatskom": {
+    "lat": 59.831209,
+    "lng": 30.506158,
+    "address": "пер. Скачков, д. 5",
+    "sourceUrl": "https://www.fitnesshouse.ru/fh-v-rybatskom.html",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "fitness-house-fh-v-shusharah": {
+    "lat": 59.809786088626005,
+    "lng": 30.369441015215184,
+    "address": "п.Шушары, Новгородский пр-т, д.6, к.2",
+    "sourceUrl": "https://www.fitnesshouse.ru/fh-v-shusharah.html",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "fitness-house-fh-v-slavyanke": {
+    "lat": 59.74261689649956,
+    "lng": 30.47284553716527,
+    "address": "Славянка, ул. Ростовская, д. 20",
+    "sourceUrl": "https://www.fitnesshouse.ru/fh-v-slavyanke.html",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "fitness-house-fh-v-svetlanovskom": {
+    "lat": 60.00939,
+    "lng": 30.326423,
+    "address": "пр. Энгельса, д. 33, корп. 1, ТЦ \"Светлановский\"",
+    "sourceUrl": "https://www.fitnesshouse.ru/fh-v-svetlanovskom.html",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "fitness-house-fh-v-yanino": {
+    "lat": 59.94647385079991,
+    "lng": 30.578224164931893,
+    "address": "г. Санкт -Петербург ГП Янино 1, ул. Ветряных Мельниц д. 3/1",
+    "sourceUrl": "https://www.fitnesshouse.ru/fh-v-yanino.html",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "alex-fitness-ligovskiy": {
+    "lat": 59.92056,
+    "lng": 30.356625,
+    "address": "Транспортный пер., 1, ТК «Платформа», Санкт-Петербург",
+    "sourceUrl": "https://spb.alexfitness.ru/ligovskiy/",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "alex-fitness-kudrovo": {
+    "lat": 59.91268,
+    "lng": 30.50429,
+    "address": "ул. Ленинградская, 1, ЖК «Новый Оккервиль», Кудрово, Ленинградская область",
+    "sourceUrl": "https://spb.alexfitness.ru/kudrovo/",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "urbanfit-kudrovo": {
+    "lat": 59.904049,
+    "lng": 30.508359,
+    "address": "г. Кудрово, Европейский проспект, 13",
+    "sourceUrl": "https://urbanfitclub.ru/klubyi-urbanfit/kudrovo",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "urbanfit-nastavnikov": {
+    "lat": 59.94581,
+    "lng": 30.489198,
+    "address": "г. Санкт-Петербург, проспект Наставников, 24/1, 2 этаж",
+    "sourceUrl": "https://urbanfitclub.ru/klubyi-urbanfit/nastavnikov",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "urbanfit-baltijskij": {
+    "lat": 59.932022,
+    "lng": 30.260191,
+    "address": "г. Санкт-Петербург, Большой проспект Васильевского острова, 68, 3 этаж",
+    "sourceUrl": "https://urbanfitclub.ru/klubyi-urbanfit/baltijskij",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "urbanfit-voyazh": {
+    "lat": 60.039908,
+    "lng": 30.324124,
+    "address": "г. Санкт-Петербург, проспект Энгельса, 124/1 , 1 этаж",
+    "sourceUrl": "https://urbanfitclub.ru/klubyi-urbanfit/voyazh",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "urbanfit-petergof": {
+    "lat": 59.881751,
+    "lng": 29.894423,
+    "address": "г. Санкт-Петербург, Петергоф, Санкт-Петербургский проспект, 60, 3 этаж",
+    "sourceUrl": "https://urbanfitclub.ru/klubyi-urbanfit/petergof",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "urbanfit-murino": {
+    "lat": 60.059944,
+    "lng": 30.440276,
+    "address": "г. Мурино, Екатерининская улица, 18/3",
+    "sourceUrl": "https://urbanfitclub.ru/klubyi-urbanfit/murino",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "urbanfit-pionerskaya": {
+    "lat": 60.001671,
+    "lng": 30.299321,
+    "address": "г. Санкт-Петербург, Коломяжский проспект 15/2, 3 этаж",
+    "sourceUrl": "https://urbanfitclub.ru/klubyi-urbanfit/pionerskaya",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "urbanfit-ozerki": {
+    "lat": 60.036542,
+    "lng": 30.321213,
+    "address": "г. Санкт-Петербург, проспект Энгельса 120, \r\n4 этаж",
+    "sourceUrl": "https://urbanfitclub.ru/klubyi-urbanfit/ozerki",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "urbanfit-bolshevikov": {
+    "lat": 59.915481,
+    "lng": 30.471169,
+    "address": "г. Санкт-Петербург, проспект Большевиков 7/2, 2 этаж",
+    "sourceUrl": "https://urbanfitclub.ru/klubyi-urbanfit/bolshevikov",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "urbanfit-yanino": {
+    "lat": 59.955624,
+    "lng": 30.577907,
+    "address": "Ленинградская область, Янино-1, мкр-н Янила Кантри, ул. Голландская, 9, 2 этаж",
+    "sourceUrl": "https://urbanfitclub.ru/klubyi-urbanfit/yanino",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "urbanfit-iugo-zapad": {
+    "lat": 59.85581,
+    "lng": 30.224339,
+    "address": "г. Санкт-Петербург, проспект Маршала Жукова, 35/1, 3 этаж",
+    "sourceUrl": "https://urbanfitclub.ru/klubyi-urbanfit/iugo-zapad",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "urbanfit-neo": {
+    "lat": 59.939627,
+    "lng": 30.396007,
+    "address": "г. Санкт-Петербург, ул. Красного Текстильщика, д. 10-12, литера C",
+    "sourceUrl": "https://urbanfitclub.ru/klubyi-urbanfit/neo",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "urbanfit-urbanfit-river-xaus": {
+    "lat": 59.977355,
+    "lng": 30.317629,
+    "address": "г. Санкт-Петербург, ул. Академика Павлова, 5В,\r\n2 этаж",
+    "sourceUrl": "https://urbanfitclub.ru/klubyi-urbanfit/urbanfit-river-xaus",
+    "precision": "venue",
+    "checkedAt": "2026-10-18"
+  },
+  "urbanfit-urbanfit-marsaka": {
+    "lat": 60.033427,
+    "lng": 30.447049,
+    "address": "г. Санкт-Петербург, проспект Маршака, 10, 2 этаж",
+    "sourceUrl": "https://urbanfitclub.ru/klubyi-urbanfit/urbanfit-marsaka",
     "precision": "venue",
     "checkedAt": "2026-10-18"
   }

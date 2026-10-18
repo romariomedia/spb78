@@ -30,3 +30,21 @@ test('official training catalog resolves researched seed coordinates and never w
   assert.ok(rows.filter(v=>v.coordinates).length>20);
  }finally{globalThis.fetch=oldFetch;globalThis.localStorage=oldStorage;}
 });
+
+const bundledNetworks=await build({entryPoints:['src/lib/venueNetworks.ts'],bundle:true,write:false,platform:'node',format:'esm'});
+const {venueNetworkGroups}=await import('data:text/javascript;base64,'+Buffer.from(bundledNetworks.outputFiles[0].text).toString('base64'));
+test('networks group visible branches while branch IDs, addresses and admin overrides remain distinct',()=>{
+ const all=mergeVenueCatalog([]);
+ const groups=venueNetworkGroups(all);
+ assert.equal(groups.length,4);
+ assert.deepEqual(groups.map(g=>g.name),['DDX Fitness','Fitness House','URBANFIT','ALEX FITNESS']);
+ for(const g of groups)assert.ok(g.branches.length>1,g.name);
+ const branch=groups[0].branches[0], other=groups[0].branches[1];
+ const changed=mergeVenueCatalog([{id:branch.id,name:'Изменённый клуб',address:'Новый адрес',coordinates:{lat:60,lng:30}}]);
+ assert.equal(venueNetworkGroups(changed)[0].branches.find(b=>b.id===branch.id).address,'Новый адрес');
+ const hidden=mergeVenueCatalog([{id:branch.id,isPublished:false}]);
+ assert.ok(!venueNetworkGroups(hidden)[0].branches.some(b=>b.id===branch.id));
+ assert.ok(venueNetworkGroups(hidden)[0].branches.some(b=>b.id===other.id));
+ const removed=mergeVenueCatalog(groups[0].branches.map(b=>({id:b.id,archived:true})));
+ assert.ok(!venueNetworkGroups(removed).some(g=>g.id===groups[0].id));
+});

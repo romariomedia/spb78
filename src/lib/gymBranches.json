@@ -1,0 +1,1362 @@
+[
+  {
+    "id": "ddx-sankt-peterburg-akademicheskaya",
+    "networkId": "ddx",
+    "name": "DDX Fitness — Академическая",
+    "address": "Гражданский проспект, 41, ТК «Академический», Санкт-Петербург",
+    "website": "https://www.ddxfitness.ru/clubs/ddx-sankt-peterburg-akademicheskaya/",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "06:00–24:00",
+    "phone": "",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "ddx-sankt-peterburg-astra-moll",
+    "networkId": "ddx",
+    "name": "DDX Fitness — Астра молл",
+    "address": "Пулковское шоссе, дом 111, строение 5, Санкт-Петербург",
+    "website": "https://www.ddxfitness.ru/clubs/ddx-sankt-peterburg-astra-moll/",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "06:00–24:00",
+    "phone": "",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "ddx-galereya",
+    "networkId": "ddx",
+    "name": "DDX Fitness — Галерея",
+    "address": "Лиговский проспект, 30А, ТРЦ «Галерея», этаж 5, Санкт-Петербург",
+    "website": "https://www.ddxfitness.ru/clubs/ddx-sankt-peterburg-galereya/",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "06:00–24:00",
+    "phone": "+7 (812) 635-4344",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "ddx-sankt-peterburg-gollivud",
+    "networkId": "ddx",
+    "name": "DDX Fitness — Голливуд",
+    "address": "Коломяжский проспект 22, ТРК \"Голливуд\", Санкт-Петербург",
+    "website": "https://www.ddxfitness.ru/clubs/ddx-sankt-peterburg-gollivud/",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "06:00–24:00",
+    "phone": "+7 (812) 635-4344",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "ddx-sankt-peterburg-dom-mod",
+    "networkId": "ddx",
+    "name": "DDX Fitness — Дом Мод",
+    "address": "Каменноостровский проспект, 37 литера А, Санкт-Петербург",
+    "website": "https://www.ddxfitness.ru/clubs/ddx-sankt-peterburg-dom-mod/",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "06:00–24:00",
+    "phone": "",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "ddx-sankt-peterburg-zhemchuzhnaya-plaza",
+    "networkId": "ddx",
+    "name": "DDX Fitness — Жемчужная Плаза",
+    "address": "Петергофское шоссе, 51, ТЦ «Жемчужная Плаза», этаж 3, Санкт-Петербург",
+    "website": "https://www.ddxfitness.ru/clubs/ddx-sankt-peterburg-zhemchuzhnaya-plaza/",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "06:00–24:00",
+    "phone": "+7 (812) 635-4344",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "ddx-sankt-peterburg-lomonosovskij",
+    "networkId": "ddx",
+    "name": "DDX Fitness — Ломоносовский",
+    "address": "ул. Бабушкина, 40 стр.1, Санкт-Петербург",
+    "website": "https://www.ddxfitness.ru/clubs/ddx-sankt-peterburg-lomonosovskij/",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "06:00–24:00",
+    "phone": "",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "ddx-sankt-peterburg-london-moll",
+    "networkId": "ddx",
+    "name": "DDX Fitness — Лондон Молл",
+    "address": "ул. Коллонтай, 3Б, ТЦ «Лондон Молл», Санкт-Петербург",
+    "website": "https://www.ddxfitness.ru/clubs/ddx-sankt-peterburg-london-moll/",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "06:00–24:00",
+    "phone": "",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "ddx-sankt-peterburg-malina-moll",
+    "networkId": "ddx",
+    "name": "DDX Fitness — Малина Молл",
+    "address": "Индустриальный проспект, 24, ТЦ «Малина Молл», 4 этаж, Санкт-Петербург",
+    "website": "https://www.ddxfitness.ru/clubs/ddx-sankt-peterburg-malina-moll/",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "06:00–24:00",
+    "phone": "",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "ddx-sankt-peterburg-murino",
+    "networkId": "ddx",
+    "name": "DDX Fitness — Мурино",
+    "address": "ул. Романовская, 1/31, ТЦ «Небо», этаж 2, Мурино, Ленинградская область",
+    "website": "https://www.ddxfitness.ru/clubs/ddx-sankt-peterburg-murino/",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "06:00–24:00",
+    "phone": "",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "ddx-sankt-peterburg-nord",
+    "networkId": "ddx",
+    "name": "DDX Fitness — Норд",
+    "address": "проспект Просвещения, 19, ТРК «Норд», этаж 4, Санкт-Петербург",
+    "website": "https://www.ddxfitness.ru/clubs/ddx-sankt-peterburg-nord/",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "06:00–24:00",
+    "phone": "+7 (812) 635-4344",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "ddx-sankt-peterburg-passazh",
+    "networkId": "ddx",
+    "name": "DDX Fitness — Пассаж",
+    "address": "Невский проспект, 48, ТД «Пассаж», этаж 3, Санкт-Петербург",
+    "website": "https://www.ddxfitness.ru/clubs/ddx-sankt-peterburg-passazh/",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "06:00–24:00",
+    "phone": "+7 (812) 635-4344",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "ddx-sankt-peterburg-prospekt-slavy",
+    "networkId": "ddx",
+    "name": "DDX Fitness — Проспект Славы",
+    "address": "проспект Славы, 50/48, ТЦ «Южный полюс», этаж 1, Санкт-Петербург",
+    "website": "https://www.ddxfitness.ru/clubs/ddx-sankt-peterburg-prospekt-slavy/",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "06:00–24:00",
+    "phone": "",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "ddx-sankt-peterburg-sennaya",
+    "networkId": "ddx",
+    "name": "DDX Fitness — Сенная",
+    "address": "ул. Ефимова, 3С, ТЦ «Сенная», Санкт-Петербург",
+    "website": "https://www.ddxfitness.ru/clubs/ddx-sankt-peterburg-sennaya/",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "06:00–24:00",
+    "phone": "",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "ddx-sankt-peterburg-siti-moll",
+    "networkId": "ddx",
+    "name": "DDX Fitness — Сити Молл",
+    "address": "Коломяжский проспект, 17к2, ТРК «Сити Молл», этаж 4, Санкт-Петербург",
+    "website": "https://www.ddxfitness.ru/clubs/ddx-sankt-peterburg-siti-moll/",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "06:00–24:00",
+    "phone": "+7 (812) 635-4344",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "urbanfit-prometey",
+    "networkId": "urbanfit",
+    "name": "URBANFIT — Прометей",
+    "address": "г. Санкт-Петербург, проспект Просвещения, 80/1, 4 этаж",
+    "website": "https://urbanfitclub.ru/klubyi-urbanfit/prometej",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "с 7:00 до 00:00",
+    "phone": "",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "urbanfit-kudrovo",
+    "networkId": "urbanfit",
+    "name": "URBANFIT — Кудрово",
+    "address": "г. Кудрово, Европейский проспект, 13",
+    "website": "https://urbanfitclub.ru/klubyi-urbanfit/kudrovo",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "с 7:00 до 00:00",
+    "phone": "",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "urbanfit-nastavnikov",
+    "networkId": "urbanfit",
+    "name": "URBANFIT — Наставников",
+    "address": "г. Санкт-Петербург, проспект Наставников, 24/1, 2 этаж",
+    "website": "https://urbanfitclub.ru/klubyi-urbanfit/nastavnikov",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "с 7:00 до 00:00",
+    "phone": "",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "urbanfit-baltijskij",
+    "networkId": "urbanfit",
+    "name": "URBANFIT — Балтийский",
+    "address": "г. Санкт-Петербург, Большой проспект Васильевского острова, 68, 3 этаж",
+    "website": "https://urbanfitclub.ru/klubyi-urbanfit/baltijskij",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "с 7:00 до 00:00",
+    "phone": "",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "urbanfit-voyazh",
+    "networkId": "urbanfit",
+    "name": "URBANFIT — Вояж",
+    "address": "г. Санкт-Петербург, проспект Энгельса, 124/1 , 1 этаж",
+    "website": "https://urbanfitclub.ru/klubyi-urbanfit/voyazh",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "с 7:00 до 00:00",
+    "phone": "",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "urbanfit-petergof",
+    "networkId": "urbanfit",
+    "name": "URBANFIT — Петергоф",
+    "address": "г. Санкт-Петербург, Петергоф, Санкт-Петербургский проспект, 60, 3 этаж",
+    "website": "https://urbanfitclub.ru/klubyi-urbanfit/petergof",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "с 7:00 до 00:00",
+    "phone": "",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "urbanfit-murino",
+    "networkId": "urbanfit",
+    "name": "URBANFIT — Мурино",
+    "address": "г. Мурино, Екатерининская улица, 18/3",
+    "website": "https://urbanfitclub.ru/klubyi-urbanfit/murino",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "с 7:00 до 00:00",
+    "phone": "",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "urbanfit-pionerskaya",
+    "networkId": "urbanfit",
+    "name": "URBANFIT — Пионерская",
+    "address": "г. Санкт-Петербург, Коломяжский проспект 15/2, 3 этаж",
+    "website": "https://urbanfitclub.ru/klubyi-urbanfit/pionerskaya",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "с 7:00 до 00:00",
+    "phone": "",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "urbanfit-ozerki",
+    "networkId": "urbanfit",
+    "name": "URBANFIT — Озерки",
+    "address": "г. Санкт-Петербург, проспект Энгельса 120, \r\n4 этаж",
+    "website": "https://urbanfitclub.ru/klubyi-urbanfit/ozerki",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "с 7:00 до 00:00",
+    "phone": "",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "urbanfit-bolshevikov",
+    "networkId": "urbanfit",
+    "name": "URBANFIT — Большевиков",
+    "address": "г. Санкт-Петербург, проспект Большевиков 7/2, 2 этаж",
+    "website": "https://urbanfitclub.ru/klubyi-urbanfit/bolshevikov",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "с 7:00 до 00:00",
+    "phone": "",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "urbanfit-yanino",
+    "networkId": "urbanfit",
+    "name": "URBANFIT — Янино",
+    "address": "Ленинградская область, Янино-1, мкр-н Янила Кантри, ул. Голландская, 9, 2 этаж",
+    "website": "https://urbanfitclub.ru/klubyi-urbanfit/yanino",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "с 7:00 до 00:00",
+    "phone": "",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "urbanfit-iugo-zapad",
+    "networkId": "urbanfit",
+    "name": "URBANFIT — Юго-запад",
+    "address": "г. Санкт-Петербург, проспект Маршала Жукова, 35/1, 3 этаж",
+    "website": "https://urbanfitclub.ru/klubyi-urbanfit/iugo-zapad",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "с 7:00 до 00:00",
+    "phone": "",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "urbanfit-neo",
+    "networkId": "urbanfit",
+    "name": "URBANFIT — Нео",
+    "address": "г. Санкт-Петербург, ул. Красного Текстильщика, д. 10-12, литера C",
+    "website": "https://urbanfitclub.ru/klubyi-urbanfit/neo",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "с 7:00 до 00:00",
+    "phone": "",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "urbanfit-urbanfit-river-xaus",
+    "networkId": "urbanfit",
+    "name": "URBANFIT — Ривер Хаус",
+    "address": "г. Санкт-Петербург, ул. Академика Павлова, 5В,\r\n2 этаж",
+    "website": "https://urbanfitclub.ru/klubyi-urbanfit/urbanfit-river-xaus",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "с 7:00 до 00:00",
+    "phone": "",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "urbanfit-urbanfit-marsaka",
+    "networkId": "urbanfit",
+    "name": "URBANFIT — Маршака",
+    "address": "г. Санкт-Петербург, проспект Маршака, 10, 2 этаж",
+    "website": "https://urbanfitclub.ru/klubyi-urbanfit/urbanfit-marsaka",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "с 7:00 до 00:00",
+    "phone": "",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "fitness-house-fh-na-bogoslovskoy",
+    "networkId": "fitness-house",
+    "name": "Fitness House — на Богословской",
+    "address": "ул. Богословская, дом 6, к1, стр.1",
+    "website": "https://www.fitnesshouse.ru/fh-na-bogoslovskoy.html",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "Пн–Пт 07:00–23:00; Сб–Вс 08:00–22:00",
+    "phone": "+7 812 610-06-06",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "fitness-house-fh-na-bolshevikov",
+    "networkId": "fitness-house",
+    "name": "Fitness House — на Большевиков",
+    "address": "пр. Большевиков, д.7 к2",
+    "website": "https://www.fitnesshouse.ru/fh-na-bolshevikov.html",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "Пн–Пт 07:00–23:00; Сб–Вс 08:00–22:00",
+    "phone": "+7 812 610-06-06",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "fitness-house-fh-na-chkalovskoy",
+    "networkId": "fitness-house",
+    "name": "Fitness House — на Чкаловской",
+    "address": "ул. Б. Разночинная, д. 25 А",
+    "website": "https://www.fitnesshouse.ru/fh-na-chkalovskoy.html",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "Пн–Пт 07:00–23:00; Сб–Вс 08:00–22:00",
+    "phone": "+7 812 610-06-06",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "fitness-house-fh-na-dalnevostochnom",
+    "networkId": "fitness-house",
+    "name": "Fitness House — на Дальневосточном",
+    "address": "ул. Крыленко, д. 14",
+    "website": "https://www.fitnesshouse.ru/fh-na-dalnevostochnom.html",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "Пн–Пт 07:00–23:00; Сб–Вс 08:00–22:00",
+    "phone": "+7 812 610-06-06",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "fitness-house-fuchika",
+    "networkId": "fitness-house",
+    "name": "Fitness House — на Фучика",
+    "address": "ул. Фучика, д. 2, лит. А",
+    "website": "https://www.fitnesshouse.ru/fh-na-fuchika.html",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "Пн–Пт 07:00–23:00; Сб–Вс 08:00–22:00",
+    "phone": "+7 812 610-06-06",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "fitness-house-fh-na-gasheka",
+    "networkId": "fitness-house",
+    "name": "Fitness House — на Гашека",
+    "address": "ул. Я. Гашека, д. 17А",
+    "website": "https://www.fitnesshouse.ru/fh-na-gasheka.html",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "Пн–Пт 07:00–23:00; Сб–Вс 08:00–22:00",
+    "phone": "+7 812 610-06-06",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "fitness-house-fh-na-hasanskoj",
+    "networkId": "fitness-house",
+    "name": "Fitness House — на Хасанской",
+    "address": "Хасанская улица, 10, к2",
+    "website": "https://www.fitnesshouse.ru/fh-na-hasanskoj.html",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "Пн–Пт 07:00–23:00; Сб–Вс 08:00–22:00",
+    "phone": "+7 812 610-06-06",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "fitness-house-fh-na-kamyshovoj",
+    "networkId": "fitness-house",
+    "name": "Fitness House — на Камышовой",
+    "address": "ул.Камышовая, 36 стр. 1",
+    "website": "https://www.fitnesshouse.ru/fh-na-kamyshovoj.html",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "Пн–Пт 07:00–23:00; Сб–Вс 08:00–22:00",
+    "phone": "+7 812 610-06-06",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "fitness-house-fh-na-komendantskom",
+    "networkId": "fitness-house",
+    "name": "Fitness House — на Комендантском",
+    "address": "пр. Комендантский, д. 2, лит. А",
+    "website": "https://www.fitnesshouse.ru/fh-na-komendantskom.html",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "Пн–Пт 07:00–23:00; Сб–Вс 08:00–22:00",
+    "phone": "+7 812 610-06-06",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "fitness-house-fh-na-krasnoputilovskoy",
+    "networkId": "fitness-house",
+    "name": "Fitness House — на Краснопутиловской",
+    "address": "ул. Краснопутиловская, д. 111А",
+    "website": "https://www.fitnesshouse.ru/fh-na-krasnoputilovskoy.html",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "Пн–Пт 07:00–23:00; Сб–Вс 08:00–22:00",
+    "phone": "+7 812 610-06-06",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "fitness-house-fh-na-krestovskom",
+    "networkId": "fitness-house",
+    "name": "Fitness House — на Крестовском",
+    "address": "пр. Крестовский, д. 24 Б",
+    "website": "https://www.fitnesshouse.ru/fh-na-krestovskom.html",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "Пн–Пт 07:00–23:00; Сб–Вс 08:00–22:00",
+    "phone": "+7 812 610-06-06",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "fitness-house-fh-na-kultury",
+    "networkId": "fitness-house",
+    "name": "Fitness House — на Культуры",
+    "address": "пр. Культуры, д. 41, лит. А",
+    "website": "https://www.fitnesshouse.ru/fh-na-kultury.html",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "Пн–Пт 07:00–23:00; Сб–Вс 08:00–22:00",
+    "phone": "+7 812 610-06-06",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "fitness-house-fh-na-ladozhskoy",
+    "networkId": "fitness-house",
+    "name": "Fitness House — на Ладожской",
+    "address": "пл. Карла Фаберже, д. 8, лит. Е",
+    "website": "https://www.fitnesshouse.ru/fh-na-ladozhskoy.html",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "Пн–Пт 07:00–23:00; Сб–Вс 08:00–22:00",
+    "phone": "+7 812 610-06-06",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "fitness-house-fh-na-leninskom",
+    "networkId": "fitness-house",
+    "name": "Fitness House — на Ленинском",
+    "address": "пр. Ленинский, д. 160, лит. А",
+    "website": "https://www.fitnesshouse.ru/fh-na-leninskom.html",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "Пн–Пт 07:00–23:00; Сб–Вс 08:00–22:00",
+    "phone": "+7 812 610-06-06",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "fitness-house-fh-na-marshaka",
+    "networkId": "fitness-house",
+    "name": "Fitness House — на Маршака",
+    "address": "пр.Маршака, д.10",
+    "website": "https://www.fitnesshouse.ru/fh-na-marshaka.html",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "Пн–Пт 07:00–23:00; Сб–Вс 08:00–22:00",
+    "phone": "+7 812 610-06-06",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "fitness-house-fh-na-marshala-blyuhera",
+    "networkId": "fitness-house",
+    "name": "Fitness House — на Маршала Блюхера",
+    "address": "пр. Маршала Блюхера, д. 9, к. 3",
+    "website": "https://www.fitnesshouse.ru/fh-na-marshala-blyuhera.html",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "Пн–Пт 07:00–23:00; Сб–Вс 08:00–22:00",
+    "phone": "+7 812 610-06-06",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "fitness-house-fh-na-marshala-govorova",
+    "networkId": "fitness-house",
+    "name": "Fitness House — на Маршала Говорова",
+    "address": "ул. Маршала Говорова, д. 35, к. 4",
+    "website": "https://www.fitnesshouse.ru/fh-na-marshala-govorova.html",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "Пн–Пт 07:00–23:00; Сб–Вс 08:00–22:00",
+    "phone": "+7 812 610-06-06",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "fitness-house-fh-na-mebelnoy",
+    "networkId": "fitness-house",
+    "name": "Fitness House — на Мебельной",
+    "address": "ул. Мебельная, д. 1, корп. 2А",
+    "website": "https://www.fitnesshouse.ru/fh-na-mebelnoy.html",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "Пн–Пт 07:00–23:00; Сб–Вс 08:00–22:00",
+    "phone": "+7 812 610-06-06",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "fitness-house-fh-na-nalichnoj",
+    "networkId": "fitness-house",
+    "name": "Fitness House — на Наличной",
+    "address": "ул. Наличная, д. 44 к 1",
+    "website": "https://www.fitnesshouse.ru/fh-na-nalichnoj.html",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "Пн–Пт 07:00–23:00; Сб–Вс 08:00–22:00",
+    "phone": "+7 812 610-06-06",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "fitness-house-fh-na-novatorov",
+    "networkId": "fitness-house",
+    "name": "Fitness House — на Бульваре Новаторов",
+    "address": "Бульвар Новаторов, д. 32",
+    "website": "https://www.fitnesshouse.ru/fh-na-novatorov.html",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "Пн–Пт 07:00–23:00; Сб–Вс 09:00–22:00",
+    "phone": "+7 812 610-06-06",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "fitness-house-fh-na-piskarevskom",
+    "networkId": "fitness-house",
+    "name": "Fitness House — на Пискаревском",
+    "address": "пр. Пискаревский, д. 25, лит. А",
+    "website": "https://www.fitnesshouse.ru/fh-na-piskarevskom.html",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "Пн–Пт 07:00–23:00; Сб–Вс 08:00–22:00",
+    "phone": "+7 812 610-06-06",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "fitness-house-fh-na-politehnicheskoy",
+    "networkId": "fitness-house",
+    "name": "Fitness House — на Политехнической",
+    "address": "ул. Политехническая д. 6",
+    "website": "https://www.fitnesshouse.ru/fh-na-politehnicheskoy.html",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "Пн–Пт 07:00–23:00; Сб–Вс 08:00–22:00",
+    "phone": "+7 812 610-06-06",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "fitness-house-fh-na-prazhskoy",
+    "networkId": "fitness-house",
+    "name": "Fitness House — на Пражской",
+    "address": "ул. Пражская, д. 30/2 A",
+    "website": "https://www.fitnesshouse.ru/fh-na-prazhskoy.html",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "Пн–Пт 07:00–23:00; Сб–Вс 08:00–22:00",
+    "phone": "+7 812 610-06-06",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "fitness-house-fh-na-pulkovskom",
+    "networkId": "fitness-house",
+    "name": "Fitness House — на Пулковском",
+    "address": "Шереметьевская ул., 13 литера А",
+    "website": "https://www.fitnesshouse.ru/fh-na-pulkovskom.html",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "Пн–Пт 07:00–23:00; Сб–Вс 09:00–22:00",
+    "phone": "+7 812 610-06-06",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "fitness-house-fh-na-salova",
+    "networkId": "fitness-house",
+    "name": "Fitness House — на Салова",
+    "address": "ул. Салова, 61, стр. 1",
+    "website": "https://www.fitnesshouse.ru/fh-na-salova.html",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "Пн–Пт 07:00–23:00; Сб–Вс 08:00–22:00",
+    "phone": "+7 812 610-06-06",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "fitness-house-fh-na-savushkina",
+    "networkId": "fitness-house",
+    "name": "Fitness House — на Савушкина",
+    "address": "ул. Савушкина, д. 119, корп. 3",
+    "website": "https://www.fitnesshouse.ru/fh-na-savushkina.html",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "Пн–Пт 07:00–23:00; Сб–Вс 08:00–22:00",
+    "phone": "+7 812 610-06-06",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "fitness-house-fh-na-severnom",
+    "networkId": "fitness-house",
+    "name": "Fitness House — на Северном",
+    "address": "Северный пр., д. 40, литер А",
+    "website": "https://www.fitnesshouse.ru/fh-na-severnom.html",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "Пн–Пт 07:00–23:00; Сб–Вс 08:00–22:00",
+    "phone": "+7 812 610-06-06",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "fitness-house-fh-na-shavrova",
+    "networkId": "fitness-house",
+    "name": "Fitness House — на Шаврова",
+    "address": "ул. Шаврова, д. 26",
+    "website": "https://www.fitnesshouse.ru/fh-na-shavrova.html",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "Пн–Пт 07:00–23:00; Сб–Вс 08:00–22:00",
+    "phone": "+7 812 610-06-06",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "fitness-house-fh-na-stachek",
+    "networkId": "fitness-house",
+    "name": "Fitness House — на Стачек",
+    "address": "пр. Стачек 47, лит. Ж",
+    "website": "https://www.fitnesshouse.ru/fh-na-stachek.html",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "Пн–Пт 07:00–23:00; Сб–Вс 08:00–22:00",
+    "phone": "+7 812 610-06-06",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "fitness-house-fh-na-tallinskom",
+    "networkId": "fitness-house",
+    "name": "Fitness House — на Таллинском шоссе",
+    "address": "Таллинское шоссе, 25",
+    "website": "https://www.fitnesshouse.ru/fh-na-tallinskom.html",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "Пн–Пт 07:00–23:00",
+    "phone": "+7 812 610-06-06",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "fitness-house-fh-na-veteranov",
+    "networkId": "fitness-house",
+    "name": "Fitness House — на Ветеранов",
+    "address": "пр. Ветеранов, 121",
+    "website": "https://www.fitnesshouse.ru/fh-na-veteranov.html",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "Пн–Пт 07:00–23:00; Сб–Вс 08:00–22:00",
+    "phone": "+7 812 610-06-06",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "fitness-house-fh-na-zarechnoj",
+    "networkId": "fitness-house",
+    "name": "Fitness House — на Заречной",
+    "address": "Парнас, Заречная улица, д. 15, к. 1, стр. 1",
+    "website": "https://www.fitnesshouse.ru/fh-na-zarechnoj.html",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "Пн–Пт 07:00–23:00; Сб–Вс 08:00–22:00",
+    "phone": "+7 812 610-06-06",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "fitness-house-fh-novogorelovo",
+    "networkId": "fitness-house",
+    "name": "Fitness House — в Новогорелово",
+    "address": "п. Новогорелово, ул. Современников, 2А, ТЦ «KRONUNG НОВОГОРЕЛОВО»",
+    "website": "https://www.fitnesshouse.ru/fh-novogorelovo.html",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "Пн–Пт 07:00–23:00; Сб–Вс 08:00–22:00",
+    "phone": "+7 812 610-06-06",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "fitness-house-fh-prestige-na-gasheka",
+    "networkId": "fitness-house",
+    "name": "Fitness House — на Гашека +",
+    "address": "ул. Я. Гашека, д. 17А",
+    "website": "https://www.fitnesshouse.ru/fh-prestige-na-gasheka.html",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "Пн–Пт 07:00–23:00; Сб–Вс 08:00–22:00",
+    "phone": "+7 812 610-06-06",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "fitness-house-fh-prestige-na-hoshimina",
+    "networkId": "fitness-house",
+    "name": "Fitness House — на Хошимина",
+    "address": "Выборгское шоссе, д. 15А",
+    "website": "https://www.fitnesshouse.ru/fh-prestige-na-hoshimina.html",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "Пн–Пт 07:00–23:00; Сб–Вс 08:00–22:00",
+    "phone": "+7 812 610-06-06",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "fitness-house-fh-prestige-na-pulkovskom",
+    "networkId": "fitness-house",
+    "name": "Fitness House — на Пулковском +",
+    "address": "Шереметьевская ул., 13",
+    "website": "https://www.fitnesshouse.ru/fh-prestige-na-pulkovskom.html",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "Пн–Пт 07:00–23:00; Сб–Вс 08:00–23:00",
+    "phone": "+7 812 610-06-06",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "fitness-house-fh-v-devyatkino",
+    "networkId": "fitness-house",
+    "name": "Fitness House — в Девяткино",
+    "address": "ул. Главная, 60",
+    "website": "https://www.fitnesshouse.ru/fh-v-devyatkino.html",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "Пн–Пт 07:00–23:00; Сб–Вс 08:00–22:00",
+    "phone": "+7 812 610-06-06",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "fitness-house-fh-v-gatchine",
+    "networkId": "fitness-house",
+    "name": "Fitness House — в Гатчине",
+    "address": "ул. Генерала Кныша, д. 2 А",
+    "website": "https://www.fitnesshouse.ru/fh-v-gatchine.html",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "Пн–Пт 07:00–23:00; Сб–Вс 08:00–22:00",
+    "phone": "+7 812 610-06-06",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "fitness-house-fh-v-kudrovo",
+    "networkId": "fitness-house",
+    "name": "Fitness House — в Кудрово",
+    "address": "г. Кудрово, Европейский пр. 21, стр.1, лит.В",
+    "website": "https://www.fitnesshouse.ru/fh-v-kudrovo.html",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "Пн–Пт 07:00–23:00",
+    "phone": "+7 812 610-06-06",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "fitness-house-fh-v-lahte",
+    "networkId": "fitness-house",
+    "name": "Fitness House — в Лахте",
+    "address": "пр. Лахтинский, д. 85",
+    "website": "https://www.fitnesshouse.ru/fh-v-lahte.html",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "Пн–Пт 07:00–23:00; Сб–Вс 08:00–22:00",
+    "phone": "+7 812 610-06-06",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "fitness-house-fh-v-murino",
+    "networkId": "fitness-house",
+    "name": "Fitness House — в Мурино",
+    "address": "г. Мурино, ул. Шувалова д.11",
+    "website": "https://www.fitnesshouse.ru/fh-v-murino.html",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "Пн–Пт 07:00–23:00; Сб–Вс 08:00–22:00",
+    "phone": "+7 812 610-06-06",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "fitness-house-fh-v-ohta-molle",
+    "networkId": "fitness-house",
+    "name": "Fitness House — в Охта Молле",
+    "address": "ТРЦ \"Охта Молл\", Брантовская дор., 3",
+    "website": "https://www.fitnesshouse.ru/fh-v-ohta-molle.html",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "Пн–Пт 07:00–23:00; Сб–Вс 08:00–22:00",
+    "phone": "+7 812 610-06-06",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "fitness-house-fh-v-rybatskom",
+    "networkId": "fitness-house",
+    "name": "Fitness House — в Рыбацком",
+    "address": "пер. Скачков, д. 5",
+    "website": "https://www.fitnesshouse.ru/fh-v-rybatskom.html",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "Пн–Пт 07:00–23:00; Сб–Вс 08:00–22:00",
+    "phone": "+7 812 610-06-06",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "fitness-house-fh-v-shusharah",
+    "networkId": "fitness-house",
+    "name": "Fitness House — в Шушарах",
+    "address": "п.Шушары, Новгородский пр-т, д.6, к.2",
+    "website": "https://www.fitnesshouse.ru/fh-v-shusharah.html",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "Пн–Пт 07:00–23:00; Сб–Вс 08:00–22:00",
+    "phone": "+7 812 610-06-06",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "fitness-house-fh-v-slavyanke",
+    "networkId": "fitness-house",
+    "name": "Fitness House — в Славянке",
+    "address": "Славянка, ул. Ростовская, д. 20",
+    "website": "https://www.fitnesshouse.ru/fh-v-slavyanke.html",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "Пн–Пт 07:00–23:00; Сб–Вс 08:00–22:00",
+    "phone": "+7 812 610-06-06",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "fitness-house-fh-v-svetlanovskom",
+    "networkId": "fitness-house",
+    "name": "Fitness House — в Светлановском",
+    "address": "пр. Энгельса, д. 33, корп. 1, ТЦ \"Светлановский\"",
+    "website": "https://www.fitnesshouse.ru/fh-v-svetlanovskom.html",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "Пн–Пт 07:00–23:00; Сб–Вс 08:00–22:00",
+    "phone": "+7 812 610-06-06",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "fitness-house-fh-v-yanino",
+    "networkId": "fitness-house",
+    "name": "Fitness House — в Янино",
+    "address": "г. Санкт -Петербург ГП Янино 1, ул. Ветряных Мельниц д. 3/1",
+    "website": "https://www.fitnesshouse.ru/fh-v-yanino.html",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "Пн–Пт 07:00–23:00; Сб–Вс 08:00–22:00",
+    "phone": "+7 812 610-06-06",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "alex-fitness-ushinskogo",
+    "networkId": "alex-fitness",
+    "name": "ALEX FITNESS — Ушинского",
+    "address": "ул. Ушинского, 19, корп. 2, Санкт-Петербург",
+    "website": "https://spb.alexfitness.ru/ushinskogo/",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "",
+    "phone": "",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "alex-fitness-ligovskiy",
+    "networkId": "alex-fitness",
+    "name": "ALEX FITNESS — Лиговский",
+    "address": "Транспортный пер., 1, ТК «Платформа», Санкт-Петербург",
+    "website": "https://spb.alexfitness.ru/ligovskiy/",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "",
+    "phone": "",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  },
+  {
+    "id": "alex-fitness-kudrovo",
+    "networkId": "alex-fitness",
+    "name": "ALEX FITNESS — Кудрово",
+    "address": "ул. Ленинградская, 1, ЖК «Новый Оккервиль», Кудрово, Ленинградская область",
+    "website": "https://spb.alexfitness.ru/kudrovo/",
+    "sports": [
+      "Фитнес-зал"
+    ],
+    "status": "curated",
+    "isPublished": true,
+    "isVerified": false,
+    "hours": "",
+    "phone": "",
+    "checkedAt": "2026-10-18",
+    "note": "Каждому участнику нужен абонемент или согласованный гостевой визит. Уточните условия у этого клуба. SportBuddy помогает найти компанию, но не оформляет посещение."
+  }
+]

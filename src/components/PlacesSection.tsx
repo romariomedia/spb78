@@ -1,5 +1,6 @@
+import { VENUE_NETWORKS, venueNetworkGroups } from '../lib/venueNetworks';
 import { useBackLayer } from '../hooks/useMobileNavigation';
-import React, { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useMemo, useState, useRef } from 'react';
 import {
   ArrowLeft, Building2, CheckCircle2, ChevronLeft, ChevronRight, Clock3, ExternalLink,
   List, Map as MapIcon, MapPin, Phone, Search, ShieldCheck, Star, Trophy, X
@@ -172,13 +173,18 @@ const VenueGallery: React.FC<{ venue: SportVenue }> = ({ venue }) => {
   );
 };
 
+
 export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, onCreateTraining }) => {
   const [view, setView] = useState<'list' | 'map'>('list');
   const [query, setQuery] = useState('');
   const [sport, setSport] = useState<string>('Все');
   const [sort, setSort] = useState<SortMode>('recommended');
   const [selected, setSelected] = useState<SportVenue | null>(null);
-  useBackLayer(isOpen, () => { if (selected) setSelected(null); else onClose(); });
+  const scrollRoot = useRef<HTMLDivElement>(null);
+  const [network, setNetwork] = useState<string | null>(null);
+  useEffect(() => { scrollRoot.current?.scrollTo({top:0}); }, [selected?.id, network]);
+  const goBack = () => { if (selected) setSelected(null); else if (network) { setNetwork(null); setQuery(''); } else onClose(); };
+  useBackLayer(isOpen, goBack);
   const [showOnlyReady, setShowOnlyReady] = useState(false);
   const [catalog, setCatalog] = useState<SportVenue[]>(SPB_VENUES);
   const [catalogLoading, setCatalogLoading] = useState(false);
@@ -199,12 +205,13 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, o
   }, [isOpen]);
 
   useEffect(() => {
-    if (!isOpen) setSelected(null);
+    if (!isOpen) { setSelected(null); setNetwork(null); }
   }, [isOpen]);
 
   const venues = useMemo(() => {
     const q = query.trim().toLocaleLowerCase('ru-RU');
     const list = catalog.filter(venue => {
+      if (network && venue.networkId !== network) return false;
       if (showOnlyReady && venue.status !== 'curated') return false;
       if (sport !== 'Все' && !venue.sports.includes(sport)) return false;
       if (!q) return true;
@@ -218,29 +225,32 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, o
       if (sort === 'reviews') return (b.reviews ?? 0) - (a.reviews ?? 0);
       return venueScore(b) - venueScore(a);
     });
-  }, [catalog, query, sport, sort, showOnlyReady]);
+  }, [catalog, query, sport, sort, showOnlyReady, network]);
+
+  const networkGroups = venueNetworkGroups(venues);
+  const listVenues = network ? venues : venues.filter(venue => !VENUE_NETWORKS[venue.networkId || '']);
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[80] bg-slate-950 text-white overflow-y-auto overscroll-contain [padding-bottom:env(safe-area-inset-bottom)]">
+    <div ref={scrollRoot} className="fixed inset-0 z-[80] bg-slate-950 text-white overflow-y-auto overscroll-contain [padding-bottom:env(safe-area-inset-bottom)]">
       <div className="sticky top-0 z-30 border-b border-slate-800 bg-slate-950/95 backdrop-blur-xl [padding-top:env(safe-area-inset-top)]">
         <div className="mx-auto max-w-3xl px-4 py-2.5 flex items-center gap-3">
           <button
             type="button"
-            onClick={() => { triggerHapticImpact('light'); selected ? setSelected(null) : onClose(); }}
+            onClick={() => { triggerHapticImpact('light'); goBack(); }}
             className="w-11 h-11 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center active:scale-95"
-            aria-label={selected ? 'Назад к площадкам' : 'Закрыть площадки'}
+            aria-label={selected || network ? 'Назад' : 'Закрыть площадки'}
           >
-            {selected ? <ArrowLeft className="w-5 h-5" /> : <X className="w-5 h-5" />}
+            {selected || network ? <ArrowLeft className="w-5 h-5" /> : <X className="w-5 h-5" />}
           </button>
           <div className="min-w-0 flex-1">
             <p className="text-[10px] uppercase tracking-[0.16em] text-emerald-400 font-black">SportBuddy Places</p>
-            <h2 className="text-base font-black truncate">{selected ? selected.name : 'Площадки Санкт-Петербурга'}</h2>
+            <h2 className="text-base font-black truncate">{selected ? selected.name : network ? VENUE_NETWORKS[network] : 'Площадки Санкт-Петербурга'}</h2>
           </div>
           {!selected && (
             <span className="text-[11px] font-black px-2.5 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300">
-              {venues.length} из {catalog.length}
+              {view === 'list' && !network ? listVenues.length + networkGroups.length : venues.length} {network ? 'адресов' : 'в каталоге'}
             </span>
           )}
         </div>
@@ -312,6 +322,7 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, o
               </section>
             )}
 
+            {selected.checkedAt && <p className="text-[10px] text-slate-500">Адрес сверён с официальным сайтом: {selected.checkedAt.split('-').reverse().join('.')}. Перед визитом проверьте режим работы.</p>}
             {selected.note && (
               <section className="rounded-2xl border border-slate-800 bg-slate-900 p-3.5 text-xs text-slate-300 leading-relaxed">
                 {selected.note}
@@ -395,9 +406,9 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, o
                 <Building2 className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-black">Одна база спортивных площадок Петербурга</h3>
+                <h3 className="font-black">{network ? 'Выберите клуб для совместной тренировки' : 'Одна база спортивных площадок Петербурга'}</h3>
                 <p className="mt-1 text-[11px] leading-relaxed text-slate-300">
-                  Сравнивайте площадки, цены и контакты. Бронирование выполняется напрямую у владельца — SportBuddy не скрывает контакты и не добавляет комиссию.
+                  {network ? 'Найдите удобный адрес, откройте карточку клуба и нажмите «Создать тренировку здесь». Абонемент или гостевой визит оформляется отдельно у клуба.' : 'Сравнивайте площадки, цены и контакты. Выберите сеть фитнес-клубов, чтобы увидеть её адреса.'}
                 </p>
               </div>
             </div>
@@ -468,14 +479,25 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, o
                 Обновляем данные площадок…
               </div>
             )}
-            {view === 'list' && venues.map(venue => (
+            {view === 'list' && !network && networkGroups.map(group => (
+              <button key={group.id} type="button" onClick={() => { setNetwork(group.id); setQuery(''); }}
+                className="w-full rounded-3xl border border-emerald-500/25 bg-gradient-to-br from-emerald-500/10 to-slate-900 p-5 text-left active:scale-[0.995]">
+                <div className="flex items-center justify-between gap-3">
+                  <div><p className="text-[10px] font-bold uppercase tracking-widest text-emerald-300">Сеть фитнес-клубов</p>
+                    <h3 className="mt-2 text-xl font-black">{group.name}</h3>
+                    <p className="mt-2 text-xs text-slate-400">Выбрать адрес · найдено {group.branches.length}</p></div>
+                  <ChevronRight className="h-6 w-6 shrink-0 text-emerald-300" />
+                </div>
+              </button>
+            ))}
+            {view === 'list' && listVenues.map(venue => (
               <button
                 key={venue.id}
                 type="button"
                 onClick={() => { triggerHapticImpact('light'); setSelected(venue); }}
                 className="w-full overflow-hidden rounded-3xl border border-slate-800 bg-slate-900 text-left active:scale-[0.995] transition shadow-xl touch-manipulation"
               >
-                <VenueHero venue={venue} compact />
+                {!network && <VenueHero venue={venue} compact />}
                 <div className="p-4">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
