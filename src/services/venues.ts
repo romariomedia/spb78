@@ -4,7 +4,7 @@ import { validVenueCoordinates } from '../../shared/venue-location.js';
 import { SPB_VENUES, SportVenue } from '../lib/venues';
 import { getAdminSession } from './adminAuth';
 
-const CACHE_KEY = 'sportbuddy_places_cache_v1';
+const CACHE_KEY = 'sportbuddy_places_cache_v2';
 
 function normalizeVenue(raw: Partial<SportVenue> & { id: string }): SportVenue {
   return {
@@ -36,14 +36,14 @@ function saveCache(venues: SportVenue[]): void {
   try { localStorage.setItem(CACHE_KEY, JSON.stringify(venues)); } catch { /* ignore */ }
 }
 
-function readCache(): SportVenue[] {
+function readCache(): SportVenue[] | null {
   try {
     const raw = localStorage.getItem(CACHE_KEY);
-    if (!raw) return [];
+    if (!raw) return null;
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.map((v) => normalizeVenue(v)) : [];
+    return Array.isArray(parsed) ? parsed.map((v) => normalizeVenue(v)) : null;
   } catch {
-    return [];
+    return null;
   }
 }
 
@@ -82,18 +82,28 @@ async function loadManagedVenues(includeUnpublished:boolean): Promise<Array<Part
   return Array.isArray(data.venues) ? data.venues : [];
 }
 
+/** Public cache only; the private admin catalog must never be persisted here. */
+export function getCachedVenues(): SportVenue[] {
+  const cached = readCache();
+  return (cached ?? SPB_VENUES).filter(v => v.isPublished !== false);
+}
+
+let publicRequest: Promise<SportVenue[]> | null = null;
 export async function refreshVenues(includeUnpublished = false): Promise<SportVenue[]> {
-  try {
-    const managed = await loadManagedVenues(includeUnpublished);
-    const merged = mergeVenueCatalog(managed)
-      .filter(venue => includeUnpublished || venue.isPublished !== false);
-    saveCache(merged);
-    return merged;
-  } catch {
-    const cached = readCache().filter(venue => includeUnpublished || venue.isPublished !== false);
-    if (cached.length) return cached;
-    return SPB_VENUES.filter(venue => includeUnpublished || venue.isPublished !== false);
+  if (includeUnpublished) return loadOfficialTrainingVenues();
+  // Share concurrent reads, but always revalidate on the next opening.
+  if (!publicRequest) {
+    publicRequest = (async () => {
+      try {
+        const merged = mergeVenueCatalog(await loadManagedVenues(false));
+        saveCache(merged);
+        return merged;
+      } catch {
+        return getCachedVenues();
+      }
+    })().finally(() => { publicRequest = null; });
   }
+  return publicRequest;
 }
 
 export async function adminMutateVenue(payload: {

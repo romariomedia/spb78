@@ -6,7 +6,7 @@ const bundle = await build({entryPoints:['src/services/venues.ts'],bundle:true,w
  b.onResolve({filter:/\/apiEndpoint$/},()=>({path:'base',namespace:'fake'}));
  b.onLoad({filter:/.*/,namespace:'fake'},args=>({contents:args.path==='admin'?'export const getAdminSession=()=>({sessionId:"test"})':'export const apiFetch=(path,init)=>fetch("https://sportbuddy78.pro"+path,init)',loader:'js'}));
 }}]});
-const {mergeVenueCatalog,loadOfficialTrainingVenues}=await import('data:text/javascript;base64,'+Buffer.from(bundle.outputFiles[0].text).toString('base64'));
+const {mergeVenueCatalog,loadOfficialTrainingVenues,refreshVenues,getCachedVenues}=await import('data:text/javascript;base64,'+Buffer.from(bundle.outputFiles[0].text).toString('base64'));
 test('admin catalog keeps hidden and unmapped venues, excludes archived; public catalog stays private',()=>{
  const managed=[{id:'hidden-test',name:'Hidden',address:'Street',isPublished:false},{id:'archived-test',archived:true},{id:'new-test',name:'New',address:'Other'}];
  const admin=mergeVenueCatalog(managed,true),publicItems=mergeVenueCatalog(managed);
@@ -47,4 +47,30 @@ test('networks group visible branches while branch IDs, addresses and admin over
  assert.ok(venueNetworkGroups(hidden)[0].branches.some(b=>b.id===other.id));
  const removed=mergeVenueCatalog(groups[0].branches.map(b=>({id:b.id,archived:true})));
  assert.ok(!venueNetworkGroups(removed).some(g=>g.id===groups[0].id));
+});
+
+
+test('public venue reads coalesce, revalidate, preserve empty cache and never expose admin drafts',async()=>{
+ const oldFetch=globalThis.fetch,oldStorage=globalThis.localStorage;
+ const cache=new Map(); let calls=0,release;
+ globalThis.localStorage={getItem:k=>cache.get(k)??null,setItem:(k,v)=>cache.set(k,v)};
+ globalThis.fetch=async()=>{calls++; await new Promise(resolve=>{release=resolve}); return {ok:true,json:async()=>({venues:[{id:'ddx-galereya',isPublished:false}]})};};
+ try{
+  const first=refreshVenues(),second=refreshVenues();
+  assert.equal(calls,1);release();
+  const [a,b]=await Promise.all([first,second]);
+  assert.deepEqual(a,b);assert.ok(!a.some(v=>v.id==='ddx-galereya'));
+  const third=refreshVenues();assert.equal(calls,2);release();await third;
+  const publicBefore=[...cache.entries()];
+  globalThis.fetch=async()=>({ok:true,json:async()=>({venues:[{id:'private-draft',isPublished:false}]})});
+  const admin=await refreshVenues(true);
+  assert.ok(admin.some(v=>v.id==='private-draft'));
+  assert.deepEqual([...cache.entries()],publicBefore);
+  assert.ok(!getCachedVenues().some(v=>v.id==='private-draft'));
+  globalThis.fetch=async()=>{throw new Error('offline');};
+  assert.deepEqual(await refreshVenues(),getCachedVenues());
+  cache.set('sportbuddy_places_cache_v2','[]');assert.deepEqual(await refreshVenues(),[]);
+  cache.set('sportbuddy_places_cache_v2','broken');assert.ok(getCachedVenues().length>0);
+  await assert.rejects(()=>refreshVenues(true),/offline/);
+ }finally{globalThis.fetch=oldFetch;globalThis.localStorage=oldStorage;}
 });

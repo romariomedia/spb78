@@ -60,9 +60,9 @@ import { syncSubscriptionPlan, isPremiumActive } from './services/promo';
 import { AuthScreen } from './components/AuthScreen';
 import { SuccessScreen } from './components/SuccessScreen';
 import { PromoSection } from './components/PromoSection';
-import { ProfileEditor } from './components/ProfileEditor';
-import { LegalSection } from './components/LegalSection';
-import { PricingSection } from './components/PricingSection';
+const ProfileEditor = lazy(() => import('./components/ProfileEditor').then(module => ({ default: module.ProfileEditor })));
+const LegalSection = lazy(() => import('./components/LegalSection').then(module => ({ default: module.LegalSection })));
+const PricingSection = lazy(() => import('./components/PricingSection').then(module => ({ default: module.PricingSection })));
 import { LivePhoto } from './components/LivePhoto';
 import { Leaderboard } from './components/Leaderboard';
 import { AmbientBackdrop } from './components/AmbientBackdrop';
@@ -131,7 +131,8 @@ import { Modal } from './components/Modal';
 import { ProgressBar } from './components/ProgressBar';
 import { RewardsSection } from './components/RewardsSection';
 import { WelcomeGuide, hasSeenWelcomeGuide, markWelcomeGuideSeen } from './components/WelcomeGuide';
-import { PlacesSection } from './components/PlacesSection';
+const PlacesSection = lazy(() => import('./components/PlacesSection').then(module => ({ default: module.PlacesSection })));
+import { venueLocation } from './lib/venueLocation';
 const LeisureSection = lazy(() => import('./components/LeisureSection'));
 import { SportVenue } from './lib/venues';
 
@@ -278,6 +279,7 @@ export default function App(): JSX.Element {
   const [newTrCity, setNewTrCity] = useState('Санкт-Петербург');
   const [isMapSelectorOpen, setIsMapSelectorOpen] = useState(false);
   const [isPlacesOpen, setIsPlacesOpen] = useState(false);
+  const [isVenuePickerOpen, setIsVenuePickerOpen] = useState(false);
   const [selectedVenueForTraining, setSelectedVenueForTraining] = useState<SportVenue | null>(null);
   const [venueRentalConfirmed, setVenueRentalConfirmed] = useState(false);
 
@@ -331,7 +333,7 @@ export default function App(): JSX.Element {
   // Refresh date-based feature gates even when the app stays open across midnight.
   const [, refreshAccessClock] = useState(0);
   useEffect(() => {
-    const refresh = () => refreshAccessClock(v => v + 1);
+    const refresh = () => { if (document.visibilityState !== 'hidden') refreshAccessClock(v => v + 1); };
     const timer = window.setInterval(refresh, 30000);
     document.addEventListener('visibilitychange', refresh);
     return () => { clearInterval(timer); document.removeEventListener('visibilitychange', refresh); };
@@ -1420,6 +1422,7 @@ export default function App(): JSX.Element {
   const handleCreateTrainingFromVenue = (venue: SportVenue) => {
     triggerHapticImpact('medium');
     setIsPlacesOpen(false);
+    setIsVenuePickerOpen(false);
 
     if (!isPremium) {
       triggerHapticNotification('warning');
@@ -1433,9 +1436,11 @@ export default function App(): JSX.Element {
     setNewTrAddress(venue.address);
     setNewTrCity('Санкт-Петербург');
     setNewTrDistrict('');
-    setNewTrLocationSelected(false);
+    const point = venueLocation(venue);
+    setNewTrCoords(point || DEFAULT_COORDS);
+    setNewTrLocationSelected(!!point);
 
-    const compatibleSport = venue.sports.find(item => SPORTS.includes(item));
+    const compatibleSport = venue.sports.includes(newTrSport) ? newTrSport : venue.sports.find(item => SPORTS.includes(item));
     if (compatibleSport) setNewTrSport(compatibleSport);
 
     setIsCreateTrainingOpen(true);
@@ -3186,7 +3191,7 @@ export default function App(): JSX.Element {
                   </button>
                 )}
 
-                {profileSection === 'edit' && (
+                {profileSection === 'edit' && (<Suspense fallback={<div role="status" className="p-6 text-center text-slate-400">Загружаем раздел…</div>}>
                   <ProfileEditor
                     user={currentUser}
                     onUpdateUser={(u) => {
@@ -3194,15 +3199,15 @@ export default function App(): JSX.Element {
                       setAllUsers(prev => prev.map(x => (x.id === u.id ? u : x)));
                     }}
                   />
-                )}
+                </Suspense>)}
 
-                {profileSection === 'tariff' && (
+                {profileSection === 'tariff' && (<Suspense fallback={<div role="status" className="p-6 text-center text-slate-400">Загружаем раздел…</div>}>
                   <PricingSection
                     user={currentUser}
                   />
-                )}
+                </Suspense>)}
 
-                {profileSection === 'legal' && (
+                {profileSection === 'legal' && (<Suspense fallback={<div role="status" className="p-6 text-center text-slate-400">Загружаем раздел…</div>}>
                   <LegalSection
                     onReport={() => {
                       triggerHapticNotification('warning');
@@ -3210,7 +3215,7 @@ export default function App(): JSX.Element {
                     }}
                     onAdminTrigger={handleVersionTap}
                   />
-                )}
+                </Suspense>)}
 
                 {profileSection === 'passport' && operations.featureFlags.sportPassportEnabled && (
                   <SportPassportView
@@ -3703,11 +3708,14 @@ export default function App(): JSX.Element {
         />
       </Suspense>
 
-      <PlacesSection
-        isOpen={isPlacesOpen}
-        onClose={() => setIsPlacesOpen(false)}
-        onCreateTraining={handleCreateTrainingFromVenue}
-      />
+      {(isPlacesOpen || isVenuePickerOpen) && <Suspense fallback={<div role="status" className="fixed inset-0 z-[80] grid place-items-center bg-slate-950 text-emerald-300">Загружаем площадки…</div>}>
+        <PlacesSection
+          isOpen={true}
+          selectionMode={isVenuePickerOpen}
+          onClose={() => { setIsPlacesOpen(false); setIsVenuePickerOpen(false); }}
+          onCreateTraining={handleCreateTrainingFromVenue}
+        />
+      </Suspense>}
 
       {/* 3. Bottom Navigation Bar */}
       <BottomNav
@@ -3903,6 +3911,13 @@ export default function App(): JSX.Element {
           : 'Найдите компанию для зала, пробежки или игры'}
       >
         <form onSubmit={handleSubmitTraining} className="space-y-4 text-xs">
+          <button type="button" onClick={() => setIsVenuePickerOpen(true)}
+            className="w-full flex items-center gap-3 rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-4 text-left active:scale-[0.99]">
+            <MapPin className="w-6 h-6 shrink-0 text-emerald-400" />
+            <span><span className="block text-sm font-bold text-emerald-200">{selectedVenueForTraining ? 'Заменить площадку' : 'Выбрать площадку из каталога'}</span>
+              <span className="block mt-1 text-xs text-slate-400">Клубы, залы, стадионы · поиск по адресу и карта</span></span>
+            <ChevronRight className="w-5 h-5 ml-auto shrink-0" />
+          </button>
           {selectedVenueForTraining && (
             <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-3.5 space-y-3">
               <div className="flex items-start gap-2.5">
@@ -3911,6 +3926,8 @@ export default function App(): JSX.Element {
                 </div>
                 <div className="min-w-0">
                   <p className="font-black text-emerald-200">Площадка: {selectedVenueForTraining.name}</p>
+                  <button type="button" onClick={() => { setSelectedVenueForTraining(null); setVenueRentalConfirmed(false); }}
+                    className="min-h-11 text-xs text-slate-300 underline">Убрать привязку к площадке</button>
                   <p className="mt-0.5 text-[11px] text-slate-300">{selectedVenueForTraining.address}</p>
                   <p className="mt-1 text-[10px] text-slate-500">
                     {selectedVenueForTraining.sports.includes('Фитнес-зал') ? 'Для входа каждому участнику нужен абонемент или согласованный гостевой визит. Выберите на карте точное место встречи.' : 'SportBuddy не бронирует площадку автоматически. Сначала согласуйте дату и время с владельцем.'}
@@ -3951,7 +3968,12 @@ export default function App(): JSX.Element {
               <label className="block font-bold text-slate-300 mb-1">Вид спорта</label>
               <select
                 value={newTrSport}
-                onChange={e => setNewTrSport(e.target.value)}
+                onChange={e => {
+                  setNewTrSport(e.target.value);
+                  if (selectedVenueForTraining && !selectedVenueForTraining.sports.includes(e.target.value)) {
+                    setSelectedVenueForTraining(null); setVenueRentalConfirmed(false);
+                  }
+                }}
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-100 focus:outline-none focus:border-emerald-500 font-semibold"
               >
                 {SPORTS.filter(s => s !== 'Активный отдых').map(s => (
@@ -4038,7 +4060,7 @@ export default function App(): JSX.Element {
                 className="text-xs bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 font-bold px-3 py-1 rounded-lg border border-emerald-500/30 transition"
               >
                 {selectedVenueForTraining
-                  ? '📍 Подтвердить точку площадки'
+                  ? (newTrLocationSelected ? '📍 Уточнить место встречи' : '📍 Указать точку площадки')
                   : newTrSport === 'Походы'
                     ? '📍 Выбрать точку старта'
                     : '📍 Выбрать на карте Leaflet'}

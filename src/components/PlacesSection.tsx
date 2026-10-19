@@ -1,14 +1,14 @@
 import { VENUE_NETWORKS, venueNetworkGroups } from '../lib/venueNetworks';
 import { useBackLayer } from '../hooks/useMobileNavigation';
-import React, { lazy, Suspense, useEffect, useMemo, useState, useRef } from 'react';
+import React, { lazy, Suspense, useEffect, useMemo, useState, useRef, useDeferredValue } from 'react';
 import {
   ArrowLeft, Building2, CheckCircle2, ChevronLeft, ChevronRight, Clock3, ExternalLink,
   List, Map as MapIcon, MapPin, Phone, Search, ShieldCheck, Star, Trophy, X
 } from 'lucide-react';
 import {
-  SPB_VENUES, VENUE_SPORT_FILTERS, SportVenue, venueMapUrl, venueScore
+  VENUE_SPORT_FILTERS, SportVenue, venueMapUrl, venueScore
 } from '../lib/venues';
-import { refreshVenues } from '../services/venues';
+import { refreshVenues, getCachedVenues } from '../services/venues';
 import { venueCover } from '../lib/venueCovers';
 import { venuePrice } from '../lib/venuePricing';
 import { triggerHapticImpact } from '../services/native';
@@ -17,6 +17,7 @@ const VenuesMap = lazy(() => import('./VenuesMap'));
 
 interface PlacesSectionProps {
   isOpen: boolean;
+  selectionMode?: boolean;
   onClose: () => void;
   onCreateTraining: (venue: SportVenue) => void;
 }
@@ -174,9 +175,10 @@ const VenueGallery: React.FC<{ venue: SportVenue }> = ({ venue }) => {
 };
 
 
-export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, onCreateTraining }) => {
+export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, onCreateTraining, selectionMode = false }) => {
   const [view, setView] = useState<'list' | 'map'>('list');
   const [query, setQuery] = useState('');
+  const deferredQuery = useDeferredValue(query);
   const [sport, setSport] = useState<string>('Все');
   const [sort, setSort] = useState<SortMode>('recommended');
   const [selected, setSelected] = useState<SportVenue | null>(null);
@@ -186,7 +188,7 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, o
   const goBack = () => { if (selected) setSelected(null); else if (network) { setNetwork(null); setQuery(''); } else onClose(); };
   useBackLayer(isOpen, goBack);
   const [showOnlyReady, setShowOnlyReady] = useState(false);
-  const [catalog, setCatalog] = useState<SportVenue[]>(SPB_VENUES);
+  const [catalog, setCatalog] = useState<SportVenue[]>(getCachedVenues);
   const [catalogLoading, setCatalogLoading] = useState(false);
 
   useEffect(() => {
@@ -209,7 +211,7 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, o
   }, [isOpen]);
 
   const venues = useMemo(() => {
-    const q = query.trim().toLocaleLowerCase('ru-RU');
+    const q = deferredQuery.trim().toLocaleLowerCase('ru-RU');
     const list = catalog.filter(venue => {
       if (network && venue.networkId !== network) return false;
       if (showOnlyReady && venue.status !== 'curated') return false;
@@ -225,9 +227,9 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, o
       if (sort === 'reviews') return (b.reviews ?? 0) - (a.reviews ?? 0);
       return venueScore(b) - venueScore(a);
     });
-  }, [catalog, query, sport, sort, showOnlyReady, network]);
+  }, [catalog, deferredQuery, sport, sort, showOnlyReady, network]);
 
-  const networkGroups = venueNetworkGroups(venues);
+  const networkGroups = useMemo(() => venueNetworkGroups(venues), [venues]);
   const listVenues = network ? venues : venues.filter(venue => !VENUE_NETWORKS[venue.networkId || '']);
 
   if (!isOpen) return null;
@@ -246,7 +248,7 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, o
           </button>
           <div className="min-w-0 flex-1">
             <p className="text-[10px] uppercase tracking-[0.16em] text-emerald-400 font-black">SportBuddy Places</p>
-            <h2 className="text-base font-black truncate">{selected ? selected.name : network ? VENUE_NETWORKS[network] : 'Площадки Санкт-Петербурга'}</h2>
+            <h2 className="text-base font-black truncate">{selected ? selected.name : network ? VENUE_NETWORKS[network] : selectionMode ? 'Выберите площадку' : 'Площадки Санкт-Петербурга'}</h2>
           </div>
           {!selected && (
             <span className="text-[11px] font-black px-2.5 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300">
@@ -393,7 +395,7 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, o
                 className="w-full min-h-14 rounded-2xl bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-black text-sm px-4 flex items-center justify-center gap-2 active:scale-[0.99] shadow-[0_0_24px_rgba(16,185,129,0.25)]"
               >
                 <CheckCircle2 className="w-4 h-4" />
-                {selected.status === 'restricted' ? 'Сначала уточните аренду' : 'Создать тренировку здесь'}
+                {selected.status === 'restricted' ? 'Сначала уточните аренду' : selectionMode ? 'Выбрать эту площадку' : 'Создать тренировку здесь'}
               </button>
             </div>
           </div>
