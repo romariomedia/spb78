@@ -1,3 +1,4 @@
+import {MassageAdminPanel} from './MassageAdminPanel';
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -50,7 +51,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 }) => {
   const admin = authorized;
 
-  const [adminView, setAdminView] = useState<'overview'|'analytics'|'manage'|'verification'|'moderation'|'push'|'announcements'|'partners'|'officialTrainings'|'venues'|'leisure'|'events'|'audit'>('overview');
+  const [adminView, setAdminView] = useState<'overview'|'analytics'|'manage'|'verification'|'moderation'|'push'|'announcements'|'partners'|'officialTrainings'|'venues'|'leisure'|'massage'|'events'|'audit'>('overview');
   const [creating, setCreating] = useState(false);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -229,6 +230,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               ['officialTrainings','Офиц. тренировки'],
               ['venues','Площадки'],
               ['leisure','Отдых'],
+              ['massage','Массаж'],
               ['events','События'],
               ['audit','Журнал']
             ] as const).map(([id,label]) => (
@@ -254,6 +256,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           {adminView === 'officialTrainings' && <AdminOfficialTrainingsPanel />}
           {adminView === 'venues' && <PlacesAdminPanel />}
           {adminView === 'leisure' && <LeisureAdminPanel />}
+          {adminView === 'massage' && <MassageAdminPanel />}
           {adminView === 'audit' && <AdminAuditPanel />}
 
           {adminView === 'events' && <>
