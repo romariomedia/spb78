@@ -12,7 +12,7 @@ export async function readOperations(){
 export async function enforceOperations(route,req,res){
  if(route.startsWith('admin-')||['app-config','payment-webhook'].includes(route))return false;
  try{
-  const denial=operationDenial(await readOperations(),route,req.body?.action);
+  const denial=operationDenial(await readOperations(),route,route==='guest-catalog'?req.query?.section:req.body?.action);
   if(!denial)return false;
   if(denial.status===503)res.setHeader('Retry-After','30');
   res.status(denial.status).json(denial);return true;

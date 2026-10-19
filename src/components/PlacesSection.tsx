@@ -18,6 +18,7 @@ const VenuesMap = lazy(() => import('./VenuesMap'));
 interface PlacesSectionProps {
   isOpen: boolean;
   selectionMode?: boolean;
+  guestMode?: boolean;
   onClose: () => void;
   onCreateTraining: (venue: SportVenue) => void;
 }
@@ -175,7 +176,7 @@ const VenueGallery: React.FC<{ venue: SportVenue }> = ({ venue }) => {
 };
 
 
-export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, onCreateTraining, selectionMode = false }) => {
+export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, onCreateTraining, selectionMode = false, guestMode = false }) => {
   const [view, setView] = useState<'list' | 'map'>('list');
   const [query, setQuery] = useState('');
   const deferredQuery = useDeferredValue(query);
@@ -235,7 +236,9 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, o
   if (!isOpen) return null;
 
   return (
-    <div ref={scrollRoot} className="fixed inset-0 z-[80] bg-slate-950 text-white overflow-y-auto overscroll-contain [padding-bottom:env(safe-area-inset-bottom)]">
+    <div ref={scrollRoot} onClickCapture={event=>{
+      if(guestMode && (event.target as HTMLElement).closest('a[href]')) {event.preventDefault();event.stopPropagation();if(selected)onCreateTraining(selected);}
+    }} className="fixed inset-0 z-[80] bg-slate-950 text-white overflow-y-auto overscroll-contain [padding-bottom:env(safe-area-inset-bottom)]">
       <div className="sticky top-0 z-30 border-b border-slate-800 bg-slate-950/95 backdrop-blur-xl [padding-top:env(safe-area-inset-top)]">
         <div className="mx-auto max-w-3xl px-4 py-2.5 flex items-center gap-3">
           <button

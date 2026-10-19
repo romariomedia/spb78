@@ -1,6 +1,8 @@
+import {needsAuthScreen} from './services/guest';
+const GuestApp=lazy(()=>import('./components/GuestApp').then(module=>({default:module.GuestApp})));
 import { useDeferredFeed } from './services/useDeferredFeed';
 import { socialIdentityKey } from './services/identityLoading';
-import { useMobileNavigation } from './hooks/useMobileNavigation';
+import { useMobileNavigation, useBackLayer } from './hooks/useMobileNavigation';
 import {useOperationalConfig} from './services/operationalConfig';
 import { DistrictSelect } from './components/DistrictSelect';
 import { districtLabel, getDistrict, matchesDistrict } from '../shared/districts.js';
@@ -186,6 +188,9 @@ export default function App(): JSX.Element {
   // Auth State
   const [account, setAccount] = useState<AuthAccount | null>(() => getSessionAccount());
   const [authNotice, setAuthNotice] = useState('');
+  const [showAuth,setShowAuth]=useState(()=>{try{return needsAuthScreen(window.location.href,sessionStorage);}catch{return needsAuthScreen(window.location.href);}});
+  const [guestTab,setGuestTab]=useState<TabType>('trainings');
+  useBackLayer(!account && (showAuth || !!authNotice),()=>{setShowAuth(false);setAuthNotice('');});
   const [loadError, setLoadError] = useState('');
   const [loadWarning, setLoadWarning] = useState('');
   const [publicProfilesStale, setPublicProfilesStale] = useState(true);
@@ -420,6 +425,7 @@ export default function App(): JSX.Element {
       // Ensure every repository call is scoped to the actual logged-in account,
       // not the old shared demo identity.
       const activeSession = getSessionAccount();
+      if (!firebaseUid && !activeSession) return;
       if (firebaseUid) setCurrentUserId(firebaseUid);
       else if (activeSession) setCurrentUserId(activeSession.firebaseUid ?? activeSession.id);
       const data = await loadAppData({deferFeed: true});
@@ -672,6 +678,7 @@ export default function App(): JSX.Element {
     if (isNewAccount) {
       freshAccountRef.current = { account: authAccount, vkAvatar };
     }
+    setShowAuth(false);
     setAccount(authAccount);
     setWelcomeTrialShown(false);
     setIsLoading(true);
@@ -709,6 +716,7 @@ export default function App(): JSX.Element {
     clearLocalAuthSession();
     void signOutFirebase();
     void signOutTransport();
+    setShowAuth(false);
     setAccount(null);
     setCurrentUser(null);
     setAllUsers([]);
@@ -759,7 +767,7 @@ export default function App(): JSX.Element {
     }, 6000);
 
     // Setup Geolocation
-    getCurrentCoords().then(async (coords) => {
+    if (getSessionAccount()) getCurrentCoords().then(async (coords) => {
       setUserCoords(coords);
       setHasCurrentLocation(true);
       // Register this device on the radar and scatter the community around it
@@ -780,6 +788,7 @@ export default function App(): JSX.Element {
     // receives the App Link and forwards code/device_id to AuthScreen.
     const removeLinkListener = setupDeepLinkListener(
       (trainingId) => {
+        if (!getSessionAccount()) { setGuestTab('trainings'); return; }
         loadAppData({deferFeed: true}).then(data => {
           const found = data.trainings.find(t => t.id === trainingId);
           if (found) {
@@ -789,6 +798,7 @@ export default function App(): JSX.Element {
         });
       },
       (code, deviceId, callbackUrl) => {
+        setShowAuth(true);
         window.dispatchEvent(new CustomEvent('vk-oauth-callback', {
           detail: { code, device_id: deviceId, url: callbackUrl }
         }));
@@ -830,6 +840,7 @@ export default function App(): JSX.Element {
   };
 
   const mobileGestures = useMobileNavigation(activeTab, handleTabChange, () => {
+    if (!account) return false;
     if (openChatId) { setOpenChatId(null); return true; }
     if (activeTab === 'profile' && profileSection !== 'overview') { setProfileSection('overview'); return true; }
     if (activeTab !== 'discover') { handleTabChange('discover'); return true; }
@@ -1881,9 +1892,13 @@ export default function App(): JSX.Element {
     return <SuccessScreen onContinue={handlePaymentSuccessContinue} />;
   }
 
-  // Gate the whole app behind authentication
+  // Guests use a separate read-only shell; authenticated state is never simulated.
   if (!account) {
-    return <AuthScreen initialNotice={authNotice} onAuthenticated={handleAuthenticated} />;
+    if (showAuth || authNotice) return <AuthScreen initialNotice={authNotice} onAuthenticated={handleAuthenticated}
+      onBrowse={()=>{setShowAuth(false);setAuthNotice('');}} />;
+    return <Suspense fallback={<div role="status" className="min-h-screen bg-slate-950 p-8 text-lime-300">Открываем SportBuddy78…</div>}>
+      <GuestApp initialTab={guestTab} onSignIn={tab=>{setGuestTab(tab);setActiveTab(tab);setShowAuth(true);}} />
+    </Suspense>;
   }
 
   if (loadError && !currentUser && !isLoading) {

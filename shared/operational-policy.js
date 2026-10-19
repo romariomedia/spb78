@@ -14,7 +14,7 @@ export function operationDenial(config, route, action='') {
  if(route.startsWith('admin-') || ['app-config','health','payment-webhook'].includes(route))return null;
  if(config.maintenanceMode)return {status:503,code:'MAINTENANCE',error:config.maintenanceMessage};
  const flag = route==='notifications' && ['register','test'].includes(action) ? 'pushEnabled'
-  : route==='leisure' ? 'activeLeisureEnabled'
+  : (route==='leisure'||(route==='guest-catalog'&&action==='leisure')) ? 'activeLeisureEnabled'
   : route==='stories' ? 'storiesEnabled'
   : ['sport-passport','sport-id-verification','public-sport-id'].includes(route) ? 'sportPassportEnabled'
   : route==='sportbuddy-mutation' && action==='match' ? 'datingEnabled'

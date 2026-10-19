@@ -51,6 +51,7 @@ interface Props {
   onAuthenticated: (account: AuthAccount, isNewAccount: boolean, vkAvatar?: string) => void;
   /** Shown after a security-triggered logout, e.g. missed verification deadline. */
   initialNotice?: string;
+  onBrowse?: () => void;
 }
 
 /** Official SportBuddy78 brand mark. */
@@ -67,7 +68,7 @@ function BrandMark() {
   );
 }
 
-export function AuthScreen({ onAuthenticated, initialNotice = '' }: Props) {
+export function AuthScreen({ onAuthenticated, initialNotice = '', onBrowse }: Props) {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState(initialNotice);
   const [vkBusy, setVkBusy] = useState(false);
@@ -325,6 +326,7 @@ export function AuthScreen({ onAuthenticated, initialNotice = '' }: Props) {
 
   return (
     <div className="sb-auth-shell relative min-h-screen overflow-hidden px-5 pt-safe pb-safe text-slate-100">
+      {onBrowse&&<button type="button" onClick={onBrowse} className="relative z-20 mt-4 min-h-11 rounded-xl border border-slate-600 bg-slate-900/70 px-4 text-sm text-lime-200">← Посмотреть без регистрации</button>}
       <div className="sb-auth-grid pointer-events-none absolute inset-0 opacity-80" />
       <div className="sb-auth-aurora pointer-events-none absolute -top-24 left-1/2 h-[440px] w-[440px] -translate-x-1/2 rounded-full" />
 
