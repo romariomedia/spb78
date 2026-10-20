@@ -1,6 +1,6 @@
+import {adminPost} from './adminRequest';
 import {apiFetch} from './apiEndpoint';
 import {auth} from './firebaseAuth';
-import {getAdminSession} from './adminAuth';
 export interface MassageListing {
  id:string;providerType:'salon'|'private';name:string;description:string;services:string;priceText:string;
  address:string;district:string;hours:string;phone:string;bookingUrl:string;
@@ -12,9 +12,6 @@ export async function loadMassage(signal?:AbortSignal):Promise<MassageListing[]>
  const data=await response.json();if(!response.ok)throw new Error(data.error||'Не удалось загрузить услуги');
  return Array.isArray(data.items)?data.items:[];
 }
-export async function adminMassage(operation:'list'|'create'|'update'|'delete',id?:string,item?:MassageListing){
- const session=getAdminSession();if(!session)throw new Error('Войдите в админку заново');
- const response=await apiFetch('/api/admin-massage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:session.sessionId,operation,id,item})});
- const data=await response.json();if(!response.ok)throw new Error(data.error||'Не удалось сохранить');
- return data as {items?:MassageListing[]};
+export async function adminMassage(operation:'list'|'create'|'update'|'delete',id?:string,item?:MassageListing,cursor?:string|null){
+ return adminPost<{items?:MassageListing[];nextCursor?:string|null}>('/api/admin-massage',{operation,id,item,cursor});
 }

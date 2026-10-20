@@ -1,5 +1,4 @@
-import { apiFetch } from './apiEndpoint';
-import { getAdminSession } from './adminAuth';
+import {adminPost} from './adminRequest';
 
 export type PartnerMediaType='none'|'image'|'video';
 export interface AdminPartner{
@@ -9,20 +8,11 @@ export interface AdminPartner{
 }
 export type PartnerDraft=Omit<AdminPartner,'id'|'createdAt'|'updatedAt'>;
 
-async function post<T>(body:Record<string,unknown>):Promise<T>{
-  const session=getAdminSession();if(!session)throw new Error('admin-otp-required');
-  const response=await apiFetch(`/api/admin-partners`,{
-    method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({...body,sessionId:session.sessionId})
-  });
-  const data=await response.json().catch(()=>({}));
-  if(!response.ok)throw new Error(data.error||`HTTP ${response.status}`);
-  return data as T;
-}
+async function post<T>(body:Record<string,unknown>):Promise<T>{return adminPost<T>('/api/admin-partners',body);}
 
-export async function loadAdminPartners():Promise<{visible:boolean;partners:AdminPartner[]}>{
-  const data=await post<{visible:boolean;partners:AdminPartner[]}>({operation:'list'});
-  return {visible:Boolean(data.visible),partners:Array.isArray(data.partners)?data.partners:[]};
+export async function loadAdminPartners(cursor?:string|null):Promise<{visible:boolean;partners:AdminPartner[];nextCursor:string|null}>{
+  const data=await post<{visible:boolean;partners:AdminPartner[];nextCursor?:string|null}>({operation:'list',cursor});
+  return {visible:Boolean(data.visible),partners:Array.isArray(data.partners)?data.partners:[],nextCursor:data.nextCursor||null};
 }
 export async function setPartnersVisibility(visible:boolean):Promise<boolean>{
   const data=await post<{visible:boolean}>({operation:'setVisibility',visible,requestId:crypto.randomUUID?.()||String(Date.now())});

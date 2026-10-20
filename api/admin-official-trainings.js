@@ -1,3 +1,6 @@
+import {adminCreateReceipt} from '../server/admin-create-receipt.js';
+import {officialTrainingNotification} from '../server/official-training-notification.js';
+import {enqueueNotification} from '../server/notification-policy.js';
 import { randomUUID } from 'node:crypto';
 import { initializeApp,getApps,cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
@@ -78,11 +81,14 @@ export default async function handler(req,res){
         participantIds:[],isCompleted:false,checkedInUserIds:[],ratedParticipantIds:[],organizerRatedByParticipantIds:[],
         createdAt:now,updatedAt:now
       };
-      await db.runTransaction(async tx=>{
+      const result=await db.runTransaction(async tx=>{
+        const receipt=await adminCreateReceipt(tx,db,session,'officialTraining',body.requestId,body.training);
+        if(receipt.result)return receipt.result;
         tx.create(db.collection('trainings').doc(id),doc);
         await writeAdminAudit(db,session,{action:'officialTraining.create',entityType:'training',entityId:id,after:doc,requestId:String(body.requestId||'')},tx);
+        const result={training:doc};receipt.save(result);return result;
       });
-      return res.json({training:doc});
+      return res.json(result);
     }
 
     const id=clean(body.id,140);
@@ -108,6 +114,9 @@ export default async function handler(req,res){
           ?{isCompleted:true,officialStatus:'completed',completedAt:now}
           :{officialStatus:'cancelled',cancelledAt:now};
         after={...before,...patch,updatedAt:now,updatedBy:String(session.email||'admin')};
+        const revision=Number(before.notificationRevision||0)+1;
+        const notice=officialTrainingNotification(before,after,id,revision);
+        if(notice){after.notificationRevision=revision;enqueueNotification(tx,db,notice);}
         tx.set(ref,after,{merge:false});
         if(chatSnap.exists)tx.set(chatRef,{
           archivedAt:after.officialStatus==='published'?null:now,

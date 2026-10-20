@@ -1,5 +1,4 @@
-import { apiFetch } from './apiEndpoint';
-import { getAdminSession } from './adminAuth';
+import {adminPost} from './adminRequest';
 
 export type AnnouncementPlacement='global'|'discover'|'trainings'|'leisure'|'feed'|'profile';
 export type AnnouncementAudience='all'|'verified'|'district'|'sport';
@@ -11,17 +10,13 @@ export interface AdminAnnouncement{
 }
 export type AnnouncementDraft=Omit<AdminAnnouncement,'id'|'createdAt'|'updatedAt'>;
 
-async function post<T>(body:Record<string,unknown>):Promise<T>{
-  const session=getAdminSession();if(!session)throw new Error('admin-otp-required');
-  const response=await apiFetch('/api/admin-announcements',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...body,sessionId:session.sessionId})});
-  const data=await response.json().catch(()=>({}));
-  if(!response.ok)throw new Error(data.error||`HTTP ${response.status}`);
-  return data as T;
+async function post<T>(body:Record<string,unknown>):Promise<T>{return adminPost<T>('/api/admin-announcements',body);}
+
+export async function loadAdminAnnouncementsPage(cursor?:string|null):Promise<{items:AdminAnnouncement[];nextCursor:string|null}>{
+ const data=await post<{announcements:AdminAnnouncement[];nextCursor?:string|null}>({operation:'list',cursor});return {items:Array.isArray(data.announcements)?data.announcements:[],nextCursor:data.nextCursor||null};
 }
-export async function loadAdminAnnouncements():Promise<AdminAnnouncement[]>{
-  const data=await post<{announcements:AdminAnnouncement[]}>({operation:'list'});
-  return Array.isArray(data.announcements)?data.announcements:[];
-}
+export async function loadAdminAnnouncements():Promise<AdminAnnouncement[]>{return (await loadAdminAnnouncementsPage()).items;}
+
 export async function createAdminAnnouncement(announcement:AnnouncementDraft):Promise<AdminAnnouncement>{
   const data=await post<{announcement:AdminAnnouncement}>({operation:'create',announcement,requestId:crypto.randomUUID?.()||String(Date.now())});
   return data.announcement;

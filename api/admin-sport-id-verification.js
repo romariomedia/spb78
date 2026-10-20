@@ -1,3 +1,4 @@
+import {readAdminPage} from '../server/admin-page.js';
 import { initializeApp,getApps,cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { requireAdminSession,writeAdminAudit } from '../server/admin-control.js';
@@ -14,9 +15,8 @@ export default async function handler(req,res){
     const operation=String(body.operation||'list');
 
     if(operation==='list'){
-      const snap=await db.collection('sportVerificationRequests').orderBy('updatedAtMs','desc').limit(100).get();
-      const requests=(snap?.docs||[]).map(doc=>({id:doc.id,...doc.data()}));
-      return res.json({requests});
+      const page=await readAdminPage(db.collection('sportVerificationRequests'),body.cursor);
+      return res.json({requests:page.items,nextCursor:page.nextCursor});
     }
 
     const requestId=clean(body.requestId,180);

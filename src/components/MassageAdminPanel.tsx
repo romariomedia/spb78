@@ -4,8 +4,9 @@ import {uploadMedia} from '../services/cloudinary';
 const empty:MassageListing={id:'',providerType:'salon',name:'',description:'',services:'',priceText:'',address:'',district:'',hours:'',phone:'',bookingUrl:'',media:[],isPublished:false};
 const field='mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white';
 export function MassageAdminPanel(){
+ const [cursor,setCursor]=useState<string|null>(null);
  const [items,setItems]=useState<MassageListing[]>([]),[draft,setDraft]=useState<MassageListing|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState('');
- const refresh=async()=>{setBusy(true);setError('');try{setItems((await adminMassage('list')).items||[]);}catch(e){setError(e instanceof Error?e.message:'Не удалось загрузить');}finally{setBusy(false);}};
+ const refresh=async(append=false)=>{setBusy(true);setError('');try{const page=await adminMassage('list',undefined,undefined,append?cursor:null);setItems(old=>append?[...old,...(page.items||[]).filter(x=>!old.some(y=>y.id===x.id))]:page.items||[]);setCursor(page.nextCursor||null);}catch(e){setError(e instanceof Error?e.message:'Не удалось загрузить');}finally{setBusy(false);}};
  useEffect(()=>{void refresh();},[]);
  const save=async()=>{if(!draft)return;setBusy(true);setError('');try{await adminMassage(draft.id?'update':'create',draft.id,draft);setDraft(null);await refresh();}catch(e){setError(e instanceof Error?e.message:'Не удалось сохранить');setBusy(false);}};
  const remove=async(item:MassageListing)=>{if(!confirm(`Удалить объявление «${item.name}»?`))return;setBusy(true);setError('');try{await adminMassage('delete',item.id);await refresh();}catch(e){setError(e instanceof Error?e.message:'Не удалось удалить');setBusy(false);}};
@@ -25,5 +26,6 @@ export function MassageAdminPanel(){
   </fieldset></form>}
   {!busy&&!items.length&&!draft&&<p className="rounded-2xl border border-dashed border-slate-700 p-8 text-center text-slate-400">Объявлений пока нет. Добавьте первого партнёра, когда договоритесь о размещении.</p>}
   {items.map(item=><div key={item.id} className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-700 p-4"><div className="flex-1 min-w-0"><h4 className="font-bold break-words">{item.name}</h4><p className="text-xs text-slate-400">{item.providerType==='salon'?'Салон':'Специалист'} · {item.isPublished?'Опубликовано':'Скрыто / черновик'}</p></div><button disabled={busy} onClick={()=>setDraft({...item,media:[...item.media]})} className="min-h-11 px-3 text-lime-300">Изменить</button><button disabled={busy} onClick={()=>void remove(item)} className="min-h-11 px-3 text-rose-300">Удалить</button></div>)}
+  {cursor&&<button disabled={busy} onClick={()=>void refresh(true)} className="w-full rounded-xl border border-slate-600 p-3 text-sm text-lime-300">Загрузить ещё</button>}
  </section>;
 }

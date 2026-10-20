@@ -17,6 +17,7 @@ function iso(value:string){if(!value)return '';const d=new Date(value);return Nu
 
 export function AdminPartnersPanel(){
   const [items,setItems]=useState<AdminPartner[]>([]);
+  const [cursor,setCursor]=useState<string|null>(null);
   const [visible,setVisible]=useState(false);
   const [draft,setDraft]=useState<PartnerDraft|null>(null);
   const [editingId,setEditingId]=useState('');
@@ -26,9 +27,9 @@ export function AdminPartnersPanel(){
   const [notice,setNotice]=useState('');
   const logoRef=useRef<HTMLInputElement>(null),coverRef=useRef<HTMLInputElement>(null),mediaRef=useRef<HTMLInputElement>(null);
 
-  const refresh=async()=>{
+  const refresh=async(append=false)=>{
     setBusy(true);setError('');
-    try{const data=await loadAdminPartners();setItems(data.partners);setVisible(data.visible);}
+    try{const data=await loadAdminPartners(append?cursor:null);setItems(old=>append?[...old,...data.partners.filter(x=>!old.some(y=>y.id===x.id))]:data.partners);setCursor(data.nextCursor);setVisible(data.visible);}
     catch(e){setError(e instanceof Error?e.message:'Не удалось загрузить партнёров');}
     finally{setBusy(false);}
   };
@@ -169,5 +170,6 @@ export function AdminPartnersPanel(){
         </div>
       </aside>
     </div>
+    {cursor&&<button disabled={busy||uploading!==null} onClick={()=>void refresh(true)} className="w-full rounded-xl border border-slate-600 p-3 text-sm text-lime-300">Загрузить ещё</button>}
   </section>;
 }

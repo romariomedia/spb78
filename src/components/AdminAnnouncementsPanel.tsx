@@ -6,7 +6,7 @@ import { uploadMedia } from '../services/cloudinary';
 import { compressImage } from '../services/media';
 import {
   AdminAnnouncement,AnnouncementDraft,createAdminAnnouncement,deleteAdminAnnouncement,
-  loadAdminAnnouncements,updateAdminAnnouncement
+  loadAdminAnnouncementsPage,updateAdminAnnouncement
 } from '../services/adminAnnouncements';
 
 const empty=():AnnouncementDraft=>({
@@ -26,6 +26,7 @@ function status(item:AdminAnnouncement){
 }
 
 export function AdminAnnouncementsPanel(){
+  const [cursor,setCursor]=useState<string|null>(null);
   const [items,setItems]=useState<AdminAnnouncement[]>([]);
   const [draft,setDraft]=useState<AnnouncementDraft|null>(null);
   const [editingId,setEditingId]=useState('');
@@ -35,7 +36,7 @@ export function AdminAnnouncementsPanel(){
   const [notice,setNotice]=useState('');
   const fileRef=useRef<HTMLInputElement>(null);
 
-  const refresh=async()=>{setBusy(true);setError('');try{setItems(await loadAdminAnnouncements());}catch(e){setError(e instanceof Error?e.message:'Не удалось загрузить объявления');}finally{setBusy(false);}};
+  const refresh=async(append=false)=>{setBusy(true);setError('');try{const page=await loadAdminAnnouncementsPage(append?cursor:null);setItems(old=>append?[...old,...page.items.filter(x=>!old.some(y=>y.id===x.id))]:page.items);setCursor(page.nextCursor);}catch(e){setError(e instanceof Error?e.message:'Не удалось загрузить объявления');}finally{setBusy(false);}};
   useEffect(()=>{void refresh();},[]);
 
   const edit=(item:AdminAnnouncement)=>{
@@ -142,5 +143,6 @@ export function AdminAnnouncementsPanel(){
         </div>
       </aside>
     </div>
+    {cursor&&<button disabled={Boolean(busy)||uploading} onClick={()=>void refresh(true)} className="w-full rounded-xl border border-slate-600 p-3 text-sm text-lime-300">Загрузить ещё</button>}
   </section>;
 }

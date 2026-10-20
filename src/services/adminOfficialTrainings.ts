@@ -1,5 +1,4 @@
-import { apiFetch } from './apiEndpoint';
-import { getAdminSession } from './adminAuth';
+import {adminPost} from './adminRequest';
 import { Training } from '../lib/types';
 
 export type OfficialTrainingStatus='draft'|'published'|'completed'|'cancelled';
@@ -16,16 +15,8 @@ export interface OfficialTrainingDraft{
   participantsMax:number;participantGender:'any'|'male'|'female';description:string;
   venueId?:string;venueName?:string;officialStatus:OfficialTrainingStatus;
 }
-async function post<T>(body:Record<string,unknown>):Promise<T>{
-  const session=getAdminSession();if(!session)throw new Error('admin-otp-required');
-  const response=await apiFetch(`/api/admin-official-trainings`,{
-    method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({...body,sessionId:session.sessionId})
-  });
-  const data=await response.json().catch(()=>({}));
-  if(!response.ok)throw new Error(data.error||`HTTP ${response.status}`);
-  return data as T;
-}
+async function post<T>(body:Record<string,unknown>):Promise<T>{return adminPost<T>('/api/admin-official-trainings',body);}
+
 export async function loadOfficialTrainings():Promise<OfficialTraining[]>{
   const data=await post<{trainings:OfficialTraining[]}>({operation:'list'});
   return Array.isArray(data.trainings)?data.trainings:[];

@@ -1,3 +1,5 @@
+import {adminCreateReceipt} from '../server/admin-create-receipt.js';
+import {readAdminPage} from '../server/admin-page.js';
 import { randomUUID } from 'node:crypto';
 import { initializeApp,getApps,cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
@@ -18,18 +20,21 @@ export default async function handler(req,res){
     const op=String(body.operation||'list');
 
     if(op==='list'){
-      const snap=await db.collection('announcements').orderBy('updatedAtMs','desc').limit(100).get();
-      return res.json({announcements:snap.docs.map(view)});
+      const page=await readAdminPage(db.collection('announcements'),body.cursor);
+      return res.json({announcements:page.items,nextCursor:page.nextCursor});
     }
 
     const result = await db.runTransaction(async tx => {
     if(op==='create'){
+      const receipt=await adminCreateReceipt(tx,db,session,'announcement',body.requestId,body.announcement);
+      if(receipt.result)return receipt.result;
       const id=randomUUID(),ref=db.collection('announcements').doc(id);
       const value=sanitizeAnnouncement(body.announcement||{});
       const now=new Date().toISOString();
       const doc={...value,id,createdAt:now,updatedAt:now,updatedAtMs:Date.now(),createdBy:String(session.email||'admin'),updatedBy:String(session.email||'admin')};
       tx.create(ref,doc);
       await writeAdminAudit(db,session,{action:'announcement.create',entityType:'announcement',entityId:id,after:doc,requestId:String(body.requestId||'')},tx);
+      receipt.save({announcement:doc});
       return ({announcement:doc});
     }
 

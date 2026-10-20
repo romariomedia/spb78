@@ -108,3 +108,24 @@ test('competition result recording/revocation is atomic and requires a finished 
  f.faults.audit=true;assert.equal((await send('revoke')).code,500);assert.ok(f.rows.has('sportPassportResults/e__u'));
  f.faults.audit=false;assert.equal((await send('revoke')).code,200);
 });
+
+for(const [file,collection,draft,payload] of cases.filter(x=>!['venue','destination'].includes(x[3])))test(`${file}: failed create retry produces one card and receipt`,async()=>{
+ const f=fixture(),body={operation:'create',requestId:'retry-123',[payload]:draft};
+ f.faults.audit=true;assert.equal((await f.request(file,body)).code,500);
+ assert.equal([...f.rows.keys()].filter(k=>k.startsWith('adminMutationReceipts/')).length,0);
+ f.faults.audit=false;const first=await f.request(file,body),again=await f.request(file,body);
+ assert.equal(first.code,200,JSON.stringify(first.body));assert.deepEqual(again.body,first.body);
+ assert.equal([...f.rows.keys()].filter(k=>k.startsWith(collection+'/')).length,1);
+ assert.equal([...f.rows.keys()].filter(k=>k.startsWith('adminAuditLogs/')).length,1);
+ assert.equal((await f.request(file,{...body,[payload]:{...draft,description:'Изменённое описание'}})).code,409);
+});
+test('official training change and notification commit together; unchanged retry is silent',async()=>{
+ const f=fixture();f.rows.set('trainings/t',{...training,isOfficial:true,participantIds:['u']});
+ const body={operation:'update',id:'t',training:{locationName:'Новое место'}};
+ f.faults.audit=true;assert.equal((await f.request('admin-official-trainings.js',body)).code,500);
+ assert.equal([...f.rows.keys()].filter(k=>k.startsWith('notificationOutbox/')).length,0);
+ f.faults.audit=false;assert.equal((await f.request('admin-official-trainings.js',body)).code,200);
+ assert.equal((await f.request('admin-official-trainings.js',body)).code,200);
+ const jobs=[...f.rows].filter(([k])=>k.startsWith('notificationOutbox/')).map(([,v])=>v);
+ assert.equal(jobs.length,1);assert.deepEqual(jobs[0].recipients,['u']);assert.equal(jobs[0].kind,'training_update');
+});

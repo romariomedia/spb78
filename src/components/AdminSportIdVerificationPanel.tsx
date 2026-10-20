@@ -1,6 +1,6 @@
 import { useEffect,useMemo,useState } from 'react';
 import { CheckCircle2,ExternalLink,FileCheck2,RefreshCw,ShieldCheck,XCircle } from 'lucide-react';
-import { approveSportIdVerification,loadAdminSportIdVerification,rejectSportIdVerification,revokeSportIdVerification } from '../services/adminSportIdVerification';
+import { approveSportIdVerification,loadAdminSportIdVerificationPage,rejectSportIdVerification,revokeSportIdVerification } from '../services/adminSportIdVerification';
 import { SportIdVerificationRequest } from '../services/sportIdVerification';
 
 type Filter='pending'|'approved'|'rejected'|'all';
@@ -8,13 +8,14 @@ const label:Record<string,string>={pending:'На проверке',approved:'П�
 const tone:Record<string,string>={pending:'bg-amber-500/15 text-amber-300',approved:'bg-emerald-500/15 text-emerald-300',rejected:'bg-rose-500/15 text-rose-300',revoked:'bg-slate-800 text-slate-400',cancelled:'bg-slate-800 text-slate-500'};
 
 export function AdminSportIdVerificationPanel(){
+  const [cursor,setCursor]=useState<string|null>(null);
   const [items,setItems]=useState<SportIdVerificationRequest[]>([]);
   const [filter,setFilter]=useState<Filter>('pending');
   const [busy,setBusy]=useState('');
   const [error,setError]=useState('');
   const [notice,setNotice]=useState('');
 
-  const refresh=async()=>{setBusy('load');setError('');try{setItems(await loadAdminSportIdVerification());}catch(e){setError(e instanceof Error?e.message:'Не удалось загрузить заявки');}finally{setBusy('');}};
+  const refresh=async(append=false)=>{setBusy('load');setError('');try{const page=await loadAdminSportIdVerificationPage(append?cursor:null);setItems(old=>append?[...old,...page.items.filter(x=>!old.some(y=>y.id===x.id))]:page.items);setCursor(page.nextCursor);}catch(e){setError(e instanceof Error?e.message:'Не удалось загрузить заявки');}finally{setBusy('');}};
   useEffect(()=>{void refresh();},[]);
   const visible=useMemo(()=>filter==='all'?items:items.filter(x=>x.status===filter),[items,filter]);
 
@@ -73,5 +74,6 @@ export function AdminSportIdVerificationPanel(){
       </article>)}
       {visible.length===0&&!busy&&<div className="rounded-2xl border border-dashed border-slate-800 bg-slate-950 p-8 text-center text-[11px] text-slate-500">Заявок в этой категории нет.</div>}
     </div>
+    {cursor&&<button disabled={Boolean(busy)} onClick={()=>void refresh(true)} className="w-full rounded-xl border border-slate-600 p-3 text-sm text-lime-300">Загрузить ещё</button>}
   </section>;
 }

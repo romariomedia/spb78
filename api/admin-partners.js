@@ -1,3 +1,5 @@
+import {adminCreateReceipt} from '../server/admin-create-receipt.js';
+import {readAdminPage} from '../server/admin-page.js';
 import { randomUUID } from 'node:crypto';
 import { initializeApp,getApps,cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
@@ -21,11 +23,11 @@ export default async function handler(req,res){
     if(op==='list'){
       const [configSnap,itemsSnap]=await Promise.all([
         configRef.get(),
-        db.collection('partners').orderBy('updatedAtMs','desc').limit(100).get()
+        readAdminPage(db.collection('partners'),body.cursor)
       ]);
       return res.json({
         visible:configSnap.exists?configSnap.data()?.visible===true:false,
-        partners:itemsSnap.docs.map(view)
+        partners:itemsSnap.items,nextCursor:itemsSnap.nextCursor
       });
     }
 
@@ -40,12 +42,15 @@ export default async function handler(req,res){
     }
 
     if(op==='create'){
+      const receipt=await adminCreateReceipt(tx,db,session,'partner',body.requestId,body.partner);
+      if(receipt.result)return receipt.result;
       const id=randomUUID(),ref=db.collection('partners').doc(id);
       const value=sanitizePartner(body.partner||{});
       const now=new Date().toISOString();
       const doc={...value,id,createdAt:now,updatedAt:now,updatedAtMs:Date.now(),createdBy:String(session.email||'admin'),updatedBy:String(session.email||'admin')};
       tx.create(ref,doc);
       await writeAdminAudit(db,session,{action:'partner.create',entityType:'partner',entityId:id,after:doc,requestId:String(body.requestId||'')},tx);
+      receipt.save({partner:doc});
       return ({partner:doc});
     }
 
