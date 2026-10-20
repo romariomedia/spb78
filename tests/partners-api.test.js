@@ -13,7 +13,7 @@ const admin=await load('api/admin-partners.js'),feed=await load('api/partners.js
 function fixture(initial={}){
  const rows=new Map(Object.entries(initial));let partnerReads=0;
  const ref=path=>({id:path.split('/').at(-1),get:async()=>({exists:rows.has(path),data:()=>rows.get(path)}),set:async v=>rows.set(path,v),create:async v=>{if(rows.has(path))throw Error('exists');rows.set(path,v)},delete:async()=>rows.delete(path)});
- const db={doc:ref,collection(name){const query=(filters=[],limit=Infinity,order=null)=>({
+ const db={async runTransaction(fn){const pending=[];const value=await fn({get:r=>r.get(),set:(r,v)=>pending.push(()=>r.set(v)),create:(r,v)=>pending.push(()=>r.create(v)),delete:r=>pending.push(()=>r.delete())});for(const write of pending)await write();return value;},doc:ref,collection(name){const query=(filters=[],limit=Infinity,order=null)=>({
  doc:id=>ref(name+'/'+id),where:(k,op,v)=>{assert.equal(op,'==');return query([...filters,[k,v]],limit,order)},limit:n=>query(filters,n,order),orderBy:(k,d)=>query(filters,limit,[k,d]),
  async get(){if(name==='partners')partnerReads++;let values=[...rows].filter(([p,v])=>p.startsWith(name+'/')&&filters.every(([k,x])=>v[k]===x));if(order)values.sort((a,b)=>(b[1][order[0]]||0)-(a[1][order[0]]||0));return {docs:values.slice(0,limit).map(([p,v])=>({id:p.split('/').at(-1),data:()=>v}))}}
  });return query()}};

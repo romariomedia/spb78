@@ -29,13 +29,14 @@ export default async function handler(req,res){
       });
     }
 
+    const result = await db.runTransaction(async tx => {
     if(op==='setVisibility'){
-      const beforeSnap=await configRef.get();
+      const beforeSnap=await tx.get(configRef);
       const before=beforeSnap.exists?beforeSnap.data()||{}:{};
       const after={visible:body.visible===true,updatedAt:new Date().toISOString(),updatedBy:String(session.email||'admin')};
-      await configRef.set(after,{merge:false});
-      await writeAdminAudit(db,session,{action:'partners.visibility.update',entityType:'partnerConfig',entityId:'main',before,after,requestId:String(body.requestId||'')});
-      return res.json({visible:after.visible});
+      tx.set(configRef,after,{merge:false});
+      await writeAdminAudit(db,session,{action:'partners.visibility.update',entityType:'partnerConfig',entityId:'main',before,after,requestId:String(body.requestId||'')},tx);
+      return ({visible:after.visible});
     }
 
     if(op==='create'){
@@ -43,32 +44,34 @@ export default async function handler(req,res){
       const value=sanitizePartner(body.partner||{});
       const now=new Date().toISOString();
       const doc={...value,id,createdAt:now,updatedAt:now,updatedAtMs:Date.now(),createdBy:String(session.email||'admin'),updatedBy:String(session.email||'admin')};
-      await ref.create(doc);
-      await writeAdminAudit(db,session,{action:'partner.create',entityType:'partner',entityId:id,after:doc,requestId:String(body.requestId||'')});
-      return res.json({partner:doc});
+      tx.create(ref,doc);
+      await writeAdminAudit(db,session,{action:'partner.create',entityType:'partner',entityId:id,after:doc,requestId:String(body.requestId||'')},tx);
+      return ({partner:doc});
     }
 
     const id=String(body.id||'').trim();
-    if(!id||id.includes('/'))return res.status(400).json({error:'Partner id required.'});
-    const ref=db.collection('partners').doc(id),snap=await ref.get();
-    if(!snap.exists)return res.status(404).json({error:'Партнёр не найден.'});
+    if(!id||id.includes('/'))throw Object.assign(new Error('Partner id required.'),{status:400});
+    const ref=db.collection('partners').doc(id),snap=await tx.get(ref);
+    if(!snap.exists)throw Object.assign(new Error('Партнёр не найден.'),{status:404});
     const before=snap.data()||{};
 
     if(op==='update'){
       const next=sanitizePartner(body.partner||{},before);
       const doc={...before,...next,updatedAt:new Date().toISOString(),updatedAtMs:Date.now(),updatedBy:String(session.email||'admin')};
-      await ref.set(doc,{merge:false});
-      await writeAdminAudit(db,session,{action:'partner.update',entityType:'partner',entityId:id,before,after:doc,requestId:String(body.requestId||'')});
-      return res.json({partner:doc});
+      tx.set(ref,doc,{merge:false});
+      await writeAdminAudit(db,session,{action:'partner.update',entityType:'partner',entityId:id,before,after:doc,requestId:String(body.requestId||'')},tx);
+      return ({partner:doc});
     }
 
     if(op==='delete'){
-      await ref.delete();
-      await writeAdminAudit(db,session,{action:'partner.delete',entityType:'partner',entityId:id,before,after:null,requestId:String(body.requestId||'')});
-      return res.json({ok:true});
+      tx.delete(ref);
+      await writeAdminAudit(db,session,{action:'partner.delete',entityType:'partner',entityId:id,before,after:null,requestId:String(body.requestId||'')},tx);
+      return ({ok:true});
     }
 
-    return res.status(400).json({error:'Unknown operation.'});
+    throw Object.assign(new Error('Unknown operation.'),{status:400});
+    });
+    return res.json(result);
   }catch(error){
     const status=Number(error?.status||500);
     if(status===500)console.error('[admin-partners]',error);

@@ -89,14 +89,10 @@ export default async function handler(req,res){
           nextAttemptAt:scheduledAtMs,expiresAt:scheduledAtMs+24*60*60*1000
         });
         tx.delete(previewRef);
+        await writeAdminAudit(db,session,{action:'push.send',entityType:'pushCampaign',entityId:campaignId,after:{audience:value.audience,audienceCount:value.audienceCount,title:value.title,scheduledAt:value.scheduledAt},requestId:String(body.requestId||'')},tx);
         return value;
       });
 
-      await writeAdminAudit(db,session,{
-        action:'push.send',entityType:'pushCampaign',entityId:campaignId,
-        before:null,after:{audience:campaign.audience,audienceCount:campaign.audienceCount,title:campaign.title,scheduledAt:campaign.scheduledAt},
-        requestId:String(body.requestId||'')
-      });
       return res.json({ok:true,campaign:{...campaign}});
     }
 
@@ -113,12 +109,8 @@ export default async function handler(req,res){
         }
         if(campaign.queueId)tx.delete(db.collection('notificationOutbox').doc(String(campaign.queueId)));
         tx.update(campaignRef,{status:'cancelled',cancelledAt:new Date().toISOString(),cancelledBy:String(session.email||'admin')});
+        await writeAdminAudit(db,session,{action:'push.cancel',entityType:'pushCampaign',entityId:campaignId,before:{status:campaign.status,scheduledAt:campaign.scheduledAt},after:{status:'cancelled'},requestId:String(body.requestId||'')},tx);
         return campaign;
-      });
-      await writeAdminAudit(db,session,{
-        action:'push.cancel',entityType:'pushCampaign',entityId:campaignId,
-        before:{status:result.status,scheduledAt:result.scheduledAt},after:{status:'cancelled'},
-        requestId:String(body.requestId||'')
       });
       return res.json({ok:true});
     }

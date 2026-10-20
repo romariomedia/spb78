@@ -102,10 +102,11 @@ function sanitizeEvent(input, id, existing = null) {
     if (!Number.isFinite(event.startsAt)) {
       throw Object.assign(new Error('Для городского события укажите точную дату и время.'), { status: 400 });
     }
-    if (status === 'published' && (!event.ticketVerified || !event.ticketUrl || !event.ticketSourceName || !event.officialSourceUrl)) {
+    if (status === 'published' && (!event.officialSourceUrl || (!event.isMediaLeague && (!event.ticketVerified || !event.ticketUrl || !event.ticketSourceName)))) {
       throw Object.assign(new Error('Перед публикацией подтвердите официальный источник события и официальную ссылку покупки билетов.'), { status: 400 });
     }
   }
+  if (participantsMax < participantIds.length || !Number.isInteger(participantsMax)) throw Object.assign(new Error('Лимит участников должен быть целым и не меньше числа записавшихся.'),{status:400});
   if (event.locationName.length < 2 || event.address.length < 3 || event.dateLabel.length < 2) {
     throw Object.assign(new Error('Event location and date are required.'), { status: 400 });
   }

@@ -10,7 +10,7 @@ if(!getApps().length){
 
 const OFFICIAL_OWNER='sportbuddy78-official';
 const clean=(value,max=500)=>typeof value==='string'?value.trim().slice(0,max):'';
-const statuses=new Set(['draft','published','completed','cancelled']);
+const statuses=new Set(['draft','published']);
 const levels=new Set(['amateur','semi-pro','pro']);
 const genders=new Set(['any','male','female']);
 
@@ -34,13 +34,15 @@ function sanitize(input={},existing={}){
   if(!sport)throw Object.assign(new Error('Выберите вид спорта.'),{status:400});
   const date=dateKey(input.dateKey??existing.dateKey);
   const time=timeValue(input.time??existing.time);
-  const status=statuses.has(input.officialStatus)?input.officialStatus:(existing.officialStatus||'draft');
+  if(input.officialStatus!==undefined&&!statuses.has(input.officialStatus))throw Object.assign(new Error('Для завершения или отмены используйте отдельную операцию.'),{status:400});
+  const status=input.officialStatus??existing.officialStatus??'draft';
   const startsAt=Date.parse(`${date}T${time}:00+03:00`);
   if((status==='published'||status==='draft')&&startsAt<=Date.now())throw Object.assign(new Error('Официальная тренировка должна быть запланирована на будущее время (МСК).'),{status:400});
   const lat=input.lat===undefined?existing.lat:input.lat,lng=input.lng===undefined?existing.lng:input.lng;
   if(!Number.isFinite(lat)||!Number.isFinite(lng)||Math.abs(lat)>90||Math.abs(lng)>180)throw Object.assign(new Error('Выберите корректную площадку или координаты.'),{status:400});
   const participantsMax=Number(input.participantsMax??existing.participantsMax);
   if(!Number.isInteger(participantsMax)||participantsMax<2||participantsMax>100)throw Object.assign(new Error('Лимит участников: от 2 до 100.'),{status:400});
+  if(participantsMax<(existing.participantIds||[]).length)throw Object.assign(new Error('Лимит не может быть меньше числа записавшихся.'),{status:409});
   const participantGender=genders.has(input.participantGender)?input.participantGender:(existing.participantGender||'any');
   const level=levels.has(input.level)?input.level:(existing.level||'amateur');
   const districtId=input.districtId===undefined?(existing.districtId||''):validateDistrictId(input.districtId);
@@ -76,63 +78,47 @@ export default async function handler(req,res){
         participantIds:[],isCompleted:false,checkedInUserIds:[],ratedParticipantIds:[],organizerRatedByParticipantIds:[],
         createdAt:now,updatedAt:now
       };
-      await db.collection('trainings').doc(id).create(doc);
-      await writeAdminAudit(db,session,{action:'officialTraining.create',entityType:'training',entityId:id,after:doc,requestId:String(body.requestId||'')});
+      await db.runTransaction(async tx=>{
+        tx.create(db.collection('trainings').doc(id),doc);
+        await writeAdminAudit(db,session,{action:'officialTraining.create',entityType:'training',entityId:id,after:doc,requestId:String(body.requestId||'')},tx);
+      });
       return res.json({training:doc});
     }
 
     const id=clean(body.id,140);
     if(!id||id.includes('/'))return res.status(400).json({error:'Training id required.'});
-    const ref=db.collection('trainings').doc(id),snap=await ref.get();
-    if(!snap.exists)return res.status(404).json({error:'Тренировка не найдена.'});
-    const before=snap.data()||{};
-    if(before.isOfficial!==true)return res.status(403).json({error:'Можно управлять только официальными тренировками SportBuddy78.'});
-
-    if(op==='update'){
-      if(before.isCompleted===true)return res.status(409).json({error:'Завершённую тренировку нельзя редактировать.'});
-      const next=sanitize(body.training||{},before);
-      const after={...before,...next,updatedAt:new Date().toISOString(),updatedBy:String(session.email||'admin')};
-      await ref.set(after,{merge:false});
-      await writeAdminAudit(db,session,{action:'officialTraining.update',entityType:'training',entityId:id,before,after,requestId:String(body.requestId||'')});
-      return res.json({training:after});
-    }
-
-    if(op==='complete'){
-      if(before.isCompleted===true)return res.json({training:before});
+    if(!['update','complete','cancel','delete'].includes(op))return res.status(400).json({error:'Unknown operation.'});
+    const ref=db.collection('trainings').doc(id),chatRef=db.collection('chats').doc(`training_${id}`);
+    const result=await db.runTransaction(async tx=>{
+      const [snap,chatSnap]=await Promise.all([tx.get(ref),tx.get(chatRef)]);
+      if(!snap.exists)throw Object.assign(new Error('Тренировка не найдена.'),{status:404});
+      const before=snap.data()||{};
+      if(before.isOfficial!==true)throw Object.assign(new Error('Можно управлять только официальными тренировками SportBuddy78.'),{status:403});
       const now=new Date().toISOString();
-      const after={...before,isCompleted:true,officialStatus:'completed',completedAt:now,updatedAt:now,updatedBy:String(session.email||'admin')};
-      const chatRef=db.collection('chats').doc(`training_${id}`);
-      await db.runTransaction(async tx=>{
-        const chatSnap=await tx.get(chatRef);
+      let after=null;
+      if(op==='delete'){
+        if(before.isCompleted===true||(before.participantIds||[]).length)throw Object.assign(new Error('Нельзя удалить завершённую тренировку или тренировку с участниками. Используйте отмену.'),{status:409});
+        tx.delete(ref);
+        if(chatSnap.exists)tx.delete(chatRef);
+      }else{
+        if(op==='complete'&&before.isCompleted===true)return {training:before};
+        if(before.isCompleted===true||before.officialStatus==='cancelled')throw Object.assign(new Error('Завершённую или отменённую тренировку нельзя изменять.'),{status:409});
+        if(op==='complete'&&before.officialStatus!=='published')throw Object.assign(new Error('Завершить можно только опубликованную тренировку.'),{status:409});
+        const patch=op==='update'?sanitize(body.training||{},before):op==='complete'
+          ?{isCompleted:true,officialStatus:'completed',completedAt:now}
+          :{officialStatus:'cancelled',cancelledAt:now};
+        after={...before,...patch,updatedAt:now,updatedBy:String(session.email||'admin')};
         tx.set(ref,after,{merge:false});
-        if(chatSnap.exists)tx.set(chatRef,{...chatSnap.data(),archivedAt:now,participantIds:Array.isArray(before.participantIds)?before.participantIds:[]},{merge:true});
-      });
-      await writeAdminAudit(db,session,{action:'officialTraining.complete',entityType:'training',entityId:id,before,after,requestId:String(body.requestId||'')});
-      return res.json({training:after});
-    }
+        if(chatSnap.exists)tx.set(chatRef,{
+          archivedAt:after.officialStatus==='published'?null:now,
+          participantIds:Array.isArray(after.participantIds)?after.participantIds:[]
+        },{merge:true});
+      }
+      await writeAdminAudit(db,session,{action:`officialTraining.${op}`,entityType:'training',entityId:id,before,after,requestId:String(body.requestId||'')},tx);
+      return op==='delete'?{ok:true}:{training:after};
+    });
+    return res.json(result);
 
-    if(op==='cancel'){
-      if(before.isCompleted===true)return res.status(409).json({error:'Завершённую тренировку нельзя отменить.'});
-      const now=new Date().toISOString(),after={...before,officialStatus:'cancelled',cancelledAt:now,updatedAt:now,updatedBy:String(session.email||'admin')};
-      const chatRef=db.collection('chats').doc(`training_${id}`);
-      await db.runTransaction(async tx=>{
-        const chatSnap=await tx.get(chatRef);
-        tx.set(ref,after,{merge:false});
-        if(chatSnap.exists)tx.set(chatRef,{...chatSnap.data(),archivedAt:now,participantIds:Array.isArray(before.participantIds)?before.participantIds:[]},{merge:true});
-      });
-      await writeAdminAudit(db,session,{action:'officialTraining.cancel',entityType:'training',entityId:id,before,after,requestId:String(body.requestId||'')});
-      return res.json({training:after});
-    }
-
-    if(op==='delete'){
-      if(Array.isArray(before.participantIds)&&before.participantIds.length>0)return res.status(409).json({error:'Нельзя удалить тренировку с участниками. Отмените её — история участников сохранится.'});
-      await ref.delete();
-      const chatRef=db.collection('chats').doc(`training_${id}`);const chatSnap=await chatRef.get();if(chatSnap.exists)await chatRef.delete();
-      await writeAdminAudit(db,session,{action:'officialTraining.delete',entityType:'training',entityId:id,before,after:null,requestId:String(body.requestId||'')});
-      return res.json({ok:true});
-    }
-
-    return res.status(400).json({error:'Unknown operation.'});
   }catch(error){
     const status=Number(error?.status||500);
     if(status===500)console.error('[admin-official-trainings]',error);

@@ -81,9 +81,10 @@ export default async function handler(req, res) {
     if (operation === 'seed') {
       const venues = Array.isArray(body.venues) ? body.venues.slice(0, 400) : [];
       if (!venues.length) return res.status(400).json({ error: 'Venue list required.' });
-      const existingSnap = await db.collection('venues').get();
+      const result = await db.runTransaction(async batch => {
+      const existingSnap = await batch.get(db.collection('venues'));
       const existingIds = new Set(existingSnap.docs.map(doc => doc.id));
-      const batch = db.batch();
+
       let created = 0;
       let skipped = 0;
       for (const raw of venues) {
@@ -92,24 +93,28 @@ export default async function handler(req, res) {
         if (existingIds.has(id)) { skipped++; continue; }
         const venue = sanitizeVenue(raw, id);
         try { validateVenue(venue); } catch { continue; }
-        batch.set(db.collection('venues').doc(id), venue, { merge: false });
+        existingIds.add(id);
+        batch.create(db.collection('venues').doc(id), venue);
         created++;
       }
-      if (created) await batch.commit();
+
       await writeAdminAudit(db, session, {
         action:'venue.seed',
         entityType:'venueCatalog',
         entityId:'venues',
         after:{ created, skipped, submitted:venues.length },
         requestId:String(body.requestId || '')
+      },batch);
+      return { ok:true,count:created,skipped };
       });
-      return res.status(200).json({ ok: true, count: created, skipped });
+      return res.json(result);
     }
 
     const venueId = cleanString(body.venueId, 120);
     if (!venueId || venueId.includes('/')) return res.status(400).json({ error: 'Venue id required.' });
     const ref = db.collection('venues').doc(venueId);
-    const beforeSnap = await ref.get();
+    const result=await db.runTransaction(async tx=>{
+    const beforeSnap = await tx.get(ref);
     const before = beforeSnap.exists ? beforeSnap.data() : null;
     let after = null;
 
@@ -119,21 +124,21 @@ export default async function handler(req, res) {
       } else {
         after = { ...before, id: venueId, isPublished:false, archived:true, updatedAt:new Date().toISOString() };
       }
-      await ref.set(after, { merge:false });
+      tx.set(ref, after, { merge:false });
     } else if (operation === 'create') {
-      if (beforeSnap.exists) return res.status(409).json({ error: 'Venue already exists.' });
+      if (beforeSnap.exists) throw Object.assign(new Error('Venue already exists.' ),{status:409});
       const venue = sanitizeVenue(body.venue, venueId);
       validateVenue(venue);
-      await ref.create(venue);
+      tx.create(ref,venue);
       after = venue;
     } else if (operation === 'update') {
       const source = beforeSnap.exists ? { ...before, ...(body.patch || {}) } : (body.patch || {});
       const venue = sanitizeVenue(source, venueId);
       validateVenue(venue);
-      await ref.set(venue, { merge: false });
+      tx.set(ref,venue,{merge:false});
       after = venue;
     } else {
-      return res.status(400).json({ error: 'Unknown operation.' });
+      throw Object.assign(new Error('Unknown operation.' ),{status:400});
     }
 
     await writeAdminAudit(db, session, {
@@ -143,8 +148,10 @@ export default async function handler(req, res) {
       before,
       after,
       requestId:String(body.requestId || '')
+    },tx);
+    return {ok:true,venue:after};
     });
-    return res.status(200).json({ ok:true, venue:after });
+    return res.json(result);
   } catch (error) {
     const status = Number(error?.status || 500);
     if (status === 500) console.error('[admin-mutate-venue]', error);

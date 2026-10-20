@@ -50,7 +50,7 @@ export function AdminAnnouncementsPanel(){
   const create=()=>{setEditingId('');setDraft(empty());setError('');setNotice('');};
 
   const save=async()=>{
-    if(!draft)return;
+    if(!draft||busy||uploading)return;
     setBusy(true);setError('');setNotice('');
     const payload={...draft,startAt:iso(draft.startAt),endAt:iso(draft.endAt)};
     try{
@@ -82,7 +82,7 @@ export function AdminAnnouncementsPanel(){
         <p className="mt-1 text-[10px] text-slate-500">Управление сообщениями приложения без нового deploy</p>
       </div>
       <div className="flex gap-2">
-        <button onClick={()=>void refresh()} disabled={busy} className="rounded-xl border border-slate-700 bg-slate-900 p-2.5 text-slate-300"><RefreshCw className={`h-4 w-4 ${busy?'animate-spin':''}`}/></button>
+        <button onClick={()=>void refresh()} disabled={busy||uploading} className="rounded-xl border border-slate-700 bg-slate-900 p-2.5 text-slate-300"><RefreshCw className={`h-4 w-4 ${busy?'animate-spin':''}`}/></button>
         <button onClick={create} className="flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3 py-2.5 text-[11px] font-black text-slate-950"><Plus className="h-4 w-4"/>Создать</button>
       </div>
     </div>
@@ -113,11 +113,11 @@ export function AdminAnnouncementsPanel(){
             <label className="md:col-span-2 text-[10px] text-slate-400">Изображение<input className={`${field} mt-1`} value={draft.imageUrl} onChange={e=>setDraft({...draft,imageUrl:e.target.value})} placeholder="https://..."/></label>
             <div className="md:col-span-2 flex gap-2">
               <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={e=>void upload(e.target.files?.[0])}/>
-              <button onClick={()=>fileRef.current?.click()} disabled={uploading} className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-dashed border-slate-600 bg-slate-900 py-2.5 text-[10px] font-bold text-slate-300"><ImagePlus className="h-4 w-4"/>{uploading?'Загрузка…':'Загрузить изображение'}</button>
+              <button onClick={()=>fileRef.current?.click()} disabled={busy||uploading} className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-dashed border-slate-600 bg-slate-900 py-2.5 text-[10px] font-bold text-slate-300"><ImagePlus className="h-4 w-4"/>{uploading?'Загрузка…':'Загрузить изображение'}</button>
               {draft.imageUrl&&<button onClick={()=>setDraft({...draft,imageUrl:''})} className="rounded-xl border border-rose-500/30 px-3 text-rose-300"><Trash2 className="h-4 w-4"/></button>}
             </div>
           </div>
-          <button onClick={()=>void save()} disabled={busy} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 py-3 text-xs font-black text-slate-950 disabled:opacity-50"><Save className="h-4 w-4"/>Сохранить объявление</button>
+          <button onClick={()=>void save()} disabled={busy||uploading} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 py-3 text-xs font-black text-slate-950 disabled:opacity-50"><Save className="h-4 w-4"/>Сохранить объявление</button>
         </div>:<button onClick={create} className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-700 bg-slate-950 py-6 text-xs font-bold text-slate-400 hover:border-emerald-500/40 hover:text-emerald-300"><Megaphone className="h-4 w-4"/>Создать новый баннер или системное объявление</button>}
 
         <div className="grid gap-2 md:grid-cols-2">

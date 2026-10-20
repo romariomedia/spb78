@@ -52,6 +52,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const admin = authorized;
 
   const [adminView, setAdminView] = useState<'overview'|'analytics'|'manage'|'verification'|'moderation'|'push'|'announcements'|'partners'|'officialTrainings'|'venues'|'leisure'|'massage'|'events'|'audit'>('overview');
+  const savingRef = useRef(false);
+  const [saving,setSaving] = useState(false);
   const [creating, setCreating] = useState(false);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -88,6 +90,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setTitle(''); setTagline(''); setDescription('');
     setCoverUrl(''); setVideoUrl(''); setPrizePool('');
     setParticipantsMax(30); setError(null); setEditingEventId(null);
+    setCategory('competition');setSport('Бег');setCoords(DEFAULT_COORDS);
+    setLocationName('Крестовский остров');setAddress('Санкт-Петербург');
+    setDateKey('');setTime('11:00');setEntryFee('Бесплатно');setStatus('draft');
   };
 
   const beginEdit = (event: OfficialEvent) => {
@@ -144,6 +149,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   };
 
   const handleCreate = async () => {
+    if(savingRef.current || uploading!==null)return;
     const draft: EventDraft = {
       title, tagline, category, sport, description,
       coverUrl: coverUrl || undefined,
@@ -162,6 +168,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       return;
     }
 
+    savingRef.current=true;setSaving(true);
     try {
       if (editingEventId) {
         const updated = await updateEvent(editingEventId, draft);
@@ -181,9 +188,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       setError(
         err instanceof Error && err.message === 'admin-otp-required'
           ? 'Сессия администратора истекла. Запросите новый код входа.'
-          : 'Не удалось создать мероприятие.'
+          : err instanceof Error ? err.message : 'Не удалось сохранить мероприятие.'
       );
-    }
+    } finally { savingRef.current=false;setSaving(false); }
   };
 
   /* ------------------------------ access denied ----------------------------- */
@@ -504,6 +511,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
                   <button
                     onClick={() => void handleCreate()}
+                    disabled={saving || uploading!==null}
                     className="w-full py-3 bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-black rounded-2xl text-xs transition shadow-[0_0_20px_rgba(245,158,11,0.45)] active:scale-95"
                   >
                     {editingEventId ? '💾 Сохранить изменения' : '🚀 Опубликовать мероприятие'}

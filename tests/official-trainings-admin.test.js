@@ -29,7 +29,7 @@ function fixture(initial={}){
       return query();
     },
     async runTransaction(callback){
-      const tx={get:async r=>r.get(),set:(r,v)=>rows.set(r.path,structuredClone(v))};
+      const tx={get:async r=>r.get(),set:(r,v)=>rows.set(r.path,structuredClone(v)),create:(r,v)=>rows.set(r.path,structuredClone(v)),delete:r=>rows.delete(r.path)};
       return callback(tx);
     }
   };

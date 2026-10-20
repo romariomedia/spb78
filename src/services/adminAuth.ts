@@ -49,7 +49,7 @@ export function getAdminSession(): AdminSession | null {
 export function hasAdminSession(): boolean {
   const session = getAdminSession();
   if (!session) return false;
-  if (Date.now() >= new Date(session.expiresAt).getTime()) {
+  if (!Number.isFinite(Date.parse(session.expiresAt)) || Date.now() >= Date.parse(session.expiresAt)) {
     clearAdminSession();
     return false;
   }

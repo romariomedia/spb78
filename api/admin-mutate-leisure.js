@@ -69,9 +69,10 @@ export default async function handler(req,res){
       return res.json({destinations:snap.docs.map(d=>({id:d.id,...d.data()}))});
     }
     if(operation==='seed'){
-      const existing=await db.collection('leisureDestinations').get();
+      const result=await db.runTransaction(async batch=>{
+      const existing=await batch.get(db.collection('leisureDestinations'));
       const ids=new Set(existing.docs.map(doc=>doc.id));
-      const batch=db.batch();
+
       let created=0,skipped=0;
       for(const raw of LEISURE_CATALOG){
         if(ids.has(raw.id)){skipped++;continue;}
@@ -79,26 +80,32 @@ export default async function handler(req,res){
         batch.set(db.collection('leisureDestinations').doc(raw.id),item,{merge:false});
         created++;
       }
-      if(created)await batch.commit();
-      await writeAdminAudit(db,session,{action:'leisure.seed',entityType:'leisureCatalog',entityId:'leisureDestinations',after:{created,skipped,submitted:LEISURE_CATALOG.length}});
-      return res.json({ok:true,count:created,skipped});
+
+      await writeAdminAudit(db,session,{action:'leisure.seed',entityType:'leisureCatalog',entityId:'leisureDestinations',after:{created,skipped,submitted:LEISURE_CATALOG.length}},batch);
+      return {ok:true,count:created,skipped};
+      });
+      return res.json(result);
     }
     const id=text(body.destinationId,100);
     if(!id||!/^[a-z0-9][a-z0-9_-]{1,99}$/i.test(id))return res.status(400).json({error:'Destination id required.'});
-    const ref=db.collection('leisureDestinations').doc(id),beforeSnap=await ref.get(),before=beforeSnap.exists?beforeSnap.data():null;
+    const ref=db.collection('leisureDestinations').doc(id);
+    const result=await db.runTransaction(async tx=>{
+    const beforeSnap=await tx.get(ref),before=beforeSnap.exists?beforeSnap.data():null;
     let after=null;
     if(operation==='delete'){
-      if(!beforeSnap.exists)return res.status(404).json({error:'Destination not found.'});
+      if(!beforeSnap.exists)throw Object.assign(new Error('Destination not found.'),{status:404});
       after={...before,isPublished:false,archived:true,updatedAt:new Date().toISOString()};
-      await ref.set(after,{merge:false});
+      tx.set(ref,after,{merge:false});
     }else if(operation==='create'){
-      if(beforeSnap.exists)return res.status(409).json({error:'Destination already exists.'});
-      after=sanitize(body.destination,id);await ref.create(after);
+      if(beforeSnap.exists)throw Object.assign(new Error('Destination already exists.'),{status:409});
+      after=sanitize(body.destination,id);tx.create(ref,after);
     }else if(operation==='update'){
-      if(!beforeSnap.exists)return res.status(404).json({error:'Destination not found.'});
-      after=sanitize({...before,...(body.patch||{})},id,before);await ref.set(after,{merge:false});
-    }else return res.status(400).json({error:'Unknown operation.'});
-    await writeAdminAudit(db,session,{action:`leisure.${operation}`,entityType:'leisureDestination',entityId:id,before,after,requestId:String(body.requestId||'')});
-    return res.json({ok:true,destination:after});
+      if(!beforeSnap.exists)throw Object.assign(new Error('Destination not found.'),{status:404});
+      after=sanitize({...before,...(body.patch||{})},id,before);tx.set(ref,after,{merge:false});
+    }else throw Object.assign(new Error('Unknown operation.'),{status:400});
+    await writeAdminAudit(db,session,{action:`leisure.${operation}`,entityType:'leisureDestination',entityId:id,before,after,requestId:String(body.requestId||'')},tx);
+    return {ok:true,destination:after};
+    });
+    return res.json(result);
   }catch(error){const status=Number(error?.status||500);return res.status(status).json({error:status===500?'Leisure mutation failed.':error.message});}
 }

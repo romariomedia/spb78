@@ -288,7 +288,7 @@ export function validateEventDraft(draft: EventDraft): string | null {
   if (draft.category === 'spectator') {
     if (!draft.dateKey || !/^\d{4}-\d{2}-\d{2}$/.test(draft.dateKey)) return 'Укажите точную дату события';
     if (!draft.officialSourceUrl) return 'Добавьте официальный источник расписания';
-    if (draft.status === 'published' && (!draft.ticketUrl || !draft.ticketSourceName || !draft.ticketVerified)) {
+    if (draft.status === 'published' && !draft.isMediaLeague && (!draft.ticketUrl || !draft.ticketSourceName || !draft.ticketVerified)) {
       return 'Для публикации подтвердите официальный источник билетов';
     }
   }

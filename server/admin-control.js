@@ -1,13 +1,13 @@
 import { randomUUID } from 'node:crypto';
 
 export async function requireAdminSession(db, sessionId) {
-  if (!sessionId) throw Object.assign(new Error('Session required.'), { status: 401 });
+  if (typeof sessionId !== 'string' || !/^[a-zA-Z0-9_-]{1,180}$/.test(sessionId)) throw Object.assign(new Error('Session required.'), { status: 401 });
   const ref = db.doc(`adminSessions/${sessionId}`);
   const snap = await ref.get();
   if (!snap.exists) throw Object.assign(new Error('Session not found.'), { status: 401 });
   const data = snap.data() || {};
   const expiresAt = data.expiresAt?.toMillis?.() ?? 0;
-  if (expiresAt <= Date.now()) {
+  if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
     await ref.delete().catch(() => undefined);
     throw Object.assign(new Error('Session expired.'), { status: 401 });
   }

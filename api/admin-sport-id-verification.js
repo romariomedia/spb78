@@ -22,22 +22,23 @@ export default async function handler(req,res){
     const requestId=clean(body.requestId,180);
     if(!requestId||requestId.includes('/'))return res.status(400).json({error:'Verification request required.'});
     const requestRef=db.collection('sportVerificationRequests').doc(requestId);
-    const requestSnap=await requestRef.get();
-    if(!requestSnap.exists)return res.status(404).json({error:'Заявка не найдена.'});
+    const result=await db.runTransaction(async tx=>{
+    const requestSnap=await tx.get(requestRef);
+    if(!requestSnap.exists)throw Object.assign(new Error('Заявка не найдена.'),{status:404});
     const request=requestSnap.data()||{};
-    if((operation==='approve'||operation==='reject')&&request.status!=='pending')return res.status(409).json({error:'Эта заявка уже обработана.'});
-    if(operation==='revoke'&&request.status!=='approved')return res.status(409).json({error:'Отозвать можно только действующее подтверждение.'});
+    if((operation==='approve'||operation==='reject')&&request.status!=='pending')throw Object.assign(new Error('Эта заявка уже обработана.'),{status:409});
+    if(operation==='revoke'&&request.status!=='approved')throw Object.assign(new Error('Отозвать можно только действующее подтверждение.'),{status:409});
     const note=clean(body.note,800);
     const now=Date.now();
 
     if(operation==='approve'){
-      const userSnap=await db.collection('users').doc(request.userId).get();
-      if(!userSnap.exists)return res.status(404).json({error:'Пользователь не найден.'});
+      const userSnap=await tx.get(db.collection('users').doc(request.userId));
+      if(!userSnap.exists)throw Object.assign(new Error('Пользователь не найден.'),{status:404});
       let currentClaim;
       try{currentClaim=claimFromPassport(userSnap.data()?.sportPassport||{},request);}catch{
-        return res.status(409).json({error:'Факт в Спортивном ID был изменён или удалён. Попросите спортсмена отправить новую заявку.'});
+        throw Object.assign(new Error('Факт в Спортивном ID был изменён или удалён. Попросите спортсмена отправить новую заявку.'),{status:409});
       }
-      if(claimFingerprint(currentClaim)!==request.fingerprint)return res.status(409).json({error:'Данные в Спортивном ID изменились после отправки заявки. Нужна новая заявка.'});
+      if(claimFingerprint(currentClaim)!==request.fingerprint)throw Object.assign(new Error('Данные в Спортивном ID изменились после отправки заявки. Нужна новая заявка.'),{status:409});
       const claimId=verificationClaimId(request.userId,request);
       const claimRef=db.collection('sportVerifiedClaims').doc(claimId);
       const claim={
@@ -47,38 +48,37 @@ export default async function handler(req,res){
         status:'verified',sourceRequestId:requestId,publicToken:publicClaimToken(),
         verifiedAt:new Date(now).toISOString(),verifiedAtMs:now,verifiedBy:String(session.email||'admin')
       };
-      await db.runTransaction(async tx=>{
-        const fresh=await tx.get(requestRef);
-        if(!fresh.exists||fresh.data()?.status!=='pending')throw Object.assign(new Error('Заявка уже обработана.'),{status:409});
+
         tx.set(claimRef,claim,{merge:false});
         tx.update(requestRef,{status:'approved',reviewNote:note,reviewedAt:claim.verifiedAt,reviewedBy:claim.verifiedBy,updatedAt:claim.verifiedAt,updatedAtMs:now});
-      });
-      await writeAdminAudit(db,session,{action:'sportId.verification.approve',entityType:'sportVerificationRequest',entityId:requestId,before:{status:'pending'},after:{status:'approved',claimId,note},requestId:String(body.auditRequestId||'')});
-      return res.json({ok:true});
+      await writeAdminAudit(db,session,{action:'sportId.verification.approve',entityType:'sportVerificationRequest',entityId:requestId,before:{status:'pending'},after:{status:'approved',claimId,note},requestId:String(body.auditRequestId||'')},tx);
+      return {ok:true};
     }
 
     if(operation==='reject'){
-      if(note.length<3)return res.status(400).json({error:'Для отклонения укажите причину минимум из 3 символов.'});
+      if(note.length<3)throw Object.assign(new Error('Для отклонения укажите причину минимум из 3 символов.'),{status:400});
       const reviewedAt=new Date(now).toISOString();
-      await requestRef.update({status:'rejected',reviewNote:note,reviewedAt,reviewedBy:String(session.email||'admin'),updatedAt:reviewedAt,updatedAtMs:now});
-      await writeAdminAudit(db,session,{action:'sportId.verification.reject',entityType:'sportVerificationRequest',entityId:requestId,before:{status:'pending'},after:{status:'rejected',note},requestId:String(body.auditRequestId||'')});
-      return res.json({ok:true});
+      tx.update(requestRef,{status:'rejected',reviewNote:note,reviewedAt,reviewedBy:String(session.email||'admin'),updatedAt:reviewedAt,updatedAtMs:now});
+      await writeAdminAudit(db,session,{action:'sportId.verification.reject',entityType:'sportVerificationRequest',entityId:requestId,before:{status:'pending'},after:{status:'rejected',note},requestId:String(body.auditRequestId||'')},tx);
+      return {ok:true};
     }
 
     if(operation==='revoke'){
       const claimId=verificationClaimId(request.userId,request);
       const claimRef=db.collection('sportVerifiedClaims').doc(claimId);
-      const claimSnap=await claimRef.get();
-      if(!claimSnap.exists)return res.status(404).json({error:'Подтверждение не найдено.'});
+      const claimSnap=await tx.get(claimRef);
+      if(!claimSnap.exists)throw Object.assign(new Error('Подтверждение не найдено.'),{status:404});
       const reason=note;
-      if(reason.length<3)return res.status(400).json({error:'Укажите причину отзыва минимум из 3 символов.'});
-      await claimRef.delete();
-      await requestRef.update({status:'revoked',reviewNote:reason,reviewedAt:new Date(now).toISOString(),reviewedBy:String(session.email||'admin'),updatedAt:new Date(now).toISOString(),updatedAtMs:now});
-      await writeAdminAudit(db,session,{action:'sportId.verification.revoke',entityType:'sportVerifiedClaim',entityId:claimId,before:claimSnap.data(),after:{revoked:true,reason},requestId:String(body.auditRequestId||'')});
-      return res.json({ok:true});
+      if(reason.length<3)throw Object.assign(new Error('Укажите причину отзыва минимум из 3 символов.'),{status:400});
+      tx.delete(claimRef);
+      tx.update(requestRef,{status:'revoked',reviewNote:reason,reviewedAt:new Date(now).toISOString(),reviewedBy:String(session.email||'admin'),updatedAt:new Date(now).toISOString(),updatedAtMs:now});
+      await writeAdminAudit(db,session,{action:'sportId.verification.revoke',entityType:'sportVerifiedClaim',entityId:claimId,before:claimSnap.data(),after:{revoked:true,reason},requestId:String(body.auditRequestId||'')},tx);
+      return {ok:true};
     }
 
-    return res.status(400).json({error:'Unknown operation'});
+    throw Object.assign(new Error('Unknown operation'),{status:400});
+    });
+    return res.json(result);
   }catch(error){
     const status=Number(error?.status||500);
     if(status===500)console.error('[admin-sport-id-verification]',error);

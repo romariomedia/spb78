@@ -36,7 +36,7 @@ export const CitySportsEventsAdminPanel:React.FC<Props>=({currentUser,onChanged}
   const [status,setStatus]=useState<EventStatus>('draft');
 
   const load=async()=>{const all=await refreshEvents(true);setEvents(all.filter(e=>e.category==='spectator'));};
-  useEffect(()=>{void load().catch(()=>{});},[]);
+  useEffect(()=>{void load().catch(e=>setError(e instanceof Error?e.message:'Не удалось загрузить афишу.'));},[]);
   const availableTeams=useMemo(()=>isMediaLeague?[]:teamsForLeague(league),[league,isMediaLeague]);
   const availableVenues=useMemo(()=>isMediaLeague?[]:venuesForLeague(league),[league,isMediaLeague]);
   const useLeague=(next:string)=>{
@@ -97,7 +97,7 @@ export const CitySportsEventsAdminPanel:React.FC<Props>=({currentUser,onChanged}
 
   const remove=async(id:string)=>{
     if(!confirm('Удалить событие из афиши?'))return;
-    setBusy(true);try{await removeEvent(id);await load();onChanged();}finally{setBusy(false);}
+    setBusy(true);setError('');try{await removeEvent(id);await load();onChanged();}catch(e){setError(e instanceof Error?e.message:'Не удалось удалить событие.');}finally{setBusy(false);}
   };
 
   const field='w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2.5 text-xs text-white outline-none focus:border-sky-500';
