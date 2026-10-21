@@ -1,0 +1,282 @@
+[
+  {
+    "id": "spa-spb-royal",
+    "providerType": "salon",
+    "name": "ROYAL THAI · Конюшенная",
+    "description": "Тайский SPA в центре Петербурга: тёплый свет, восточный интерьер и кабинеты для спокойного отдыха. Подойдёт для индивидуального визита или совместной SPA-программы. В отзывах гости выделяют атмосферу и работу мастеров.",
+    "services": "Традиционный тайский массаж; массаж с маслом; SPA-программы.",
+    "priceText": "Стоимость зависит от программы и длительности. Актуальный прайс — на сайте салона; уточните цену при записи.",
+    "address": "Большая Конюшенная ул., 1",
+    "district": "Центральный",
+    "hours": "Ежедневно 10:00–22:00",
+    "phone": "+7 (812) 242-13-13",
+    "bookingUrl": "https://royalthai.ru/salons/royal-thai-konyushennaya/",
+    "media": [
+      {
+        "type": "image",
+        "url": "https://sportbuddy78.pro/media/massage/royal.jpg"
+      }
+    ],
+    "isPublished": true,
+    "research": {
+      "rating": 5,
+      "reviewCount": 338,
+      "reviewUrl": "https://yandex.ru/maps/org/royal_thai/1193724645/reviews/",
+      "checkedAt": "2026-10-21",
+      "officialUrl": "https://royalthai.ru/salons/royal-thai-konyushennaya/",
+      "photoSourceUrl": "https://royalthai.ru/upload/resize_cache/iblock/465/7pc7ph164d4mdnmoawamuvizt3wq91wc/900_600_1/IMG_3401_HDR.jpg"
+    }
+  },
+  {
+    "id": "spa-spb-amoveo",
+    "providerType": "salon",
+    "name": "Amoveo SPA · Петроградская",
+    "description": "SPA на Петроградской стороне с массажными кабинетами и зонами отдыха. Можно выбрать отдельную процедуру или более продолжительную программу. Посетители часто отмечают внимательный сервис и спокойную обстановку.",
+    "services": "Расслабляющий массаж; SPA-уходы; программы для двоих; тепловая зона.",
+    "priceText": "Стоимость зависит от программы и длительности. Актуальный прайс — на сайте салона; уточните цену при записи.",
+    "address": "Петропавловская ул., 4",
+    "district": "Петроградский",
+    "hours": "Ежедневно 10:00–22:00",
+    "phone": "+7 (812) 777-90-47",
+    "bookingUrl": "https://amoveo.ru/contact/",
+    "media": [
+      {
+        "type": "image",
+        "url": "https://sportbuddy78.pro/media/massage/amoveo.jpg"
+      }
+    ],
+    "isPublished": true,
+    "research": {
+      "rating": 5,
+      "reviewCount": 497,
+      "reviewUrl": "https://yandex.ru/maps/org/amoveo_spa/1046591111/reviews/",
+      "checkedAt": "2026-10-21",
+      "officialUrl": "https://amoveo.ru/contact/",
+      "photoSourceUrl": "https://amoveo.ru/upload/resize_cache/iblock/58b/870_490_1/x4sqqv85aeek3743apicqila6iqx3pih.jpg"
+    }
+  },
+  {
+    "id": "spa-spb-wai",
+    "providerType": "salon",
+    "name": "Вай Тай · Балтийская Жемчужина",
+    "description": "Салон тайского массажа в Балтийской Жемчужине с современным тёмным интерьером. В подборку вошёл за отзывы о мастерах, атмосфере и чистоте. Условия сертификатов и состав программы лучше согласовать при записи.",
+    "services": "Тайский и расслабляющий массаж; SPA для двоих; авторские программы.",
+    "priceText": "Стоимость зависит от программы и длительности. Актуальный прайс — на сайте салона; уточните цену при записи.",
+    "address": "проспект Героев, 33",
+    "district": "Красносельский",
+    "hours": "Ежедневно 10:00–22:00",
+    "phone": "+7 (921) 390-44-33",
+    "bookingUrl": "https://waithaispa.ru/contacts/baltiyskayazhemchuzhina.html",
+    "media": [
+      {
+        "type": "image",
+        "url": "https://sportbuddy78.pro/media/massage/wai.webp"
+      }
+    ],
+    "isPublished": true,
+    "research": {
+      "rating": 5,
+      "reviewCount": 344,
+      "reviewUrl": "https://yandex.ru/maps/org/vay_tay/95872655776/reviews/",
+      "checkedAt": "2026-10-21",
+      "officialUrl": "https://waithaispa.ru/contacts/baltiyskayazhemchuzhina.html",
+      "photoSourceUrl": "https://waithaispa.ru/upload/delight.webpconverter/upload/resize_cache/iblock/576/xzxs19nep4i244sg6d83mh7nt4yipxe6/1000_760_1/photo_2024_09_12_14_14_00-_2_.jpg.webp?172614195658462"
+    }
+  },
+  {
+    "id": "spa-spb-baan",
+    "providerType": "salon",
+    "name": "Baan Thai · Лесная",
+    "description": "Камерный салон рядом с Лесной с тёплыми интерьерами и традиционными тайскими техниками. Гости отмечают внимание к пожеланиям по интенсивности массажа и доброжелательный приём.",
+    "services": "Тайский массаж; массаж с маслом; массаж стоп; SPA-программы.",
+    "priceText": "Стоимость зависит от программы и длительности. Актуальный прайс — на сайте салона; уточните цену при записи.",
+    "address": "ул. Александра Матросова, 1",
+    "district": "Выборгский",
+    "hours": "Ежедневно 10:00–23:00",
+    "phone": "+7 (812) 363-32-53",
+    "bookingUrl": "https://bantai.ru/",
+    "media": [
+      {
+        "type": "image",
+        "url": "https://sportbuddy78.pro/media/massage/baan.jpg"
+      }
+    ],
+    "isPublished": true,
+    "research": {
+      "rating": 5,
+      "reviewCount": 106,
+      "reviewUrl": "https://yandex.ru/maps/org/ban_tay/187889313176/reviews/",
+      "checkedAt": "2026-10-21",
+      "officialUrl": "https://bantai.ru/",
+      "photoSourceUrl": "https://bantai.ru/upload/iblock/936/9bdhnbo7h95qp0r01t4cp6mvc16n3id6/20231123_131856.jpg"
+    }
+  },
+  {
+    "id": "spa-spb-baunty",
+    "providerType": "salon",
+    "name": "Тайская SPA-деревня БАУНТИ",
+    "description": "Атмосферный SPA недалеко от Исаакиевской площади. Есть индивидуальные и парные программы для неспешного отдыха. Среди повторяющихся тем отзывов — необычные интерьеры, внимание персонала и впечатления от комплексных программ.",
+    "services": "Тайский массаж; масляный массаж; SPA для двоих; программы с фитобочкой.",
+    "priceText": "Стоимость зависит от программы и длительности. Актуальный прайс — на сайте салона; уточните цену при записи.",
+    "address": "Галерная ул., 6",
+    "district": "Адмиралтейский",
+    "hours": "Ежедневно 11:00–23:00",
+    "phone": "+7 (812) 448-88-00",
+    "bookingUrl": "https://baunty.spb.ru/",
+    "media": [
+      {
+        "type": "image",
+        "url": "https://sportbuddy78.pro/media/massage/baunty.jpg"
+      }
+    ],
+    "isPublished": true,
+    "research": {
+      "rating": 5,
+      "reviewCount": 734,
+      "reviewUrl": "https://yandex.ru/maps/org/tayskaya_spa_derevnya_baunti/199944410244/reviews/",
+      "checkedAt": "2026-10-21",
+      "officialUrl": "https://baunty.spb.ru/",
+      "photoSourceUrl": "https://avatars.mds.yandex.net/get-altay/6197788/2a00000182ea2989a131a01c4545f27a536a/L"
+    }
+  },
+  {
+    "id": "spa-spb-lotus",
+    "providerType": "salon",
+    "name": "Lotus SPA",
+    "description": "Небольшой SPA-салон в Выборгском районе. Подойдёт для отдельного сеанса массажа или программы на двоих. В отзывах гости выделяют внимательных специалистов и уютную обстановку.",
+    "services": "Классический и ароматический массаж; SPA-уходы; программы для двоих.",
+    "priceText": "Стоимость зависит от программы и длительности. Актуальный прайс — на сайте салона; уточните цену при записи.",
+    "address": "Манчестерская ул., 10, корп. 2",
+    "district": "Выборгский",
+    "hours": "Ежедневно 10:00–22:00",
+    "phone": "+7 (812) 335-27-03",
+    "bookingUrl": "https://spa-lotus.ru/",
+    "media": [
+      {
+        "type": "image",
+        "url": "https://sportbuddy78.pro/media/massage/lotus.jpg"
+      }
+    ],
+    "isPublished": true,
+    "research": {
+      "rating": 5,
+      "reviewCount": 128,
+      "reviewUrl": "https://yandex.ru/maps/org/lotus_spa/235385866503/reviews/",
+      "checkedAt": "2026-10-21",
+      "officialUrl": "https://spa-lotus.ru/",
+      "photoSourceUrl": "https://avatars.mds.yandex.net/get-altay/474904/2a0000018622cd3fc18474e8fa15eeac6bb5/L"
+    }
+  },
+  {
+    "id": "spa-spb-siam",
+    "providerType": "salon",
+    "name": "Сиам-Сиам · Гавань",
+    "description": "Тайский салон в западной части Васильевского острова. Тёплые цвета и восточные детали создают обстановку для отдыха. В отзывах отмечают гостеприимство и возможность заранее обсудить пожелания к сеансу.",
+    "services": "Традиционный тайский массаж; oil-массаж; массаж стоп; SPA с фитобочкой.",
+    "priceText": "Тайский массаж: 60 минут — 4 500 ₽. Oil-массаж: 60 минут — 4 800 ₽. По официальному прайсу на дату подборки; актуальную цену уточняйте при записи.",
+    "address": "бульвар Головнина, 4",
+    "district": "Василеостровский",
+    "hours": "Ежедневно 10:00–22:00",
+    "phone": "+7 (999) 196-65-70",
+    "bookingUrl": "https://www.siam-siam1.ru/salony/akvilon-vo",
+    "media": [
+      {
+        "type": "image",
+        "url": "https://sportbuddy78.pro/media/massage/siam.webp"
+      }
+    ],
+    "isPublished": true,
+    "research": {
+      "rating": 5,
+      "reviewCount": 139,
+      "reviewUrl": "https://yandex.ru/maps/org/siam_siam/166191769639/reviews/",
+      "checkedAt": "2026-10-21",
+      "officialUrl": "https://www.siam-siam1.ru/salony/akvilon-vo",
+      "photoSourceUrl": "https://www.siam-siam1.ru/upload/siam-siam/interiors/salons/akvilon-vo.webp"
+    }
+  },
+  {
+    "id": "spa-spb-spbthai",
+    "providerType": "salon",
+    "name": "SPbThai · Парк Победы",
+    "description": "Центр тайского массажа у Парка Победы. В меню — отдельные сеансы и комплексные SPA-программы. Гости отмечают внимание мастеров к пожеланиям и возможность выбрать подходящую интенсивность.",
+    "services": "Тайский и расслабляющий массаж; массаж для спортсменов; SPA для двоих.",
+    "priceText": "Стоимость зависит от программы и длительности. Актуальный прайс — на сайте салона; уточните цену при записи.",
+    "address": "площадь Чернышевского, 6",
+    "district": "Московский",
+    "hours": "Ежедневно 11:00–23:00",
+    "phone": "+7 (812) 999-81-98",
+    "bookingUrl": "https://spbthai.ru/kompleksyi/spa-na-parke-pobedyi.html",
+    "media": [
+      {
+        "type": "image",
+        "url": "https://sportbuddy78.pro/media/massage/spbthai.jpg"
+      }
+    ],
+    "isPublished": true,
+    "research": {
+      "rating": 5,
+      "reviewCount": 468,
+      "reviewUrl": "https://yandex.ru/maps/org/spbthai_tayskiy_massazh_i_spa/1192824795/reviews/",
+      "checkedAt": "2026-10-21",
+      "officialUrl": "https://spbthai.ru/kompleksyi/spa-na-parke-pobedyi.html",
+      "photoSourceUrl": "https://spbthai.ru/assets/components/phpthumbof/cache/park-chernysh6.c278a6fef761b42067d76553ceed6971.jpg"
+    }
+  },
+  {
+    "id": "spa-spb-float",
+    "providerType": "salon",
+    "name": "Float Time",
+    "description": "Студия для тех, кто хочет совместить массаж с флоатингом или выбрать что-то одно. В отзывах часто упоминаются спокойная атмосфера, чистота и внимательное отношение сотрудников.",
+    "services": "Классический и ароматический массаж; флоатинг; комплексные SPA-программы.",
+    "priceText": "Массаж — от 2 200 ₽; флоатинг — от 2 800 ₽; SPA-программы — от 5 700 ₽. По официальному прайсу на дату подборки; длительность и итоговую цену уточняйте при записи.",
+    "address": "Пулковская ул., 10, корп. 1",
+    "district": "Московский",
+    "hours": "Ежедневно 10:00–22:00",
+    "phone": "+7 (965) 060-65-55",
+    "bookingUrl": "https://floattime.ru/",
+    "media": [
+      {
+        "type": "image",
+        "url": "https://sportbuddy78.pro/media/massage/float.jpeg"
+      }
+    ],
+    "isPublished": true,
+    "research": {
+      "rating": 5,
+      "reviewCount": 637,
+      "reviewUrl": "https://yandex.ru/maps/org/float_time/144656760580/reviews/",
+      "checkedAt": "2026-10-21",
+      "officialUrl": "https://floattime.ru/",
+      "photoSourceUrl": "https://static.tildacdn.com/tild3066-3362-4166-b161-383665663862/8_1.jpeg"
+    }
+  },
+  {
+    "id": "spa-spb-aqua",
+    "providerType": "salon",
+    "name": "AquaSoul · Озерки",
+    "description": "Студия флоатинга и массажа в Озерках. Можно прийти на отдельный сеанс или выбрать комплексный отдых. В отзывах особенно выделяют чистоту, заботливый сервис и атмосферу уединения.",
+    "services": "Флоатинг; классический и расслабляющий массаж; SPA-программы.",
+    "priceText": "Классический массаж: 40 минут — 2 200 ₽, 60 минут — 3 000 ₽. По официальному прайсу на дату подборки; актуальную цену уточняйте при записи.",
+    "address": "Выборгское шоссе, 13, ТК «Экополис», 3 этаж",
+    "district": "Выборгский",
+    "hours": "Ежедневно 10:00–22:00",
+    "phone": "+7 (931) 332-77-60",
+    "bookingUrl": "https://aqua-soul.ru/",
+    "media": [
+      {
+        "type": "image",
+        "url": "https://sportbuddy78.pro/media/massage/aqua.jpg"
+      }
+    ],
+    "isPublished": true,
+    "research": {
+      "rating": 5,
+      "reviewCount": 537,
+      "reviewUrl": "https://yandex.ru/maps/org/studiya_floatinga_aquasoul/35499117526/reviews/",
+      "checkedAt": "2026-10-21",
+      "officialUrl": "https://aqua-soul.ru/",
+      "photoSourceUrl": "https://avatars.mds.yandex.net/get-altay/5476645/2a0000017e000995d4bbf834f425e3ec6872/L"
+    }
+  }
+]

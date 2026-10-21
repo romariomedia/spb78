@@ -21,6 +21,13 @@ export function sanitizeMassage(input={},existing={}){
  };
  if(result.name.length<2)fail('Укажите название салона или имя специалиста');
  if(result.isPublished&&(!result.bookingUrl||result.description.length<10||!result.priceText||!result.address))fail('Для публикации заполните описание, цены, адрес/условия выезда и ссылку на запись');
+ if(value.research!=null){
+  const r=value.research;
+  if(typeof r!=='object'||!Number.isFinite(r.rating)||r.rating<0||r.rating>5||!Number.isInteger(r.reviewCount)||r.reviewCount<0||!/^\d{4}-\d{2}-\d{2}$/.test(r.checkedAt||''))fail('Проверьте рейтинг, количество отзывов и дату источника');
+  const reviewUrl=url(r.reviewUrl),officialUrl=url(r.officialUrl),photoSourceUrl=url(r.photoSourceUrl);
+  if(!reviewUrl||!officialUrl)fail('Добавьте источники подборки');
+  result.research={rating:r.rating,reviewCount:r.reviewCount,checkedAt:r.checkedAt,reviewUrl,officialUrl,photoSourceUrl};
+ }
  return result;
 }
 export function publicMassage(id,data){
