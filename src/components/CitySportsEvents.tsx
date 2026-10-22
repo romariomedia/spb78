@@ -5,7 +5,7 @@ import { filterUpcomingCityEvents, getUpcomingCityEvents, isRegistered, refreshE
 import { triggerHapticImpact, triggerHapticNotification } from '../services/native';
 import { effectiveEventCover, presetEventCover } from '../lib/eventCoverPresets';
 
-type Filter='all'|'Хоккей'|'Футбол'|'Баскетбол'|'media'|'mine';
+type Filter='all'|'Хоккей'|'Футбол'|'Баскетбол'|'Волейбол'|'media'|'mine';
 
 interface Props {
   currentUser: UserProfile;
@@ -18,6 +18,7 @@ const filters:Array<{id:Filter;label:string}>=[
   {id:'Хоккей',label:'Хоккей'},
   {id:'Футбол',label:'Футбол'},
   {id:'Баскетбол',label:'Баскетбол'},
+  {id:'Волейбол',label:'Волейбол'},
   {id:'media',label:'Медиалиги'},
   {id:'mine',label:'Я иду'}
 ];
@@ -81,19 +82,20 @@ export const CitySportsEvents:React.FC<Props>=({currentUser,refreshKey,onOpenCha
         {filters.map(item=><button key={item.id} type="button" onClick={()=>setFilter(item.id)}
           className={`shrink-0 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-[11px] font-bold ${filter===item.id?'bg-sky-400 text-slate-950':'border border-slate-700 text-slate-300'}`}>{item.label}</button>)}
       </div>
+      <p className="text-[11px] text-slate-400">Время московское. «Иду» — поиск компании; билет приобретается отдельно.</p>
       {loadError&&<p role="alert" className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-2 text-xs text-rose-300">Не удалось обновить афишу. Проверьте подключение.</p>}
       {visible.length===0?<div className="rounded-xl border border-slate-800 bg-slate-950 p-4 text-center text-xs text-slate-400">{!loaded?'Загружаем события…':'На выбранный период событий пока нет.'}</div>:
-      <div className="space-y-2">{visible.map(event=>{
+      <div className="grid gap-3 sm:grid-cols-2">{visible.map(event=>{
         const joined=isRegistered(event,currentUser.id);
         const ticketUrl=verifiedTicketUrl(event);
         const eventCover=effectiveEventCover(event);
         const isMedia=event.isMediaLeague===true;
         const organizerUrl=isMedia?event.organizerUrl:'';
         return <article key={event.id} className="rounded-xl border border-slate-800 bg-slate-950 p-2.5">
-          <div className="flex items-start gap-3">
-            {eventCover&&<img src={eventCover} alt="" loading="lazy"
+          <div className="space-y-3">
+            {eventCover&&<img src={eventCover} alt={`Афиша: ${event.title}`} loading="lazy" decoding="async"
               onError={e=>{const fallback=presetEventCover(event);if(fallback&& !e.currentTarget.src.endsWith(fallback)){e.currentTarget.src=fallback;}else{e.currentTarget.style.display='none';}}}
-              className="h-20 w-20 shrink-0 rounded-lg object-cover sm:h-24 sm:w-28"/>}
+              className="aspect-[16/10] w-full rounded-lg bg-slate-900 object-contain"/>}
             <div className="min-w-0 flex-1 space-y-1">
               <p className="text-[10px] font-bold uppercase text-sky-400">{event.league||event.sport}</p>
               <h4 className="text-sm font-black leading-tight text-white">{event.title}</h4>
@@ -102,6 +104,7 @@ export const CitySportsEvents:React.FC<Props>=({currentUser,refreshKey,onOpenCha
               <p className="flex items-center gap-1 text-[10px] text-slate-500"><Users className="h-3 w-3"/>{event.participantIds.length} идут</p>
             </div>
           </div>
+          <details className="mt-2 text-xs text-slate-400"><summary className="cursor-pointer py-1 text-sky-300">О событии</summary><p className="mt-1 leading-relaxed">{event.description}</p><p className="mt-1">{event.address}</p></details>
           <div className="mt-2.5 grid grid-cols-2 gap-2">
             <button type="button" disabled={busy===event.id} onClick={()=>void attend(event)}
               className={`min-h-9 rounded-lg px-2 text-[11px] font-bold ${joined?'border border-emerald-500/40 bg-emerald-500/10 text-emerald-300':'bg-sky-400 text-slate-950'}`}>

@@ -1,0 +1,100 @@
+[
+  {
+    "id": "evt-spb-2026-ska-sibirr",
+    "scheduleSource": "https://skaarena.ru/afisha/ska-sibirr.html",
+    "posterPage": "https://skaarena.ru/afisha/",
+    "posterUrl": "https://skaarena.ru/upload/resize_cache/iblock/1f7/bryjvzhkq82lhr9see2r1kl0ix8wiqz2/1024_576_2/1600х900-10-22_SIB.png",
+    "checkedAt": "2026-10-22"
+  },
+  {
+    "id": "evt-spb-2026-ska-tsskaa",
+    "scheduleSource": "https://skaarena.ru/afisha/ska-tsskaa.html",
+    "posterPage": "https://skaarena.ru/afisha/",
+    "posterUrl": "https://skaarena.ru/upload/resize_cache/iblock/560/x2t084xnxwxxpjzkjs1dh9qp744wodrn/1024_576_2/1600х900-10-25_CSKA.png",
+    "checkedAt": "2026-10-22"
+  },
+  {
+    "id": "evt-spb-2026-ska-torpedoo",
+    "scheduleSource": "https://skaarena.ru/afisha/ska-torpedoo.html",
+    "posterPage": "https://skaarena.ru/afisha/",
+    "posterUrl": "https://skaarena.ru/upload/resize_cache/iblock/a7b/n65h1o0b6h6d7gjrvl0shw7fye78s6bx/1024_576_2/1600х900-10-27_TRP.png",
+    "checkedAt": "2026-10-22"
+  },
+  {
+    "id": "evt-spb-2026-zenit-enisey",
+    "scheduleSource": "https://bc-zenit.com/tickets/games/1081865",
+    "posterPage": "https://kckarena.com/events/zenit-enisey",
+    "posterUrl": "https://static.tildacdn.com/tild6363-6530-4034-a331-653930366635/IMG_2190.PNG",
+    "checkedAt": "2026-10-22"
+  },
+  {
+    "id": "evt-spb-2026-zenit-samara",
+    "scheduleSource": "https://bc-zenit.com/tickets/games/1081879",
+    "posterPage": "https://kckarena.com/events/zenit-samara",
+    "posterUrl": "https://static.tildacdn.com/tild6665-3633-4762-b363-653163613665/IMG_0806.jpg",
+    "checkedAt": "2026-10-22"
+  },
+  {
+    "id": "evt-spb-2026-zenit-lokomotiv-volleyball",
+    "scheduleSource": "https://kckarena.com/events/zenit-lokomotiv-volleyball",
+    "posterPage": "https://kckarena.com/events/zenit-lokomotiv-volleyball",
+    "posterUrl": "https://static.tildacdn.com/tild3739-3330-4735-b464-653435643235/IMG_1514.PNG",
+    "checkedAt": "2026-10-22"
+  },
+  {
+    "id": "evt-spb-2026-zenit-zenit-kazan-volleyball",
+    "scheduleSource": "https://kckarena.com/events/zenit-zenit-kazan-volleyball",
+    "posterPage": "https://kckarena.com/events/zenit-zenit-kazan-volleyball",
+    "posterUrl": "https://static.tildacdn.com/tild3336-3565-4131-b762-336536353761/IMG_1515.PNG",
+    "checkedAt": "2026-10-22"
+  },
+  {
+    "id": "evt-spb-2026-zenit-dinamo-mh",
+    "scheduleSource": "https://fc-zenit.ru/zenit/calendar/matches/2090707.html",
+    "posterPage": "https://gazprom-arena.com/",
+    "posterUrl": "https://gazprom-arena.com/upload/iblock/32c/hxmx69k3jfwdbxvk2tfcik54m3zf3yom/1920х1081 (2).jpg",
+    "checkedAt": "2026-10-22"
+  },
+  {
+    "id": "evt-spb-2026-dragons-39792",
+    "scheduleSource": "https://hc-dragons.com/calendar/",
+    "posterPage": "https://afisha.yandex.ru/saint-petersburg/sport/hockey-khl-shankhai-dregons-barys",
+    "posterUrl": "https://avatars.mds.yandex.net/get-afishanew/14837015/db9329d0a5ff6f0d6f1539dc121bc3fe/orig",
+    "checkedAt": "2026-10-22"
+  },
+  {
+    "id": "evt-spb-2026-dragons-39793",
+    "scheduleSource": "https://hc-dragons.com/calendar/",
+    "posterPage": "https://afisha.yandex.ru/saint-petersburg/sport/hockey-shankhai-dregons-salavat-iulaev",
+    "posterUrl": "https://avatars.mds.yandex.net/get-afishanew/14837015/5379644080ec869556cd0e2ed9f03a21/orig",
+    "checkedAt": "2026-10-22"
+  },
+  {
+    "id": "evt-spb-2026-dragons-39794",
+    "scheduleSource": "https://hc-dragons.com/calendar/",
+    "posterPage": "https://afisha.yandex.ru/saint-petersburg/sport/hockey-khl-shankhai-dregons-severstal",
+    "posterUrl": "https://avatars.mds.yandex.net/get-afishanew/14837015/252d8fe14372b9cfba899c0f60a7ab63/orig",
+    "checkedAt": "2026-10-22"
+  },
+  {
+    "id": "evt-spb-2026-dragons-39795",
+    "scheduleSource": "https://hc-dragons.com/calendar/",
+    "posterPage": "https://afisha.yandex.ru/saint-petersburg/sport/hockey-khl-shankhai-dregons-dinamo-m",
+    "posterUrl": "https://avatars.mds.yandex.net/get-afishanew/14837015/f2d644c36a1dddc1a5c156b3324ca701/orig",
+    "checkedAt": "2026-10-22"
+  },
+  {
+    "id": "evt-spb-2026-dragons-39799",
+    "scheduleSource": "https://hc-dragons.com/calendar/",
+    "posterPage": "https://afisha.yandex.ru/saint-petersburg/sport/hockey-khl-shankhai-dregons-amur",
+    "posterUrl": "https://avatars.mds.yandex.net/get-afishanew/14837015/57ef27e2b6fcc70a66ab8cb471be3c1f/orig",
+    "checkedAt": "2026-10-22"
+  },
+  {
+    "id": "evt-spb-2026-dragons-39800",
+    "scheduleSource": "https://hc-dragons.com/calendar/",
+    "posterPage": "https://afisha.yandex.ru/saint-petersburg/sport/hockey-khl-shankhai-dregons-cska",
+    "posterUrl": "https://avatars.mds.yandex.net/get-afishanew/14837015/aec99fd9e0923e400211a512dc94c42a/orig",
+    "checkedAt": "2026-10-22"
+  }
+]
