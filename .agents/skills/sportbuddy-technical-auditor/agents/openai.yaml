@@ -1,0 +1,4 @@
+interface:
+  display_name: "SportBuddy — технический аудитор"
+  short_description: "Аудит сайта, APK, API и готовности обновлений"
+  default_prompt: "Используй $sportbuddy-technical-auditor: проверь последние изменения и риски перед выпуском."

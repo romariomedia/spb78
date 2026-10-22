@@ -1,0 +1,4 @@
+interface:
+  display_name: "SportBuddy — редактор афиши"
+  short_description: "Проверка событий Петербурга и подготовка афиши"
+  default_prompt: "Используй $sportbuddy-events-editor: подготовь события Петербурга на ближайшие 30 дней."
