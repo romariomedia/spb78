@@ -67,3 +67,14 @@ test('operational gate blocks before handler while health and admin recovery rem
  assert.equal((await fetch(base+'/api/admin-config')).status,200);
  assert.equal((await fetch(base+'/api/payment-webhook')).status,200);
 });
+
+test('assistant is registered and real handler rejects unauthenticated access',async t=>{
+ const handlerUrl=new URL('../api/onboarding-assistant.js',import.meta.url).href;
+ const apiDir=await fixture(t,{'onboarding-assistant':`export {default} from ${JSON.stringify(handlerUrl)};`});
+ const app=await createApiApp({apiDir});
+ const server=app.listen(0,'127.0.0.1');await once(server,'listening');
+ t.after(()=>new Promise(resolve=>server.close(resolve)));
+ const response=await fetch(`http://127.0.0.1:${server.address().port}/api/onboarding-assistant`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'state'})});
+ assert.equal(response.status,401);
+ assert.equal((await response.json()).error,'Требуется вход');
+});

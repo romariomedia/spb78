@@ -8,9 +8,9 @@ export default async function handler(req,res){
  res.setHeader('Cache-Control','private, no-store');
  if(req.method!=='POST')return res.status(405).json({error:'Method not allowed'});
  try {
-  if(!getApps().length)initializeApp({credential:cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY||'{}'))});
   const token=String(req.headers.authorization||'').replace(/^Bearer\s+/i,'');
   if(!token)return res.status(401).json({error:'Требуется вход'});
+  if(!getApps().length)initializeApp({credential:cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY||'{}'))});
   const {uid}=await getAuth().verifyIdToken(token),db=getFirestore();
   const {profile}=await requireActiveUser(db,uid);
   if(process.env.SB_ASSISTANT_ENABLED==='false'||!(await readOperations()).featureFlags.assistantEnabled)return res.json({enabled:false});

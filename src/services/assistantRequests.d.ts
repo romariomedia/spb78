@@ -1,0 +1,1 @@
+export function createAssistantRequests<T>(call:(body:Record<string,unknown>)=>Promise<T>,handlers:{busy:(value:boolean)=>void;error:(value:string)=>void;result:(value:T,body:Record<string,unknown>)=>void}):{run:(body:Record<string,unknown>)=>Promise<void>;retry:()=>Promise<void>;dispose:()=>void};

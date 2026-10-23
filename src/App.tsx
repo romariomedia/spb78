@@ -840,6 +840,15 @@ export default function App(): JSX.Element {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const handleAssistantNavigate = (tab: TabType, topicId?: string) => {
+    if (tab === 'profile') setProfileSection(topicId === 'premium' ? 'tariff' : topicId === 'profile' ? 'edit' : 'overview');
+    if (tab === 'chats') {
+      setOpenChatId(null);
+      if (topicId === 'friends') setChatCategory('friends');
+    }
+    handleTabChange(tab);
+  };
+
   const mobileGestures = useMobileNavigation(activeTab, handleTabChange, () => {
     if (!account) return false;
     if (openChatId) { setOpenChatId(null); return true; }
@@ -2120,7 +2129,7 @@ export default function App(): JSX.Element {
 
       {/* 2. Main Tab Body with Framer Motion Animation */}
       <main {...mobileGestures} className="sb-main relative z-10 mx-auto w-full max-w-md px-4 pt-3 lg:max-w-5xl">
-            {currentUser && !isGuideOpen && operations.featureFlags.assistantEnabled && <OnboardingAssistant key={currentUser.id} visible={activeTab === 'chats'} onNavigate={handleTabChange} />}
+            {currentUser && !isGuideOpen && operations.featureFlags.assistantEnabled && <OnboardingAssistant key={currentUser.id} visible={activeTab === 'chats'} onNavigate={handleAssistantNavigate} />}
         <AnimatePresence mode="wait" custom={direction}>
           <motion.div
             key={activeTab}
