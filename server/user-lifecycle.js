@@ -148,6 +148,7 @@ export async function executeSafeUserDeletion(db,auth,plan){
 
   writer.delete(db.collection('notificationInboxes').doc(uid));
   writer.delete(db.collection('notificationSettings').doc(uid));
+  writer.delete(db.collection('assistantConversations').doc(uid));
   writer.delete(db.collection('storyQuotas').doc(uid));
   writer.delete(db.collection('userAdmin').doc(uid));
   writer.delete(db.collection('usersPrivate').doc(uid));

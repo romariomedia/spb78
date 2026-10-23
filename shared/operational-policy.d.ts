@@ -1,5 +1,5 @@
 export interface FeatureFlags {
- activeLeisureEnabled:boolean;datingEnabled:boolean;pushEnabled:boolean;
+ assistantEnabled:boolean;activeLeisureEnabled:boolean;datingEnabled:boolean;pushEnabled:boolean;
  storiesEnabled:boolean;sportPassportEnabled:boolean;boxEnabled:boolean;
 }
 export interface Operations {featureFlags:FeatureFlags;maintenanceMode:boolean;maintenanceMessage:string}

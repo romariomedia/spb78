@@ -1,6 +1,6 @@
 // Legacy switches were stored but never enforced. Only explicitly saved v1 flags apply.
 export const LIVE_FEATURE_FLAGS = Object.freeze({
- activeLeisureEnabled:true, datingEnabled:true, pushEnabled:true,
+ assistantEnabled:true, activeLeisureEnabled:true, datingEnabled:true, pushEnabled:true,
  storiesEnabled:true, sportPassportEnabled:true, boxEnabled:true
 });
 export function effectiveOperations(data = {}) {

@@ -1,3 +1,4 @@
+import OnboardingAssistant from './components/OnboardingAssistant';
 import {needsAuthScreen} from './services/guest';
 const GuestApp=lazy(()=>import('./components/GuestApp').then(module=>({default:module.GuestApp})));
 import { useDeferredFeed } from './services/useDeferredFeed';
@@ -2119,6 +2120,7 @@ export default function App(): JSX.Element {
 
       {/* 2. Main Tab Body with Framer Motion Animation */}
       <main {...mobileGestures} className="sb-main relative z-10 mx-auto w-full max-w-md px-4 pt-3 lg:max-w-5xl">
+            {currentUser && !isGuideOpen && operations.featureFlags.assistantEnabled && <OnboardingAssistant key={currentUser.id} visible={activeTab === 'chats'} onNavigate={handleTabChange} />}
         <AnimatePresence mode="wait" custom={direction}>
           <motion.div
             key={activeTab}
@@ -2129,6 +2131,7 @@ export default function App(): JSX.Element {
             transition={reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 350, damping: 30 }}
           >
             {/* ==================== TAB 1: DISCOVER (ЗНАКОМСТВА) ==================== */}
+
             {activeTab === 'discover' && operations.featureFlags.datingEnabled && (
               <div className="space-y-4">
                 {/* Mode Switcher & Filters Header */}

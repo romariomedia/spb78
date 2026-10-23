@@ -48,6 +48,7 @@ export interface UserDeletionPreview {
 
 export interface AppConfig {
   featureFlags:{
+    assistantEnabled:boolean;
     activeLeisureEnabled:boolean;
     datingEnabled:boolean;
     pushEnabled:boolean;

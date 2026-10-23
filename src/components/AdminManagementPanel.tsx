@@ -284,6 +284,7 @@ export function AdminManagementPanel(){
         <div className="mb-3 flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-emerald-400"/><div><p className="text-xs font-black text-white">Доступность функций</p><p className="text-sm text-slate-500">Центральное управление доступностью функций</p></div></div>
         <div className="space-y-2">
           {([
+            ['assistantEnabled','Алина — виртуальный помощник'],
             ['activeLeisureEnabled','Активный отдых'],
             ['datingEnabled','Знакомства'],
             ['pushEnabled','Push-уведомления'],

@@ -11,6 +11,7 @@ if (!getApps().length) {
 
 export const DEFAULT_APP_CONFIG = {
   featureFlags: {
+    assistantEnabled: true,
     activeLeisureEnabled: true,
     datingEnabled: true,
     pushEnabled: true,
@@ -36,8 +37,9 @@ const integer = (value, min, max, fallback) => {
   const n = Number(value);
   return Number.isInteger(n) && n >= min && n <= max ? n : fallback;
 };
-function sanitizeFeatureFlags(value = {}) {
+function sanitizeFeatureFlags(value = {}, previous = {}) {
   return {
+    assistantEnabled:typeof value.assistantEnabled === 'boolean' ? value.assistantEnabled : previous.assistantEnabled !== false,
     activeLeisureEnabled:bool(value.activeLeisureEnabled),
     datingEnabled:bool(value.datingEnabled),
     pushEnabled:bool(value.pushEnabled),
@@ -89,7 +91,7 @@ export default async function handler(req,res) {
     const current=mergeConfig(fresh.exists?fresh.data():{});
     let next;
     if (operation === 'saveFeatureFlags') {
-      next = { ...current, featureFlags:sanitizeFeatureFlags(body.featureFlags || {}) };
+      next = { ...current, featureFlags:sanitizeFeatureFlags(body.featureFlags || {}, current.featureFlags) };
     } else if (operation === 'saveProductSettings') {
       next = { ...current, product:sanitizeProduct(body.product || {}) };
     } else {
