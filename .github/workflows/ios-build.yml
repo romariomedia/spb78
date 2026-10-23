@@ -1,0 +1,69 @@
+name: iOS build verification
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'ios/**'
+      - 'src/services/iosVkCallback.ts'
+      - '.github/workflows/ios-build.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Select Xcode 26
+        run: |
+          set -euo pipefail
+          XCODE_APP=$(find /Applications -maxdepth 1 -name 'Xcode_26*.app' | sort -V | tail -1)
+          test -n "$XCODE_APP"
+          sudo xcode-select -s "$XCODE_APP/Contents/Developer"
+          xcodebuild -version
+      - name: Install, test and sync bundled app
+        run: |
+          npm ci
+          npm test
+          npm run ios:sync
+          npm audit --audit-level=high
+      - name: Build iPhone simulator app
+        run: |
+          set -euo pipefail
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath ios/DerivedData \
+            CODE_SIGNING_ALLOWED=NO build > simulator-build.log 2>&1 || { tail -100 simulator-build.log; exit 1; }
+          mkdir -p release
+          ditto -c -k --sequesterRsrc --keepParent ios/DerivedData/Build/Products/Debug-iphonesimulator/App.app release/SportBuddy78-simulator.zip
+      - name: Build unsigned device archive
+        run: |
+          set -euo pipefail
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release \
+            -destination 'generic/platform=iOS' -archivePath ios/App/output/SportBuddy78.xcarchive \
+            CODE_SIGNING_ALLOWED=NO archive > device-build.log 2>&1 || { tail -100 device-build.log; exit 1; }
+          ditto -c -k --sequesterRsrc --keepParent ios/App/output/SportBuddy78.xcarchive release/SportBuddy78-unsigned.xcarchive.zip
+          printf '%s\n' 'Unsigned archive: cannot install on an iPhone or upload to TestFlight. Requires Apple signing. Simulator ZIP is for macOS Simulator only.' > release/README.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sportbuddy78-ios-${{ github.run_number }}
+          path: release/
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: ios-build-logs
+          path: '*-build.log'
+          retention-days: 7

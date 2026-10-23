@@ -1,3 +1,4 @@
+import { normalizeIosVkCallback } from './iosVkCallback';
 import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Share } from '@capacitor/share';
@@ -189,7 +190,7 @@ export function setupDeepLinkListener(
     if (disposed || !rawUrl) return;
 
     try {
-      const url = new URL(rawUrl);
+      const url = new URL(normalizeIosVkCallback(rawUrl));
 
       // ===== VK ID OAuth Callback =====
       // Android App Links may deliver this URL either while the app is already

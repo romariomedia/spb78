@@ -1,3 +1,4 @@
+import { iosVkReturnUrl } from './services/iosVkCallback';
 import {initializeNativePush} from './services/nativePush';
 import {AndroidUpdateNotice} from './components/AndroidUpdateNotice';
 import { NativeVkReturn } from './components/NativeVkReturn';
@@ -12,15 +13,16 @@ import { PublicSportId } from "./components/PublicSportId";
 
 void initializeNativePush();
 
+const isIosBrowser = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const vkReturn = !Capacitor.isNativePlatform() && window.location.pathname.replace(/\/$/, '') === '/vk-callback'
-  ? nativeVkReturnIntent(new URL(window.location.href)) : '';
+  ? (isIosBrowser ? iosVkReturnUrl : nativeVkReturnIntent)(new URL(window.location.href)) : '';
 if (vkReturn) window.history.replaceState({}, document.title, '/vk-callback');
 const publicMatch=window.location.hash.match(/^#\/id\/([A-Za-z0-9_-]{12,80})\/?$/);
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <AppErrorBoundary>
       <AndroidUpdateNotice />
-      {vkReturn?<NativeVkReturn intentUrl={vkReturn}/>:publicMatch?<PublicSportId slug={publicMatch[1]!}/>:<App />}
+      {vkReturn?<NativeVkReturn intentUrl={vkReturn} ios={isIosBrowser}/>:publicMatch?<PublicSportId slug={publicMatch[1]!}/>:<App />}
     </AppErrorBoundary>
   </StrictMode>
 );

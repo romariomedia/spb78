@@ -16,6 +16,7 @@ export async function pushIdentity(uid:string) {
 }
 export async function enablePush():Promise<void> {
   if(isAndroidPush())return enableNativePush();
+  if(isNativeRuntime())throw Error('Push на iPhone пока не подключён. Уведомления доступны внутри приложения в разделе с колокольчиком.');
   if(!('Notification' in window)||!('serviceWorker' in navigator))throw Error('Этот браузер не поддерживает push. На iPhone добавьте сайт на экран «Домой» и откройте его оттуда.');
   // Ask from the button click, before any network request.
   const permission=await Notification.requestPermission();
@@ -32,17 +33,19 @@ export async function enablePush():Promise<void> {
 }
 export async function disablePush() {
   if(isAndroidPush())return disableNativePush();
+  if(isNativeRuntime())return;
   await pushIdentity('');
   const {getMessaging,deleteToken,isSupported}=await import('firebase/messaging');
   let token='';try{token=localStorage.getItem(TOKEN_KEY)||'';localStorage.removeItem(TOKEN_KEY);}catch{/* no storage */}
   try {if(token)await callServer('/api/notifications',{action:'unregister',token});}
   finally {if(await isSupported())await deleteToken(getMessaging(app));}
 }
-export function pushEnabled() {if(isAndroidPush())return !!nativePushToken();try{return typeof Notification!=='undefined'&&Notification.permission==='granted'&&!!localStorage.getItem(TOKEN_KEY);}catch{return false;}}
+export function pushEnabled() {if(isAndroidPush())return !!nativePushToken();if(isNativeRuntime())return false;try{return typeof Notification!=='undefined'&&Notification.permission==='granted'&&!!localStorage.getItem(TOKEN_KEY);}catch{return false;}}
 export async function restorePush(uid:string) {
   await authReady;
   if(auth.currentUser?.uid!==uid)return;
   if(isAndroidPush()){if(nativePushToken())await enableNativePush(false);return;}
+  if(isNativeRuntime())return;
   await pushIdentity(uid);
   // No permission prompt on login. Refresh an already authorised token and owner.
   if(pushEnabled())await enablePush();
@@ -88,6 +91,7 @@ export const testPush=()=>callServer('/api/notifications',{action:'test'});
 // Capture credentials before sign-out, without delaying logout or a subsequent login.
 export function detachPushOnLogout() {
   if(isAndroidPush()){void disableNativePush().catch(()=>undefined);return;}
+  if(isNativeRuntime())return;
   const authorization=auth.currentUser?.getIdToken();
   let token='';try{token=localStorage.getItem(TOKEN_KEY)||'';localStorage.removeItem(TOKEN_KEY);}catch{/* unavailable */}
   void pushIdentity('').catch(()=>undefined);
