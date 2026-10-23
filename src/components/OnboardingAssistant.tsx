@@ -1,5 +1,6 @@
+import {AvatarImage} from './AvatarImage';
 import {useEffect,useRef,useState} from 'react';
-import {Sparkles,ChevronDown,MessageCircle,ArrowUpRight} from 'lucide-react';
+import {ChevronDown,MessageCircle,ArrowUpRight} from 'lucide-react';
 import {callServer} from '../services/serverApi';
 import {TabType} from '../lib/types';
 type Topic={id:string;label:string;text:string;target:string};
@@ -16,7 +17,7 @@ export default function OnboardingAssistant({visible,onNavigate}:{visible:boolea
  if(!visible && (!state||state.welcomeRead||state.muted))return null;
  return <section aria-label="Виртуальный помощник SportBuddy" className="mb-4 rounded-3xl border border-lime-300/25 bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950/50 p-4 sm:p-5 shadow-lg">
   <div className="flex items-center gap-3">
-   <div aria-hidden="true" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-lime-300 text-slate-950"><Sparkles size={25}/></div>
+   <AvatarImage src="/assistants/alina-avatar.jpg" alt="Алина — виртуальный помощник SportBuddy" width={56} height={56} decoding="async" className="h-14 w-14 shrink-0 rounded-2xl border border-lime-300/50 bg-slate-800 object-cover object-[50%_18%] shadow-[0_0_16px_rgba(190,242,100,0.12)]" />
    <div className="min-w-0 flex-1"><h3 className="font-bold text-white">Алина · SportBuddy</h3><p className="text-xs text-lime-300">Виртуальный помощник · готовые ответы</p></div>
    <button type="button" onClick={()=>expanded?setExpanded(false):open()} aria-expanded={expanded} className="rounded-xl bg-slate-800 p-3 text-lime-300" aria-label={expanded?'Свернуть помощника':'Открыть помощника'}>{expanded?<ChevronDown/>:<MessageCircle/>}</button>
   </div>
