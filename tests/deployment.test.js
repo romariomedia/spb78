@@ -5,7 +5,7 @@ import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 import {spawnSync} from 'node:child_process';
 
-for (const fails of [false,true]) test(`release activation ${fails?'restores previous version on failed health':'switches after matching health'}`,()=>{
+for (const fails of [false,true]) test(`release activation ${fails?'restores previous version on failed health':'switches after matching health'}`,{skip: process.platform !== 'linux' && 'VPS activation requires Linux flock and GNU mv; covered by the Ubuntu quality gate'},()=>{
   const root=mkdtempSync(join(tmpdir(),'sb-deploy-'));
   try {
     const bin=join(root,'bin');mkdirSync(bin);

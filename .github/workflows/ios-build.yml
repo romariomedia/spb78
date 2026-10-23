@@ -36,6 +36,7 @@ jobs:
       - name: Install, test and sync bundled app
         run: |
           npm ci
+          # VPS deployment tests run only on Linux in the separate quality gate.
           npm test
           npm run ios:sync
           npm audit --audit-level=high
