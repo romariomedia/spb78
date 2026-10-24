@@ -1,3 +1,4 @@
+import { InstallApp } from './components/InstallApp';
 import OnboardingAssistant from './components/OnboardingAssistant';
 import {needsAuthScreen} from './services/guest';
 const GuestApp=lazy(()=>import('./components/GuestApp').then(module=>({default:module.GuestApp})));
@@ -2084,6 +2085,7 @@ export default function App(): JSX.Element {
           </div>
         </div>
       </header>
+      <InstallApp />
       {(loadError || loadWarning) && <div role="status" className="mx-4 my-2 rounded-xl bg-amber-500/15 p-3 text-sm text-amber-200">
         {loadError || loadWarning}
       </div>}

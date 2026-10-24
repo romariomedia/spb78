@@ -39,6 +39,9 @@ jobs:
       - name: Типы и сборка фронтенда
         run: npm run build
 
+      - name: Проверка файла Android для скачивания с сайта
+        run: node scripts/prepare-android-download.mjs
+
       # Тот же уровень строгости, что и в ops/prepare-release.sh: уязвимости
       # уровня high блокируют релиз, поэтому должны ловиться здесь.
       - name: Аудит зависимостей

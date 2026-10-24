@@ -1,3 +1,4 @@
+import { InstallApp } from './InstallApp';
 import {lazy,Suspense,useEffect,useState} from 'react';
 import {ArrowRight,Compass,Dumbbell,Heart,MapPin,MessageCircle,ShieldCheck,Sparkles,Trophy,Users} from 'lucide-react';
 import {BottomNav} from './BottomNav';
@@ -29,6 +30,7 @@ export function GuestApp({onSignIn,initialTab='trainings'}:{onSignIn:(tab:TabTyp
  const signIn=()=>onSignIn(tab);
  return <div className="min-h-[100dvh] bg-slate-950 text-slate-100 pb-28 pt-safe">
   <header className="sticky top-0 z-30 border-b border-slate-800 bg-slate-950/95 backdrop-blur-xl"><div className="mx-auto flex max-w-4xl items-center gap-3 p-4"><img src="/sportbuddy78-logo.png.png" alt="SportBuddy78" className="h-12 w-12 rounded-2xl"/><div className="flex-1 min-w-0"><p className="font-black text-lg">SportBuddy<span className="text-lime-300">78</span></p><p className="text-xs text-slate-400">Санкт-Петербург · гостевой просмотр</p></div><button onClick={signIn} className={button}>Войти</button></div></header>
+      <InstallApp />
   <main className="mx-auto max-w-4xl p-4 space-y-5">
    <section className="rounded-3xl border border-lime-300/20 bg-gradient-to-br from-lime-300/10 via-slate-900 to-slate-950 p-5 sm:p-7"><p className="text-xs uppercase tracking-widest text-lime-300">Культ спорта и здоровых отношений</p><h1 className="mt-3 text-3xl font-black">Твоя компания.<br/><span className="text-lime-300">Твой Петербург.</span></h1><p className="mt-3 max-w-xl text-sm leading-relaxed text-slate-300">Посмотри, куда пойти и чем заняться. Для участия, знакомств и общения создай аккаунт.</p>{isBetaActive()&&<p className="mt-3 text-xs text-lime-200">До 31 декабря 2026 — Premium-функции бесплатно после регистрации.</p>}</section>
    {tab==='trainings'&&<><div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-2xl font-bold">Тренировки</h2><div className="flex gap-2"><button className={tabButton} onClick={()=>setPlaces(true)}>Площадки</button><button className={button} onClick={signIn}>Создать</button></div></div><p className="text-sm text-slate-400">Найди компанию для пробежки, игры или фитнес-зала. Точное место встречи и список участников доступны после входа.</p><Catalog section="trainings" onAction={signIn}/></>}

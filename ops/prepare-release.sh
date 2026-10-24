@@ -26,6 +26,8 @@ npm ci --include=dev
 npm audit --audit-level=high
 npm test
 npm run build
+# Website-only download: never bundle the APK inside Android/iOS web assets.
+node scripts/prepare-android-download.mjs
 [[ -s dist/index.html ]]
 printf '%s\n' "$commit" > RELEASE_ID
 # nginx worker must be able to traverse the release and read static files only.

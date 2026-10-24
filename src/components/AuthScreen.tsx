@@ -1,3 +1,4 @@
+import { InstallApp } from './InstallApp';
 import { nativeVkAuthorizeUrl, exchangeNativeVkCallback } from '../services/nativeVk';
 import { beginVkRedirect, consumeVkRedirect, cleanVkCallback } from '../services/vkRedirect';
 import { isBetaActive } from '../lib/release';
@@ -350,6 +351,7 @@ export function AuthScreen({ onAuthenticated, initialNotice = '', onBrowse }: Pr
       </div>
 
       <main className="relative z-10 mx-auto flex min-h-[100svh] w-full max-w-[1040px] flex-col justify-between py-6 sm:py-10 lg:grid lg:grid-cols-[1.1fr_0.9fr] lg:items-center lg:gap-14">
+        <div className="relative z-10 w-full lg:col-span-2"><InstallApp /></div>
         {/* Brand / welcome composition */}
         <section className="mx-auto w-full max-w-[520px] pt-5 text-center lg:mx-0 lg:pt-0 lg:text-left">
           <motion.div
