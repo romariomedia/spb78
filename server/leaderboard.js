@@ -5,13 +5,14 @@ import { publicProfileCache } from './public-profile-cache.js';
 const metrics = ['workouts', 'streak', 'boxes', 'medals'];
 const demoIds = new Set(['user-me-1','user-anna','user-elena','user-maria','user-ekatery','user-daria','user-veronika']);
 const fields = ['name','avatar','locationName','medalTier','rating','totalWorkouts',
-  'totalDailyMedals','dailyMedalStreak','claimedBoxTiers','isDemo','isSuspended'];
+  'totalDailyMedals','dailyMedalStreak','claimedBoxTiers','isDemo','isSuspended','personalTrainer'];
 const count = value => typeof value === 'number' && Number.isFinite(value)
   ? Math.max(0, Math.min(Number.MAX_SAFE_INTEGER, Math.floor(value))) : 0;
 const label = (value, limit) => typeof value === 'string' ? value.slice(0, limit) : '';
 
 // Only public display identity and numeric scores enter the shared snapshot.
 export function rankingRow(id, user) {
+  if (user.personalTrainer?.enabled === true && user.personalTrainer?.status === 'verified') return null;
   if (user.isSuspended === true || user.isDemo === true || demoIds.has(id)) return null;
   return {
     user: {id, name: label(user.name, 150) || 'Спортсмен', avatar: label(user.avatar, 4096),

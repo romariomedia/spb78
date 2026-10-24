@@ -1,3 +1,5 @@
+import { PersonalTrainerPanel } from './components/PersonalTrainerPanel';
+import { PersonalTrainers } from './components/PersonalTrainers';
 import { InstallApp } from './components/InstallApp';
 import OnboardingAssistant from './components/OnboardingAssistant';
 import {needsAuthScreen} from './services/guest';
@@ -2469,6 +2471,14 @@ export default function App(): JSX.Element {
                 {trainingIdentityError && <div role="status" className="rounded-xl bg-slate-900 p-3 text-sm text-amber-200">
                   {trainingIdentityError} <button type="button" className="underline" onClick={()=>setTrainingIdentityRetry(value=>value+1)}>Повторить</button>
                 </div>}
+                <PersonalTrainers key={CURRENT_USER_ID} refreshKey={rankingRefreshKey} onSelectUser={async candidate=>{
+                  const epoch=directoryEpoch.current,uid=CURRENT_USER_ID;
+                  const user=candidate.id===currentUser?.id?currentUser:(await loadPublicProfilesByIds([candidate.id]))[0];
+                  if(epoch!==directoryEpoch.current||uid!==CURRENT_USER_ID)return;
+                  if(!user)throw new Error('Анкета недоступна');
+                  setSelectedUserModal(user);
+                }}/>
+
                 {/* Community leaderboard */}
                 <Leaderboard
                   currentUserId={CURRENT_USER_ID}
@@ -3259,6 +3269,7 @@ export default function App(): JSX.Element {
 
                 {profileSection === 'overview' && (
                   <>
+                {operations.featureFlags.sportPassportEnabled&&<PersonalTrainerPanel userId={currentUser.id} onOpenVerification={()=>{setProfileSection('passport');setTimeout(()=>document.getElementById('personal-trainer-verification')?.scrollIntoView({block:'start',behavior:'smooth'}),150);}} onChanged={trainer=>setCurrentUser(old=>old?{...old,personalTrainer:trainer}:old)}/>}
                 {/* Profile Card & Avatar */}
                 <div className="bg-gradient-to-b from-slate-900 to-slate-900/90 border border-slate-800 rounded-3xl p-4 sm:p-5 shadow-2xl relative">
                   <ProfileSummary
@@ -3876,6 +3887,7 @@ export default function App(): JSX.Element {
               <AvatarImage src={avatarUrl(selectedUserModal.avatar, 128) || AVATAR_FALLBACK} alt="" width={64} height={64} loading="lazy" decoding="async" className="w-16 h-16 rounded-full object-cover border-2 border-emerald-500 shadow" />
               <div>
                 <h3 className="text-lg font-black text-white">{selectedUserModal.name}, {selectedUserModal.age}</h3>
+                {selectedUserModal.personalTrainer?.status==='verified'&&<p className="mt-1 text-sm font-semibold text-lime-300">✓ Персональный тренер · {selectedUserModal.personalTrainer.sports.join(' · ')}</p>}
                 <p className="text-xs text-emerald-400 flex items-center gap-1 mt-0.5">
                   <MapPin className="w-3.5 h-3.5 shrink-0" /> {districtLabel(selectedUserModal.districtId) || selectedUserModal.locationName}
                 </p>

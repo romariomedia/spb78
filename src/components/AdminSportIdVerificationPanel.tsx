@@ -10,6 +10,7 @@ const tone:Record<string,string>={pending:'bg-amber-500/15 text-amber-300',appro
 export function AdminSportIdVerificationPanel(){
   const [cursor,setCursor]=useState<string|null>(null);
   const [items,setItems]=useState<SportIdVerificationRequest[]>([]);
+  const [trainersOnly,setTrainersOnly]=useState(false);
   const [filter,setFilter]=useState<Filter>('pending');
   const [busy,setBusy]=useState('');
   const [error,setError]=useState('');
@@ -17,10 +18,10 @@ export function AdminSportIdVerificationPanel(){
 
   const refresh=async(append=false)=>{setBusy('load');setError('');try{const page=await loadAdminSportIdVerificationPage(append?cursor:null);setItems(old=>append?[...old,...page.items.filter(x=>!old.some(y=>y.id===x.id))]:page.items);setCursor(page.nextCursor);}catch(e){setError(e instanceof Error?e.message:'Не удалось загрузить заявки');}finally{setBusy('');}};
   useEffect(()=>{void refresh();},[]);
-  const visible=useMemo(()=>filter==='all'?items:items.filter(x=>x.status===filter),[items,filter]);
+  const visible=useMemo(()=>items.filter(x=>(filter==='all'||x.status===filter)&&(!trainersOnly||x.claimType==='trainer')),[items,filter,trainersOnly]);
 
   const approve=async(item:SportIdVerificationRequest)=>{
-    const note=(prompt('Комментарий к подтверждению — необязательно:','Проверено по предоставленным материалам')||'').trim();
+    const answer=prompt('Комментарий к подтверждению — необязательно:','Проверено по предоставленным материалам');if(answer===null)return;const note=answer.trim();
     setBusy(item.id);setError('');setNotice('');
     try{await approveSportIdVerification(item.id,note);setNotice('Факт подтверждён и появился в Спортивном ID.');await refresh();}
     catch(e){setError(e instanceof Error?e.message:'Не удалось подтвердить');}finally{setBusy('');}
@@ -40,7 +41,7 @@ export function AdminSportIdVerificationPanel(){
 
   return <section className="space-y-4">
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <div><p className="text-[10px] font-black uppercase tracking-[.18em] text-emerald-400">Trust & Reputation</p><h3 className="mt-1 text-base font-black text-white">Verification Center</h3><p className="mt-1 text-[10px] text-slate-500">Разряды и достижения Спортивного ID SportBuddy78</p></div>
+      <div><p className="text-[10px] font-black uppercase tracking-[.18em] text-emerald-400">Trust & Reputation</p><h3 className="mt-1 text-base font-black text-white">Verification Center</h3><p className="mt-1 text-[10px] text-slate-500">Персональные тренеры, разряды и достижения Спортивного ID</p></div>
       <button onClick={()=>void refresh()} disabled={busy==='load'} className="rounded-xl border border-slate-700 bg-slate-900 p-2.5 text-slate-300"><RefreshCw className={'h-4 w-4 '+(busy==='load'?'animate-spin':'')}/></button>
     </div>
     {error&&<p className="rounded-xl border border-rose-500/30 bg-rose-950/30 p-3 text-[11px] text-rose-200">{error}</p>}
@@ -48,17 +49,20 @@ export function AdminSportIdVerificationPanel(){
 
     <div className="flex flex-wrap gap-2">{([['pending','На проверке'],['approved','Подтверждённые'],['rejected','Отклонённые'],['all','Все']] as const).map(([id,text])=><button key={id} onClick={()=>setFilter(id)} className={'rounded-xl px-3 py-2 text-[10px] font-black '+(filter===id?'bg-emerald-500 text-slate-950':'border border-slate-800 bg-slate-950 text-slate-400')}>{text}</button>)}</div>
 
+    <label className="flex items-center gap-2 text-sm text-lime-200"><input type="checkbox" checked={trainersOnly} onChange={e=>setTrainersOnly(e.target.checked)}/>Только персональные тренеры</label>
     <div className="grid gap-3 xl:grid-cols-2">
       {visible.map(item=><article key={item.id} className="rounded-2xl border border-slate-800 bg-slate-950 p-4">
         <div className="flex items-start gap-3">
           {item.userAvatar?<img src={item.userAvatar} alt="" className="h-12 w-12 rounded-xl object-cover"/>:<div className="h-12 w-12 rounded-xl bg-slate-900"/>}
-          <div className="min-w-0 flex-1"><p className="truncate text-xs font-black text-white">{item.userName}</p><p className="mt-0.5 text-[9px] text-slate-500">{item.claimType==='rank'?'Разряд / статус':'Достижение'} · {item.sport||'спорт не указан'}</p><p className="mt-1 text-[11px] font-black text-emerald-300">{item.title}</p>{item.placement&&<p className="mt-0.5 text-[9px] text-slate-400">{item.placement}</p>}</div>
+          <div className="min-w-0 flex-1"><p className="truncate text-xs font-black text-white">{item.userName}</p><p className="mt-0.5 text-[9px] text-slate-500">{item.claimType==='trainer'?'Персональный тренер':item.claimType==='rank'?'Разряд / статус':'Достижение'} · {item.sport||'спорт не указан'}</p><p className="mt-1 text-[11px] font-black text-emerald-300">{item.title}</p>{item.placement&&<p className="mt-0.5 text-[9px] text-slate-400">{item.placement}</p>}</div>
           <span className={'shrink-0 rounded-full px-2 py-1 text-[8px] font-black '+(tone[item.status]||'bg-slate-800 text-slate-400')}>{label[item.status]||item.status}</span>
         </div>
 
         <div className="mt-3 rounded-xl border border-slate-800 bg-slate-900 p-3 space-y-2">
           <p className="text-[9px] font-black text-slate-400">Материалы</p>
-          {item.evidenceUrl&&<a href={item.evidenceUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-300"><FileCheck2 className="h-3.5 w-3.5"/>Документ / скриншот <ExternalLink className="h-3 w-3"/></a>}
+          {(!item.evidenceUrls?.length)&&item.evidenceUrl&&<a href={item.evidenceUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-300"><FileCheck2 className="h-3.5 w-3.5"/>Документ / скриншот <ExternalLink className="h-3 w-3"/></a>}
+          {item.evidenceUrls?.map((url,index)=><a key={url} href={url} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-sm text-lime-300"><FileCheck2 size={16}/>Документ об обучении {index+1}<ExternalLink size={14}/></a>)}
+          {item.sports?.length&&<p className="text-sm text-lime-200">Дисциплины: {item.sports.join(' · ')}</p>}
           {item.officialUrl&&<a href={item.officialUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 break-all text-[10px] font-bold text-sky-300"><ExternalLink className="h-3.5 w-3.5"/>Официальная ссылка</a>}
           {item.note&&<p className="text-[9px] leading-relaxed text-slate-400">Комментарий спортсмена: {item.note}</p>}
         </div>

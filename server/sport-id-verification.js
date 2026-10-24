@@ -1,7 +1,7 @@
 import { createHash,randomBytes } from 'node:crypto';
 
 const clean=(value,max=500)=>typeof value==='string'?value.trim().slice(0,max):'';
-const TYPES=new Set(['rank','achievement']);
+const TYPES=new Set(['rank','achievement','trainer']);
 
 export function claimFingerprint(claim={}){
   const canonical={
@@ -14,12 +14,17 @@ export function claimFingerprint(claim={}){
     rankTitle:clean(claim.rankTitle,120),
     level:clean(claim.level,30)
   };
+  if(claim.claimType==='trainer'){canonical.sports=[...(claim.sports||[])].sort();canonical.sport='';}
   return createHash('sha256').update(JSON.stringify(canonical)).digest('hex');
 }
 
-export function claimFromPassport(passport={},input={}){
+export function claimFromPassport(passport={},input={},trainer={}){
   const claimType=TYPES.has(input.claimType)?input.claimType:'';
   if(!claimType)throw Object.assign(new Error('Выберите факт для подтверждения.'),{status:400});
+  if(claimType==='trainer'){
+    if(trainer.enabled!==true||!trainer.sports?.length)throw Object.assign(new Error('Сначала выберите дисциплины персонального тренера.'),{status:409});
+    return {claimType:'trainer',claimId:'trainer',title:'Персональный тренер',sport:trainer.sports.join(', '),sports:[...trainer.sports]};
+  }
   if(claimType==='rank'){
     const rankTitle=clean(passport.rankTitle,120);
     if(rankTitle.length<2)throw Object.assign(new Error('Сначала укажите разряд или спортивный статус в Спортивном ID.'),{status:409});

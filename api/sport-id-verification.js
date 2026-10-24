@@ -1,3 +1,6 @@
+import { mutateTrainer, publicTrainer } from '../server/personal-trainer.js';
+import { FieldPath } from 'firebase-admin/firestore';
+import { publicProfile } from '../server/public-profile.js';
 import { initializeApp,getApps,cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
@@ -12,6 +15,7 @@ const clean=(value,max=300)=>typeof value==='string'?value.trim().slice(0,max):'
 
 export default async function handler(req,res){
   if(req.method!=='POST')return res.status(405).json({error:'Method not allowed'});
+  res.setHeader?.('Cache-Control','private, no-store');
   try{
     const token=String(req.headers.authorization||'').replace(/^Bearer\s+/i,'').trim();
     if(!token)return res.status(401).json({error:'Требуется вход'});
@@ -21,6 +25,21 @@ export default async function handler(req,res){
     const action=String(req.body?.action||'list');
     const passport=user.sportPassport||{};
 
+    if(action==='trainerRead'){
+      const id=verificationRequestId(uid,{claimType:'trainer',claimId:'trainer'});
+      const request=await db.collection('sportVerificationRequests').doc(id).get();
+      return res.json({trainer:user.personalTrainer||{enabled:false,sports:[],status:'declared'},request:request.exists?request.data():null});
+    }
+    if(['trainerSave','trainerSubmit','trainerCancel'].includes(action))return res.json(await mutateTrainer(db,uid,action,req.body||{}));
+    if(action==='trainers'){
+      const cursor=req.body?.cursor;
+      if(cursor!==undefined&&cursor!==null&&(typeof cursor!=='string'||cursor.length>1500||cursor.includes('/')))return res.status(400).json({error:'Некорректная страница.'});
+      let query=db.collection('users').where('personalTrainer.status','==','verified').orderBy(FieldPath.documentId()).limit(24);
+      if(cursor)query=query.startAfter(cursor);
+      const snap=await query.get();
+      return res.json({trainers:snap.docs.filter(d=>publicTrainer(d.data())).map(d=>publicProfile(d.id,d.data())),nextCursor:snap.docs.length===24?snap.docs.at(-1).id:null});
+    }
+
     if(action==='list'){
       const snap=await db.collection('sportVerificationRequests').where('userId','==',uid).get().catch(()=>null);
       const requests=(snap?.docs||[]).map(doc=>({id:doc.id,...doc.data()}))
@@ -29,6 +48,7 @@ export default async function handler(req,res){
     }
 
     if(action==='submit'){
+      if(req.body?.claimType==='trainer')return res.status(400).json({error:'Используйте заявку персонального тренера.'});
       const claim=claimFromPassport(passport,req.body||{});
       const evidence=sanitizeVerificationEvidence(req.body||{});
       const fingerprint=claimFingerprint(claim);
@@ -57,6 +77,7 @@ export default async function handler(req,res){
       const ref=db.collection('sportVerificationRequests').doc(requestId);
       const snap=await ref.get();
       if(!snap.exists||snap.data()?.userId!==uid)return res.status(404).json({error:'Заявка не найдена.'});
+      if(snap.data()?.claimType==='trainer')return res.status(400).json({error:'Отмените заявку в разделе персонального тренера.'});
       if(snap.data()?.status!=='pending')return res.status(409).json({error:'Можно отменить только заявку, которая ещё рассматривается.'});
       await ref.update({status:'cancelled',updatedAt:new Date().toISOString(),updatedAtMs:Date.now()});
       return res.json({ok:true});

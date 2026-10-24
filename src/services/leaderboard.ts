@@ -67,7 +67,7 @@ export function buildLeaderboard(
 ): LeaderboardEntry[] {
   return allUsers
     // Sample profiles never distort the real community rating
-    .filter((u) => !u.isDemo)
+    .filter((u) => !u.isDemo && !(u.personalTrainer?.enabled && u.personalTrainer.status==='verified'))
     .sort((a, b) => {
       const diff = getMetricValue(b, metric) - getMetricValue(a, metric);
       if (diff !== 0) return diff;
@@ -90,7 +90,7 @@ export function getRankBadge(rank: number): string {
 
 /** Total community stats shown above the table */
 export function getCommunityStats(allUsers: UserProfile[]) {
-  const real = allUsers.filter((u) => !u.isDemo);
+  const real = allUsers.filter((u) => !u.isDemo && !(u.personalTrainer?.enabled && u.personalTrainer.status==='verified'));
   return {
     athletes: real.length,
     workouts: real.reduce((s, u) => s + (u.totalWorkouts || 0), 0),

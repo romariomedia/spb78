@@ -1,6 +1,6 @@
 import { districtLabel } from '../../shared/districts.js';
 import { AvatarImage } from './AvatarImage';
-import {Camera,Crown,MapPin,Star,Users,Heart,Dumbbell,Medal} from 'lucide-react';
+import {BadgeCheck,Camera,Crown,MapPin,Star,Users,Heart,Dumbbell,Medal} from 'lucide-react';
 import {UserProfile} from '../lib/types';
 import {MEDAL_TIERS} from '../lib/medals';
 interface Props {user:UserProfile;friendsCount:number;isPremium:boolean;avatar:string;birthday?:string;onUpdateAvatar:()=>void}
@@ -21,6 +21,7 @@ export function ProfileSummary({user,friendsCount,isPremium,avatar,birthday,onUp
       </div>
       <div className="sb-profile-name">
         {isPremium&&<span className="sb-profile-premium"><Crown size={11}/> Premium</span>}
+        {user.personalTrainer?.enabled&&user.personalTrainer.status==='verified'&&<span className="mt-2 inline-flex items-center gap-1 rounded-lg bg-lime-400/10 px-2 py-1 text-xs text-lime-300"><BadgeCheck size={14}/>Персональный тренер</span>}
         <h3>{user.name}<span className="sb-profile-age">, {user.age}</span></h3>
         <p className="sb-profile-location"><MapPin size={13}/><span>{districtLabel(user.districtId) || user.locationName}</span></p>
         {birthday&&<p className="sb-profile-birthday">{birthday}</p>}

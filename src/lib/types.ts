@@ -40,6 +40,7 @@ export interface SportPassportProfile {
 }
 
 export interface UserProfile {
+  personalTrainer?: {enabled:boolean; sports:string[]; status:string; verifiedAt?:string};
   id: string;
   name: string;
   age: number;
@@ -309,21 +310,8 @@ export const AVATAR_GRACE_PERIOD_HOURS = 24;
 /* --------------------------------- Sports ---------------------------------- */
 
 /** Core disciplines of SportBuddy СПб */
-export const SPORTS: string[] = [
-  'Бег',
-  'Фитнес-зал',
-  'Футбол',
-  'Теннис',
-  'Баскетбол',
-  'Волейбол',
-  'Падел',
-  'Настольный теннис',
-  'Хоккей',
-  'Велопрогулка',
-  'Походы',
-  'Активный отдых',
-  'Воркаут'
-];
+export { SPORTS } from '../../shared/sports.js';
+import { SPORTS } from '../../shared/sports.js';
 
 /** Same list with the "Все" option for filters */
 export const SPORT_FILTERS: string[] = ['Все', ...SPORTS.filter(sport => sport !== 'Активный отдых')];

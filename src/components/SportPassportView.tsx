@@ -1,3 +1,4 @@
+import { PersonalTrainerPanel } from './PersonalTrainerPanel';
 import { useEffect,useState } from 'react';
 import { ArrowLeft,CheckCircle2,Copy,Dumbbell,Plus,QrCode,RefreshCw,Save,Share2,ShieldCheck,Star,Trash2,Trophy } from 'lucide-react';
 import { districtLabel } from '../../shared/districts.js';
@@ -83,6 +84,8 @@ export function SportPassportView({user,onBack,onUserUpdate}:Props){
         <button onClick={()=>void save()} disabled={saving||!mainSport} className="sm:col-span-2 flex items-center justify-center gap-2 rounded-xl bg-lime-400 py-3 text-xs font-black text-slate-950 disabled:opacity-40"><Save className="h-4 w-4"/>{saving?'Сохранение…':'Сохранить Спортивный ID'}</button>
       </div>}
     </div>
+
+    <PersonalTrainerPanel userId={user.id} verification onChanged={trainer=>onUserUpdate({...user,personalTrainer:trainer})}/>
 
     <SportIdVerificationPanel data={data} onVerifiedChanged={()=>void refresh()}/>
 
