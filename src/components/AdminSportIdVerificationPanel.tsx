@@ -23,19 +23,19 @@ export function AdminSportIdVerificationPanel(){
   const approve=async(item:SportIdVerificationRequest)=>{
     const answer=prompt('Комментарий к подтверждению — необязательно:','Проверено по предоставленным материалам');if(answer===null)return;const note=answer.trim();
     setBusy(item.id);setError('');setNotice('');
-    try{await approveSportIdVerification(item.id,note);setNotice('Факт подтверждён и появился в Спортивном ID.');await refresh();}
+    try{await approveSportIdVerification(item.id,note,item.requestVersion||'');setNotice('Факт подтверждён и появился в Спортивном ID.');await refresh();}
     catch(e){setError(e instanceof Error?e.message:'Не удалось подтвердить');}finally{setBusy('');}
   };
   const reject=async(item:SportIdVerificationRequest)=>{
     const note=(prompt('Причина отклонения:','Недостаточно данных для подтверждения')||'').trim();if(note.length<3)return;
     setBusy(item.id);setError('');setNotice('');
-    try{await rejectSportIdVerification(item.id,note);setNotice('Заявка отклонена.');await refresh();}
+    try{await rejectSportIdVerification(item.id,note,item.requestVersion||'');setNotice('Заявка отклонена.');await refresh();}
     catch(e){setError(e instanceof Error?e.message:'Не удалось отклонить');}finally{setBusy('');}
   };
   const revoke=async(item:SportIdVerificationRequest)=>{
     const note=(prompt('Причина отзыва подтверждения:','Подтверждение требует пересмотра')||'').trim();if(note.length<3)return;
     setBusy(item.id);setError('');setNotice('');
-    try{await revokeSportIdVerification(item.id,note);setNotice('Подтверждение отозвано.');await refresh();}
+    try{await revokeSportIdVerification(item.id,note,item.requestVersion||'');setNotice('Подтверждение отозвано.');await refresh();}
     catch(e){setError(e instanceof Error?e.message:'Не удалось отозвать');}finally{setBusy('');}
   };
 

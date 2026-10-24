@@ -11,6 +11,6 @@ export async function loadAdminSportIdVerificationPage(cursor?:string|null):Prom
 }
 export async function loadAdminSportIdVerification():Promise<SportIdVerificationRequest[]>{return (await loadAdminSportIdVerificationPage()).items;}
 
-export async function approveSportIdVerification(requestId:string,note=''):Promise<void>{await post({operation:'approve',requestId,note,auditRequestId:crypto.randomUUID?.()||String(Date.now())});}
-export async function rejectSportIdVerification(requestId:string,note:string):Promise<void>{await post({operation:'reject',requestId,note,auditRequestId:crypto.randomUUID?.()||String(Date.now())});}
-export async function revokeSportIdVerification(requestId:string,note:string):Promise<void>{await post({operation:'revoke',requestId,note,auditRequestId:crypto.randomUUID?.()||String(Date.now())});}
+export async function approveSportIdVerification(requestId:string,note='',expectedVersion=''):Promise<void>{await post({operation:'approve',requestId,note,expectedVersion,auditRequestId:crypto.randomUUID?.()||String(Date.now())});}
+export async function rejectSportIdVerification(requestId:string,note:string,expectedVersion=''):Promise<void>{await post({operation:'reject',requestId,note,expectedVersion,auditRequestId:crypto.randomUUID?.()||String(Date.now())});}
+export async function revokeSportIdVerification(requestId:string,note:string,expectedVersion=''):Promise<void>{await post({operation:'revoke',requestId,note,expectedVersion,auditRequestId:crypto.randomUUID?.()||String(Date.now())});}

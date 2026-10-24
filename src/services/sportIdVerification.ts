@@ -4,6 +4,7 @@ import { auth } from './firebaseAuth';
 export type SportIdClaimType='rank'|'achievement'|'trainer';
 export type SportIdVerificationStatus='pending'|'approved'|'rejected'|'revoked'|'cancelled';
 export interface SportIdVerificationRequest{
+  requestVersion?:string;
   id:string;userId:string;userName:string;userAvatar:string;claimType:SportIdClaimType;claimId:string;
   title:string;sport:string;date?:string;placement?:string;rankTitle?:string;level?:string;
   evidenceUrls?:string[];sports?:string[];

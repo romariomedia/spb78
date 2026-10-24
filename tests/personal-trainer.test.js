@@ -22,7 +22,7 @@ function fixture(){
  const ref=path=>({id:path.split('/').at(-1),path,get:async()=>path.startsWith('adminSessions')?{exists:true,data:()=>rows.get(path)}:snap(path)});
  const db={doc:ref,collection(n){let after='',limit=100,expected;return {doc:id=>ref(n+'/'+id),where(_field,_op,value){expected=value;return this;},orderBy(){return this;},startAfter(value){after=value;return this;},limit(value){limit=value;return this;},async get(){return {docs:[...rows.keys()].filter(k=>k.startsWith(n+'/')).map(snap).filter(d=>d.id>after&&(expected===undefined||d.data().personalTrainer?.status===expected)).sort((a,b)=>a.id.localeCompare(b.id)).slice(0,limit)};}};},async runTransaction(fn){faults.before?.();let written=false;const pending=[];const tx={get:async r=>{assert.equal(written,false,'All reads must precede writes');return snap(r.path);},set(r,v){written=true;if(faults.audit&&r.path.startsWith('adminAuditLogs'))throw Error('Audit unavailable');pending.push(()=>rows.set(r.path,structuredClone(v)));},update(r,v){written=true;pending.push(()=>rows.set(r.path,{...rows.get(r.path),...structuredClone(v)}));},delete(r){written=true;pending.push(()=>rows.delete(r.path));}};const result=await fn(tx);pending.forEach(fn=>fn());return result;}};
  globalThis.__trainerDb=db;
- return {db,rows,faults,trainer:()=>rows.get('users/u').personalTrainer,request:()=>rows.get('sportVerificationRequests/'+rid),async admin(operation,note='Проверено'){globalThis.__trainerDb=db;const res={code:200,status(v){this.code=v;return this},json(v){this.body=v;return this}};await admin({method:'POST',body:{sessionId:'live',requestId:rid,operation,note}},res);return res;},async athlete(body){globalThis.__trainerDb=db;const res={code:200,status(v){this.code=v;return this},json(v){this.body=v;return this}};await athlete({method:'POST',headers:{authorization:'Bearer test'},body},res);return res;}};
+ return {db,rows,faults,trainer:()=>rows.get('users/u').personalTrainer,request:()=>rows.get('sportVerificationRequests/'+rid),async admin(operation,note='Проверено',expectedVersion=rows.get('sportVerificationRequests/'+rid)?.requestVersion||''){globalThis.__trainerDb=db;const res={code:200,status(v){this.code=v;return this},json(v){this.body=v;return this}};await admin({method:'POST',body:{sessionId:'live',requestId:rid,operation,note,expectedVersion}},res);return res;},async athlete(body){globalThis.__trainerDb=db;const res={code:200,status(v){this.code=v;return this},json(v){this.body=v;return this}};await athlete({method:'POST',headers:{authorization:'Bearer test'},body},res);return res;}};
 }
 async function pending(f){await mutateTrainer(f.db,'u','trainerSave',{enabled:true,sports:['Бег'],status:'verified'});return mutateTrainer(f.db,'u','trainerSubmit',evidence);}
 test('trainer disciplines validate against shared catalog; status cannot be self-issued',()=>{
@@ -80,4 +80,16 @@ test('trainer directory is paginated, excludes applicants and suspended accounts
  const first=await f.athlete({action:'trainers'});assert.equal(first.code,200);assert.equal(first.body.trainers.length,23);assert.equal(first.body.nextCursor,'t23');assert.equal(JSON.stringify(first.body).includes('secret'),false);
  const next=await f.athlete({action:'trainers',cursor:first.body.nextCursor});assert.equal(next.body.trainers.length,2);assert.equal(next.body.nextCursor,null);
  assert.equal((await f.athlete({action:'trainers',cursor:'invalid/id'})).code,400);
+});
+
+test('stale admin decisions cannot approve, reject or revoke replacement documents',async()=>{
+ const f=fixture();await pending(f);const oldVersion=f.request().requestVersion;
+ await mutateTrainer(f.db,'u','trainerCancel');
+ await mutateTrainer(f.db,'u','trainerSubmit',{...evidence,note:'Другой курс, новые документы'});
+ assert.notEqual(f.request().requestVersion,oldVersion);
+ for(const op of ['approve','reject'])assert.equal((await f.admin(op,'Старая карточка',oldVersion)).code,409);
+ assert.equal(f.request().status,'pending');
+ assert.equal((await f.admin('approve','Обновлённая карточка')).code,200);
+ assert.equal((await f.admin('revoke','Старая карточка',oldVersion)).code,409);
+ assert.equal(f.trainer().status,'verified');
 });

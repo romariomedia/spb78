@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { SPORTS } from '../shared/sports.js';
 import { assertUserActive } from './user-status.js';
 import { claimFromPassport, claimFingerprint, sanitizeVerificationEvidence, verificationRequestId, verificationClaimId } from './sport-id-verification.js';
@@ -49,7 +50,7 @@ export async function mutateTrainer(db,uid,action,body={}) {
       if(old.status==='verified')fail('Статус тренера уже подтверждён.',409);
       if(request?.status==='pending')fail('Ваша заявка уже рассматривается.',409);
       const claim=claimFromPassport({},trainerClaim,old);
-      const value={id:requestRef.id,userId:uid,userName:String(user.name||'Спортсмен').slice(0,120),userAvatar:String(user.avatar||'').slice(0,2000),...claim,...evidence,fingerprint:claimFingerprint(claim),status:'pending',createdAt:date,createdAtMs:now,updatedAt:date,updatedAtMs:now,reviewNote:'',reviewedAt:'',reviewedBy:''};
+      const value={requestVersion:randomUUID(),id:requestRef.id,userId:uid,userName:String(user.name||'Спортсмен').slice(0,120),userAvatar:String(user.avatar||'').slice(0,2000),...claim,...evidence,fingerprint:claimFingerprint(claim),status:'pending',createdAt:date,createdAtMs:now,updatedAt:date,updatedAtMs:now,reviewNote:'',reviewedAt:'',reviewedBy:''};
       const trainer={...old,status:'pending',verifiedAt:''};
       tx.set(requestRef,value);tx.update(userRef,{personalTrainer:trainer});
       return {trainer,request:value};

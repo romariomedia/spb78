@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { mutateTrainer, publicTrainer } from '../server/personal-trainer.js';
 import { FieldPath } from 'firebase-admin/firestore';
 import { publicProfile } from '../server/public-profile.js';
@@ -60,7 +61,7 @@ export default async function handler(req,res){
       if(before.exists&&before.data()?.status==='pending')return res.status(409).json({error:'Заявка на подтверждение этого факта уже рассматривается.'});
       const now=Date.now();
       const value={
-        id,userId:uid,userName:clean(user.name,120)||'Спортсмен',userAvatar:clean(user.avatar,1200),
+        requestVersion:randomUUID(),id,userId:uid,userName:clean(user.name,120)||'Спортсмен',userAvatar:clean(user.avatar,1200),
         ...claim,fingerprint,...evidence,
         status:'pending',createdAt:before.exists?before.data()?.createdAt||new Date(now).toISOString():new Date(now).toISOString(),
         createdAtMs:before.exists?Number(before.data()?.createdAtMs||now):now,

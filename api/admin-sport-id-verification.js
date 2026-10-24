@@ -27,6 +27,7 @@ export default async function handler(req,res){
     const requestSnap=await tx.get(requestRef);
     if(!requestSnap.exists)throw Object.assign(new Error('Заявка не найдена.'),{status:404});
     const request=requestSnap.data()||{};
+    if(body.expectedVersion!==(request.requestVersion||''))throw Object.assign(new Error('Заявка обновилась. Обновите список и проверьте актуальные документы перед решением.'),{status:409});
     if((operation==='approve'||operation==='reject')&&request.status!=='pending')throw Object.assign(new Error('Эта заявка уже обработана.'),{status:409});
     if(operation==='revoke'&&request.status!=='approved')throw Object.assign(new Error('Отозвать можно только действующее подтверждение.'),{status:409});
     const trainerUserRef=request.claimType==='trainer'?db.collection('users').doc(request.userId):null;

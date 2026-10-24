@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { BadgeCheck, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
 import { UserProfile } from '../lib/types';
 import { loadPersonalTrainers } from '../services/sportIdVerification';
@@ -9,8 +9,29 @@ export function PersonalTrainers({onSelectUser,refreshKey}:{onSelectUser:(user:U
   const [selecting,setSelecting]=useState(false);
   const select=async(user:UserProfile)=>{setSelecting(true);setError('');try{await onSelectUser(user);}catch(e){setError(e instanceof Error?e.message:'Анкета недоступна');}finally{setSelecting(false);}};
   const [busy,setBusy]=useState(false),[error,setError]=useState('');
-  useEffect(()=>{if(!open)return;let active=true;setBusy(true);setError('');loadPersonalTrainers().then(page=>{if(active){setItems(page.trainers);setCursor(page.nextCursor);}}).catch(e=>{if(active)setError(e.message);}).finally(()=>{if(active)setBusy(false);});return()=>{active=false;};},[open,refreshKey]);
-  const load=async(append=false)=>{setBusy(true);setError('');try{const page=await loadPersonalTrainers(append?cursor:null);setItems(old=>append?[...old,...page.trainers.filter(x=>!old.some(y=>y.id===x.id))]:page.trainers);setCursor(page.nextCursor);}catch(e){setError(e instanceof Error?e.message:'Не удалось загрузить тренеров');}finally{setBusy(false);}};
+  const generation=useRef(0),requestBusy=useRef(false);
+  useEffect(()=>{
+    const epoch=++generation.current;
+    if(!open){requestBusy.current=false;setBusy(false);return;}
+    requestBusy.current=true;setBusy(true);setError('');setItems([]);setCursor(null);
+    loadPersonalTrainers().then(page=>{
+      if(generation.current===epoch){setItems(page.trainers);setCursor(page.nextCursor);}
+    }).catch(e=>{if(generation.current===epoch)setError(e.message);})
+      .finally(()=>{if(generation.current===epoch){requestBusy.current=false;setBusy(false);}});
+    return()=>{++generation.current;};
+  },[open,refreshKey]);
+  const load=async(append=false)=>{
+    if(requestBusy.current||!open)return;
+    const epoch=generation.current;
+    requestBusy.current=true;setBusy(true);setError('');
+    try{
+      const page=await loadPersonalTrainers(append?cursor:null);
+      if(generation.current!==epoch)return;
+      setItems(old=>append?[...old,...page.trainers.filter(x=>!old.some(y=>y.id===x.id))]:page.trainers);
+      setCursor(page.nextCursor);
+    }catch(e){if(generation.current===epoch)setError(e instanceof Error?e.message:'Не удалось загрузить тренеров');}
+    finally{if(generation.current===epoch){requestBusy.current=false;setBusy(false);}}
+  };
   return <section className="overflow-hidden rounded-3xl border border-lime-400/25 bg-slate-900">
     <button aria-expanded={open} onClick={()=>setOpen(v=>!v)} className="flex w-full items-center gap-3 p-4 text-left"><span className="rounded-2xl bg-lime-400/15 p-3 text-lime-300"><BadgeCheck size={23}/></span><span className="min-w-0 flex-1"><span className="block font-bold text-white">Персональные тренеры</span><span className="mt-1 block text-sm text-slate-400">Квалификация проверена командой SportBuddy78</span></span>{open?<ChevronUp size={20}/>:<ChevronDown size={20}/>}</button>
     {open&&<div className="space-y-3 border-t border-slate-800 p-4">

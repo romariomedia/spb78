@@ -91,7 +91,7 @@ test('push send/cancel and outbox remain atomic with audit, preview retry cannot
 test('Sport ID approval checks latest claim and commits claim, request and audit together',async()=>{
  const f=fixture(),passport={rankTitle:'КМС',mainSport:'Бег'},claim=claimFromPassport(passport,{claimType:'rank'});
  f.rows.set('users/u',{sportPassport:passport});f.rows.set('sportVerificationRequests/r',{...claim,userId:'u',status:'pending',fingerprint:claimFingerprint(claim)});
- const send=operation=>f.request('admin-sport-id-verification.js',{operation,requestId:'r',note:'Проверено'});
+ const send=operation=>f.request('admin-sport-id-verification.js',{operation,requestId:'r',note:'Проверено',expectedVersion:''});
  f.faults.audit=true;assert.equal((await send('approve')).code,500);assert.equal(f.rows.get('sportVerificationRequests/r').status,'pending');
  assert.equal([...f.rows.keys()].some(k=>k.startsWith('sportVerifiedClaims/')),false);
  f.faults.audit=false;f.rows.get('users/u').sportPassport={rankTitle:'МС',mainSport:'Бег'};assert.equal((await send('approve')).code,409);
