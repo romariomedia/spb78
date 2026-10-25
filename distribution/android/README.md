@@ -1,12 +1,12 @@
 # Android website download
 
-Owner supplied `sportbuddy78-rustore-v27.apk`, received 2026-10-24.
-Size: 20,751,829 bytes.
-SHA-256: `4e76fc2a9b96b3758872959255bfec64fbb8fb27cecf87e81efed0caa1ee469f`.
+Owner supplied `sportbuddy78-rustore-v28.apk`, received 2026-10-25.
+Size: 20,757,933 bytes.
+SHA-256: `643fda2ab52e1c0ad30b07e2ac7e8c02ee044e2df161be7e5242a85b3b22a2d7`.
 
 Two binary parts avoid the connector's 16 MiB upload-request limit. The release script
 reassembles them with `node scripts/prepare-android-download.mjs`, validates the complete
-SHA-256, and writes `dist/downloads/sportbuddy78-rustore-v27.apk`.
+SHA-256, and writes `dist/downloads/sportbuddy78-rustore-v28.apk`.
 The downloaded APK is byte-for-byte identical to the attachment; no rebuilding or re-signing.
 
 Do NOT move the APK to public/: Capacitor would bundle it into future APK/IPA files.

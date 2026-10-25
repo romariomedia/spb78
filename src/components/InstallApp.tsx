@@ -18,9 +18,9 @@ export function InstallApp() {
     <div className="mb-2 flex items-center gap-2 text-sm font-semibold"><Smartphone size={18} className="text-lime-300"/>SportBuddy — всегда под рукой</div>
     <div className="grid grid-cols-1 gap-2 min-[360px]:grid-cols-2">
       <button type="button" onClick={() => setOpen(true)} className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-lime-300 px-3 py-3 text-sm font-bold text-slate-950 transition hover:bg-lime-200"><Smartphone size={18}/>Установить на iPhone</button>
-      <a href="/downloads/sportbuddy78-rustore-v27.apk" download="sportbuddy78-rustore-v27.apk" className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-slate-600 bg-slate-800 px-3 py-3 text-sm font-bold transition hover:border-lime-300"><Download size={18}/>Установить на Android</a>
+      <a href="/downloads/sportbuddy78-rustore-v28.apk" download="sportbuddy78-rustore-v28.apk" className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-slate-600 bg-slate-800 px-3 py-3 text-sm font-bold transition hover:border-lime-300"><Download size={18}/>Установить на Android</a>
     </div>
-    <p className="mt-2 text-xs leading-relaxed text-slate-400">iPhone — через Safari · Android — APK v27, 20 МБ. После скачивания открой файл для установки.</p>
+    <p className="mt-2 text-xs leading-relaxed text-slate-400">iPhone — через Safari · Android — APK v28, 20 МБ. После скачивания открой файл для установки.</p>
     {createPortal(<Modal isOpen={open} onClose={() => setOpen(false)} title="SportBuddy78 на iPhone" subtitle="Без App Store — с иконкой на экране «Домой»">
       <div className="space-y-5">
         <p className="text-base leading-relaxed text-slate-300">Открой <a className="text-lime-300 underline" href="https://sportbuddy78.pro">sportbuddy78.pro</a> именно в Safari. Если ты перешёл из Telegram или VK, сначала открой ссылку во внешнем браузере.</p>
