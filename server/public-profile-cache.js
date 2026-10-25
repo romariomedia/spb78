@@ -39,7 +39,7 @@ export function publicProfileCache(db){
   return state.cache;
 }
 export function affectsPublicProfiles(route,body={}){
-  if(route==='admin-sport-id-verification' || (route==='sport-id-verification' && ['trainerSave','trainerSubmit','trainerCancel'].includes(body?.action)))return true;
+  if(route==='admin-sport-id-verification' || (route==='sport-id-verification' && ['trainerServices','trainerSave','trainerSubmit','trainerCancel'].includes(body?.action)))return true;
   if(['admin-users','admin-user-lifecycle','verify-profile','delete-expired-profile'].includes(route))return true;
   return route==='sportbuddy-mutation' && ['profile','bootstrapProfile','syncIdentity'].includes(body?.action);
 }

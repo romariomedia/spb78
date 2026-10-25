@@ -1,3 +1,4 @@
+import {TrainerServicesEditor} from './TrainerServicesEditor';
 import { useEffect, useState } from 'react';
 import { BadgeCheck, FileCheck2, RefreshCw, ArrowRight, X } from 'lucide-react';
 import { SPORTS } from '../lib/types';
@@ -46,6 +47,7 @@ export function PersonalTrainerPanel({userId,verification=false,onOpenVerificati
         <button disabled={busy||!documents.length||note.trim().length<5} onClick={()=>void run(async()=>{apply(await submitPersonalTrainer(documents,note,officialUrl));setDocuments([]);setNote('');setOfficialUrl('');})} className="w-full rounded-2xl bg-lime-400 p-3 font-bold text-slate-950 disabled:opacity-40">{busy?'Обрабатываем…':'Отправить на проверку'}</button>
       </div>}
       {verification&&trainer.enabled&&trainer.status==='pending'&&!changed&&<button disabled={busy} onClick={()=>void run(async()=>apply(await cancelPersonalTrainer()))} className="rounded-xl border border-slate-600 p-3 text-sm text-slate-300">Отменить заявку</button>}
+      {trainer.enabled&&<TrainerServicesEditor key={`${userId}:${trainer.hourlyRate}:${trainer.serviceDescription}`} trainer={trainer} onSaved={value=>{setTrainer(value);onChanged?.(value);}}/>}
       {trainer.enabled&&<button disabled={busy} onClick={()=>void run(async()=>apply(await loadPersonalTrainer()))} className="flex items-center gap-2 text-sm text-slate-400"><RefreshCw size={15}/>Обновить статус</button>}
     </>}
   </section>;

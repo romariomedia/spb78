@@ -348,7 +348,7 @@ async function chatMutation(db, uid, body) {
       if(!otherId) throw Object.assign(new Error('Некорректный чат'),{status:400});
       const [meS,otherS]=await Promise.all([db.collection('users').doc(uid).get(),db.collection('users').doc(otherId).get()]);
       if(!meS.exists||!otherS.exists) throw Object.assign(new Error('Пользователь не найден'),{status:404});
-      assertChatRelationship(meS.data()||{},otherS.data()||{},otherId,uid);
+      assertChatRelationship(meS.data()||{},otherS.data()||{},otherId,uid,thread);
     }
     let messages=Array.isArray(thread.recentMessages)?thread.recentMessages:(Array.isArray(thread.messages)?thread.messages:[]);
     if(Number(thread.messageStorageVersion||0)>=2){
@@ -375,7 +375,7 @@ async function chatMutation(db, uid, body) {
       if(!otherId) throw Object.assign(new Error('Некорректный чат'),{status:400});
       const [meS,otherS]=await Promise.all([db.collection('users').doc(uid).get(),db.collection('users').doc(otherId).get()]);
       if(!meS.exists||!otherS.exists) throw Object.assign(new Error('Пользователь не найден'),{status:404});
-      assertChatRelationship(meS.data()||{},otherS.data()||{},otherId,uid);
+      assertChatRelationship(meS.data()||{},otherS.data()||{},otherId,uid,thread);
     }
     const active=body.active===true,now=Date.now(),previous=Number(thread.typingAt?.[uid]||0);
     if(active && previous>0 && now-previous<1200)return {typingAt:previous};
@@ -400,7 +400,7 @@ async function chatMutation(db, uid, body) {
         if(!otherId) throw Object.assign(new Error('Некорректный чат'),{status:400});
         const meS=await tx.get(db.collection('users').doc(uid)),otherS=await tx.get(db.collection('users').doc(otherId));
         if(!meS.exists||!otherS.exists) throw Object.assign(new Error('Пользователь не найден'),{status:404});
-        assertChatRelationship(meS.data()||{},otherS.data()||{},otherId,uid);
+        assertChatRelationship(meS.data()||{},otherS.data()||{},otherId,uid,current);
       }
       const legacy=Array.isArray(current.recentMessages)?current.recentMessages:(Array.isArray(current.messages)?current.messages:[]);
       const messageRef=chatRef.collection('messages').doc(messageId);
@@ -533,7 +533,7 @@ async function chatMutation(db, uid, body) {
     if(!meS.exists||!otherS.exists) throw Object.assign(new Error('Пользователь не найден'),{status:404});
     const me=meS.data()||{},other=otherS.data()||{};
     if(!premiumActive(me)) throw Object.assign(new Error('Переписка доступна только Premium'),{status:403});
-    assertChatRelationship(me,other,companionId,uid);
+    assertChatRelationship(me,other,companionId,uid,chatS.exists?chatS.data():{});
 
     const current=chatS.exists?chatS.data():{
       id:chatId,participantIds:[uid,companionId],createdAt:new Date().toISOString(),

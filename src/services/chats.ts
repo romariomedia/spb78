@@ -24,9 +24,9 @@ export function mergeKnownChatThreads(userId: string, cached: ChatThread[], live
   return [...new Map([...cached,...live].filter(thread=>thread.participantIds?.includes(userId))
     .map(thread=>[thread.id,thread])).values()].sort((a,b)=>b.lastMessageAt-a.lastMessageAt);
 }
-export function chatThreadsForCategory(user: UserProfile, category: 'matches'|'friends'|'trainings'|'events', threads: ChatThread[]): ChatThread[] {
+export function chatThreadsForCategory(user: UserProfile, category: 'matches'|'friends'|'trainings'|'events'|'trainers', threads: ChatThread[]): ChatThread[] {
   const ids=category==='friends' ? user.friendIds || [] : user.matchIds || [];
-  return threads.filter(thread=>thread.participantIds?.includes(user.id) && (category==='trainings'
+  return threads.filter(thread=>thread.participantIds?.includes(user.id) && (category==='trainers' ? thread.trainerBookingApproved===true : category==='trainings'
     ? thread.kind==='training' : category==='events' ? thread.kind==='event'
     : thread.kind!=='training' && thread.kind!=='event' && ids.includes(thread.companionId)));
 }
@@ -99,11 +99,12 @@ function createEmptyThread(currentUserId: string, companion: Pick<UserProfile, '
 export function loadChatThreads(
   currentUser: UserProfile,
   _allUsers: UserProfile[],
-  category: 'matches' | 'friends' | 'trainings' | 'events' = 'matches'
+  category: 'matches' | 'friends' | 'trainings' | 'events' | 'trainers' = 'matches'
 ): ChatThread[] {
   const stored = readAllThreads(currentUser.id);
   let changed = false;
 
+  if(category==='trainers')return Object.values(stored).filter(thread=>thread.trainerBookingApproved&&thread.participantIds.includes(currentUser.id)).map(thread=>({...thread,companionId:thread.participantIds.find(id=>id!==currentUser.id)||''})).sort((a,b)=>b.lastMessageAt-a.lastMessageAt);
   if(category==='trainings'||category==='events'){
     const kind=category==='trainings'?'training':'event';
     return Object.values(stored)
@@ -146,7 +147,7 @@ export function loadChatThreads(
  */
 export function subscribeChatThreads(
   currentUser: UserProfile,
-  category: 'matches' | 'friends' | 'trainings' | 'events',
+  category: 'matches' | 'friends' | 'trainings' | 'events' | 'trainers',
   onChange: (threads: ChatThread[]) => void,
   onAllChange?: (threads: ChatThread[]) => void
 ): Unsubscribe {
@@ -185,7 +186,7 @@ export function subscribeChatThreads(
         .filter((thread) => thread.participantIds.includes(currentUser.id))
         .sort((a, b) => b.lastMessageAt - a.lastMessageAt);
       onAllChange?.(allThreads);
-      onChange(category==='trainings'
+      onChange(category==='trainers' ? allThreads.filter(thread=>thread.trainerBookingApproved===true) : category==='trainings'
         ? allThreads.filter(thread=>thread.kind==='training')
         : category==='events'
           ? allThreads.filter(thread=>thread.kind==='event')
@@ -239,7 +240,7 @@ export async function sendChatMessage(chatId: string, companionId: string, text:
   const result = await callServer<{message:ChatMessage;thread:ChatThread}>('/api/sportbuddy-mutation', {
     action:'chat', chatId, companionId, text, ...(replyToMessageId?{replyToMessageId}:{})
   });
-  const threads=readAllThreads(CURRENT_USER_ID); threads[chatId]=result.thread; writeAllThreads(threads,CURRENT_USER_ID); return result.message;
+  const threads=readAllThreads(CURRENT_USER_ID); threads[chatId]={...result.thread,companionId}; writeAllThreads(threads,CURRENT_USER_ID); return result.message;
 }
 
 export async function setChatTyping(chatId:string, active:boolean):Promise<void>{

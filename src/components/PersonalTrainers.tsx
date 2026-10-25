@@ -1,11 +1,14 @@
+import {TrainerBookingModal} from './TrainerBookingModal';
+import {createPortal} from 'react-dom';
 import { useEffect, useRef, useState } from 'react';
 import { BadgeCheck, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
 import { UserProfile } from '../lib/types';
 import { loadPersonalTrainers } from '../services/sportIdVerification';
 import { AvatarImage } from './AvatarImage';
 import { districtLabel } from '../../shared/districts.js';
-export function PersonalTrainers({onSelectUser,refreshKey}:{onSelectUser:(user:UserProfile)=>Promise<void>;refreshKey?:number}){
+export function PersonalTrainers({onSelectUser,refreshKey,userId,onBooked}:{userId:string;onBooked:()=>void;onSelectUser:(user:UserProfile)=>Promise<void>;refreshKey?:number}){
   const [open,setOpen]=useState(false),[items,setItems]=useState<UserProfile[]>([]),[cursor,setCursor]=useState<string|null>(null);
+  const [booking,setBooking]=useState<UserProfile|null>(null);
   const [selecting,setSelecting]=useState(false);
   const select=async(user:UserProfile)=>{setSelecting(true);setError('');try{await onSelectUser(user);}catch(e){setError(e instanceof Error?e.message:'Анкета недоступна');}finally{setSelecting(false);}};
   const [busy,setBusy]=useState(false),[error,setError]=useState('');
@@ -39,7 +42,13 @@ export function PersonalTrainers({onSelectUser,refreshKey}:{onSelectUser:(user:U
       {error&&<p role="alert" className="text-sm text-rose-300">{error}</p>}
       {busy&&<p role="status" className="text-sm text-slate-400">Загружаем тренеров…</p>}
       {!busy&&!error&&!items.length&&<p className="rounded-2xl bg-slate-950 p-4 text-sm text-slate-300">Первые тренеры появятся после проверки документов. Вы тренер? Подайте заявку в профиле через Спортивный ID.</p>}
-      <div className="grid gap-3 sm:grid-cols-2">{items.map(user=><button key={user.id} disabled={selecting} onClick={()=>void select(user)} className="flex items-start gap-3 rounded-2xl border border-slate-700 bg-slate-950 p-3 text-left hover:border-lime-400/50"><AvatarImage src={user.avatar} alt={user.name} width={56} height={56} className="h-14 w-14 shrink-0 rounded-xl object-cover"/><span className="min-w-0"><span className="block break-words font-semibold text-white">{user.name}</span><span className="mt-1 flex items-center gap-1 text-xs text-lime-300"><BadgeCheck size={14}/>Персональный тренер</span><span className="mt-2 block text-sm text-slate-200">{user.personalTrainer?.sports.join(' · ')}</span><span className="mt-1 block text-xs text-slate-400">{districtLabel(user.districtId)||user.locationName}</span><span className="mt-2 block text-xs text-lime-300">Посмотреть профиль →</span></span></button>)}</div>
+      <div className="grid gap-3 sm:grid-cols-2">{items.map(user=><article key={user.id} className="space-y-3 rounded-2xl border border-slate-700 bg-slate-950 p-4">
+        <button disabled={selecting} onClick={()=>void select(user)} className="flex w-full items-start gap-3 text-left"><AvatarImage src={user.avatar} alt={user.name} width={56} height={56} className="h-14 w-14 shrink-0 rounded-xl object-cover"/><span className="min-w-0"><span className="block break-words font-semibold text-white">{user.name}</span><span className="mt-1 flex items-center gap-1 text-xs text-lime-300"><BadgeCheck size={14}/>Персональный тренер</span><span className="mt-2 block text-sm text-slate-200">{user.personalTrainer?.sports.join(' · ')}</span><span className="mt-1 block text-xs text-slate-400">{districtLabel(user.districtId)||user.locationName}</span><span className="mt-2 block text-xs text-lime-300">Посмотреть профиль →</span></span></button>
+        <p className="text-xl font-bold text-lime-300">{user.personalTrainer?.hourlyRate?`${user.personalTrainer.hourlyRate.toLocaleString('ru-RU')} ₽ / 60 мин`:'Стоимость ещё не указана'}</p>
+        {user.personalTrainer?.serviceDescription&&<p className="line-clamp-3 break-words text-sm text-slate-300">{user.personalTrainer.serviceDescription}</p>}
+        {user.id!==userId&&<button disabled={!user.personalTrainer?.hourlyRate} onClick={()=>setBooking(user)} className="min-h-12 w-full rounded-xl bg-lime-300 p-3 font-bold text-slate-950 disabled:opacity-40">Записаться к тренеру</button>}
+      </article>)}</div>
+      {booking&&createPortal(<TrainerBookingModal key={booking.id} trainer={booking} onClose={()=>setBooking(null)} onCreated={onBooked}/>,document.body)}
       {cursor&&<button disabled={busy} onClick={()=>void load(true)} className="w-full rounded-xl border border-slate-700 p-3 text-sm text-lime-300">Загрузить ещё</button>}
       <button disabled={busy} onClick={()=>void load()} className="flex items-center gap-2 text-sm text-slate-400"><RefreshCw size={14}/>Обновить</button>
     </div>}

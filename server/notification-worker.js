@@ -20,6 +20,12 @@ export async function deliverNotification(db,messaging,job,uid,pushEnabled=true)
     if(job.requestVersion && request.requestVersion!==job.requestVersion) return;
     if(!job.requestVersion && request.createdAt>job.createdAt) return;
   }
+  if(job.kind==='trainer_booking') {
+    if(!job.entityId||!job.requestVersion)return;
+    const latest=await db.collection('trainerBookings').doc(job.entityId).get();
+    const request=latest.data();
+    if(!request||request.version!==job.requestVersion||request.status!==job.bookingStatus||![request.trainerId,request.clientId].includes(uid))return;
+  }
   if(job.kind==='training_new') {
     const latest=await db.collection('trainings').doc(job.entityId).get();
     if(!latest.exists||!matchesTraining(user,latest.data(),prefs.radiusKm))return;

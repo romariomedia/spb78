@@ -25,10 +25,20 @@ export async function submitSportIdVerification(input:{claimType:SportIdClaimTyp
 }
 export async function cancelSportIdVerification(requestId:string):Promise<void>{await call({action:'cancel',requestId});}
 
-export interface PersonalTrainer {enabled:boolean;sports:string[];status:string;verifiedAt?:string}
+export interface PersonalTrainer {enabled:boolean;sports:string[];status:string;verifiedAt?:string;hourlyRate?:number|null;serviceDescription?:string}
 export interface TrainerState {trainer:PersonalTrainer;request?:SportIdVerificationRequest|null}
 export const loadPersonalTrainer=()=>call<TrainerState>({action:'trainerRead'});
 export const savePersonalTrainer=(enabled:boolean,sports:string[])=>call<TrainerState>({action:'trainerSave',enabled,sports});
 export const submitPersonalTrainer=(evidenceUrls:string[],note:string,officialUrl:string)=>call<TrainerState>({action:'trainerSubmit',evidenceUrls,note,officialUrl});
 export const cancelPersonalTrainer=()=>call<TrainerState>({action:'trainerCancel'});
 export const loadPersonalTrainers=(cursor:string|null=null)=>call<{trainers:import('../lib/types').UserProfile[];nextCursor:string|null}>({action:'trainers',cursor});
+
+export interface TrainerBooking {
+  id:string;version:string;trainerId:string;clientId:string;trainerName:string;clientName:string;
+  sport:string;hourlyRate:number;preferredTime:string;note:string;serviceDescription:string;
+  status:'pending'|'accepted'|'rejected'|'cancelled';createdAt:string;updatedAt:string;chatId:string;
+}
+export const saveTrainerServices=(hourlyRate:number,serviceDescription:string)=>call<TrainerState>({action:'trainerServices',hourlyRate,serviceDescription});
+export const createTrainerBooking=(input:{trainerId:string;sport:string;hourlyRate:number;preferredTime:string;note:string})=>call<{request:TrainerBooking}>({action:'bookingCreate',...input});
+export const loadTrainerBookings=(role:'trainer'|'client',cursor:string|null=null)=>call<{requests:TrainerBooking[];nextCursor:string|null}>({action:'bookingList',role,cursor});
+export const decideTrainerBooking=(request:TrainerBooking,action:'bookingAccept'|'bookingReject'|'bookingCancel')=>call<{request:TrainerBooking}>({action,requestId:request.id,version:request.version});

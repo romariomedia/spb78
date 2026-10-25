@@ -14,7 +14,7 @@ export function trainerInput(input={}) {
 export function publicTrainer(user={}) {
   const t=user.personalTrainer;
   if(user.isSuspended||user.isDemo||t?.enabled!==true||t.status!=='verified')return null;
-  return {enabled:true,status:'verified',sports:Array.isArray(t.sports)?t.sports.filter(s=>SPORTS.includes(s)):[],verifiedAt:typeof t.verifiedAt==='string'?t.verifiedAt:''};
+  return {hourlyRate:Number.isSafeInteger(t.hourlyRate)&&t.hourlyRate>0?t.hourlyRate:null,serviceDescription:typeof t.serviceDescription==='string'?t.serviceDescription.slice(0,1200):'',enabled:true,status:'verified',sports:Array.isArray(t.sports)?t.sports.filter(s=>SPORTS.includes(s)):[],verifiedAt:typeof t.verifiedAt==='string'?t.verifiedAt:''};
 }
 export function trainerEvidence(body) {
   if(!Array.isArray(body.evidenceUrls)||body.evidenceUrls.length<1||body.evidenceUrls.length>5)fail('Загрузите от 1 до 5 документов об обучении.');
@@ -41,7 +41,7 @@ export async function mutateTrainer(db,uid,action,body={}) {
     const now=Date.now(),date=new Date(now).toISOString();
     if(action==='trainerSave') {
       if(config.enabled===old.enabled&&JSON.stringify(config.sports)===JSON.stringify(old.sports))return {trainer:old};
-      const trainer={...config,status:'declared',verifiedAt:''};
+      const trainer={...old,...config,status:'declared',verifiedAt:''};
       tx.update(userRef,{personalTrainer:trainer});tx.delete(claimRef);
       if(request)tx.update(requestRef,{status:request.status==='approved'?'revoked':'cancelled',reviewNote:'Дисциплины или статус тренера изменены пользователем.',updatedAt:date,updatedAtMs:now});
       return {trainer};

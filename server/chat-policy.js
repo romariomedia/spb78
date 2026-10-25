@@ -25,7 +25,7 @@ export function assertChatParticipants({ uid, companionId, chatId }) {
   }
 }
 
-export function assertChatRelationship(me = {}, other = {}, companionId, uid) {
+export function assertChatRelationship(me = {}, other = {}, companionId, uid, trustedThread = {}) {
   if (me.isSuspended === true || other.isSuspended === true) {
     throw Object.assign(new Error('Чат с этим пользователем временно недоступен'), { status: 403 });
   }
@@ -40,7 +40,8 @@ export function assertChatRelationship(me = {}, other = {}, companionId, uid) {
   const otherFriends = Array.isArray(other.friendIds) ? other.friendIds : [];
   const matched = myMatches.includes(companionId) && otherMatches.includes(uid);
   const friends = myFriends.includes(companionId) && otherFriends.includes(uid);
-  if (!matched && !friends) {
+  const trainer = trustedThread.trainerBookingApproved === true && trustedThread.participantIds?.length === 2 && trustedThread.participantIds.includes(uid) && trustedThread.participantIds.includes(companionId);
+  if (!matched && !friends && !trainer) {
     throw Object.assign(new Error('Чат доступен после взаимного мэтча или дружбы'), { status: 403 });
   }
   return { matched, friends };

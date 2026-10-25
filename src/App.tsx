@@ -1,3 +1,4 @@
+import {TrainerBookings} from './components/TrainerBookings';
 import { PersonalTrainerPanel } from './components/PersonalTrainerPanel';
 import { PersonalTrainers } from './components/PersonalTrainers';
 import { InstallApp } from './components/InstallApp';
@@ -1035,6 +1036,8 @@ export default function App(): JSX.Element {
         .map(user=>({user,thread})));
   }, [currentUser, allUsers, allChatThreads]);
 
+  const [trainerRequestsVersion,setTrainerRequestsVersion]=useState(0);
+  const [trainerRequestsOpen,setTrainerRequestsOpen]=useState(false);
   const [friendsNotificationVersion,setFriendsNotificationVersion]=useState(0);
   const [pendingNotificationLink,setPendingNotificationLink]=useState(()=>window.location.hash);
   useEffect(()=>{
@@ -1049,14 +1052,15 @@ export default function App(): JSX.Element {
     if(link.startsWith('#chat=')){
       let id;try{id=decodeURIComponent(link.slice(6));}catch{return;}
       setActiveTab('chats');
-      const category:ChatCategory=id.startsWith('training_')?'trainings':id.startsWith('event_')?'events':(currentUser.friendIds||[]).some(friend=>buildChatId(currentUser.id,friend)===id)?'friends':'matches';
+      const category:ChatCategory=allChatThreads.some(t=>t.id===id&&t.trainerBookingApproved)?'trainers':id.startsWith('training_')?'trainings':id.startsWith('event_')?'events':(currentUser.friendIds||[]).some(friend=>buildChatId(currentUser.id,friend)===id)?'friends':'matches';
       if(chatCategory!==category){setChatCategory(category);return;}
       if(!chatThreads.some(t=>t.id===id))return;
       setOpenChatId(id);
     }else if(link.startsWith('#training=')){
       let id;try{id=decodeURIComponent(link.slice(10));}catch{return;}
       setActiveTab('trainings');const training=trainings.find(t=>t.id===id);if(!training)return;setSelectedTraining(training);
-    }else if(link==='#profile-friends'){try{localStorage.setItem('sportbuddy_profile_friends_open_v1','1');}catch{/* UI preference only */}setFriendsNotificationVersion(v=>v+1);setProfileSection('overview');setActiveTab('profile');setTimeout(()=>document.getElementById('profile-friends')?.scrollIntoView({behavior:'smooth'}),100);}
+    }else if(link==='#trainer-requests'){setTrainerRequestsOpen(true);setTrainerRequestsVersion(v=>v+1);setProfileSection('overview');setActiveTab('profile');setTimeout(()=>document.getElementById('trainer-requests')?.scrollIntoView({behavior:'smooth'}),150);}
+    else if(link==='#profile-friends'){try{localStorage.setItem('sportbuddy_profile_friends_open_v1','1');}catch{/* UI preference only */}setFriendsNotificationVersion(v=>v+1);setProfileSection('overview');setActiveTab('profile');setTimeout(()=>document.getElementById('profile-friends')?.scrollIntoView({behavior:'smooth'}),100);}
     else if(link.startsWith('#event=')){
       let id;try{id=decodeURIComponent(link.slice(7));}catch{return;}
       setActiveTab('feed');
@@ -1066,7 +1070,7 @@ export default function App(): JSX.Element {
     else if(link==='#events')setActiveTab('feed');
     else if(link==='#notifications')setIsNotifModalOpen(true);
     setPendingNotificationLink('');
-  },[currentUser?.id,pendingNotificationLink,chatThreads,trainings,chatCategory]);
+  },[currentUser?.id,pendingNotificationLink,chatThreads,allChatThreads,trainings,chatCategory]);
   useEffect(()=>{
     if(openChatId)history.replaceState(null,'','#chat='+encodeURIComponent(openChatId));
     else if(window.location.hash.startsWith('#chat='))history.replaceState(null,'',window.location.pathname+window.location.search);
@@ -1092,7 +1096,7 @@ export default function App(): JSX.Element {
     triggerHapticImpact('light');
     void markThreadAsRead(chatId).catch(() => notify('Не удалось сохранить прочтение сообщений', 'err'));
     setOpenChatId(chatId);
-    if (currentUser) setChatThreads(loadChatThreads(currentUser, allUsers, chatCategory));
+    if (currentUser) setChatThreads(previous=>chatThreadsForCategory(currentUser,chatCategory,mergeKnownChatThreads(currentUser.id,loadChatThreads(currentUser,allUsers,chatCategory),[...allChatThreads,...previous])));
   };
 
   const handleSendChatMessage = () => {
@@ -1110,7 +1114,7 @@ export default function App(): JSX.Element {
       ? sendTrainingGroupMessage(openChatThread.id,text,replyTarget?.id)
       : sendChatMessage(openChatThread.id,openChatCompanion!.id,text,replyTarget?.id);
     void sending
-      .then(() => setChatThreads(loadChatThreads(currentUser, allUsers, chatCategory)))
+      .then(() => setChatThreads(previous=>chatThreadsForCategory(currentUser,chatCategory,mergeKnownChatThreads(currentUser.id,loadChatThreads(currentUser,allUsers,chatCategory),[...allChatThreads,...previous]))))
       .catch((error) => {
         setChatDraft(text);
         setChatReplyTarget(replyTarget);
@@ -2471,7 +2475,7 @@ export default function App(): JSX.Element {
                 {trainingIdentityError && <div role="status" className="rounded-xl bg-slate-900 p-3 text-sm text-amber-200">
                   {trainingIdentityError} <button type="button" className="underline" onClick={()=>setTrainingIdentityRetry(value=>value+1)}>Повторить</button>
                 </div>}
-                <PersonalTrainers key={CURRENT_USER_ID} refreshKey={rankingRefreshKey} onSelectUser={async candidate=>{
+                <PersonalTrainers userId={CURRENT_USER_ID} onBooked={()=>setTrainerRequestsVersion(v=>v+1)} key={CURRENT_USER_ID} refreshKey={rankingRefreshKey} onSelectUser={async candidate=>{
                   const epoch=directoryEpoch.current,uid=CURRENT_USER_ID;
                   const user=candidate.id===currentUser?.id?currentUser:(await loadPublicProfilesByIds([candidate.id]))[0];
                   if(epoch!==directoryEpoch.current||uid!==CURRENT_USER_ID)return;
@@ -2479,6 +2483,7 @@ export default function App(): JSX.Element {
                   setSelectedUserModal(user);
                 }}/>
 
+                <TrainerBookings key={`trainer-out-${CURRENT_USER_ID}`} refreshKey={trainerRequestsVersion} onChat={id=>setPendingNotificationLink('#chat='+encodeURIComponent(id))}/>
                 {/* Community leaderboard */}
                 <Leaderboard
                   currentUserId={CURRENT_USER_ID}
@@ -2703,7 +2708,7 @@ export default function App(): JSX.Element {
                           </button>
                         )}
                         <span className={`text-[10px] font-black px-2 py-1 rounded-lg border ${openChatIsTraining?'bg-cyan-500/15 text-cyan-300 border-cyan-500/30':openChatIsEvent?'bg-sky-500/15 text-sky-300 border-sky-500/30':'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'}`}>
-                          {openChatIsGroup ? (openChatThread.archivedAt?'АРХИВ 🏁':'ГРУППА 👥') : chatCategory === 'friends' ? 'ДРУГ 👥' : 'МЭТЧ 🤝'}
+                          {openChatIsGroup ? (openChatThread.archivedAt?'АРХИВ 🏁':'ГРУППА 👥') : chatCategory === 'trainers' ? 'ТРЕНЕР · КЛИЕНТ' : chatCategory === 'friends' ? 'ДРУГ 👥' : 'МЭТЧ 🤝'}
                         </span>
                       </div>
                     </div>
@@ -2895,7 +2900,7 @@ export default function App(): JSX.Element {
                       <div>
                         <h2 className="text-lg font-black text-white tracking-tight">Чаты</h2>
                         <p className="text-xs text-slate-400">
-                          {chatCategory === 'matches' ? 'Общение с взаимными симпатиями' : chatCategory === 'friends' ? 'Общение с друзьями' : chatCategory === 'events' ? 'Компании на спортивные события' : 'Группы ваших тренировок'}
+                          {chatCategory === 'trainers' ? 'Диалоги после одобрения записи' : chatCategory === 'matches' ? 'Общение с взаимными симпатиями' : chatCategory === 'friends' ? 'Общение с друзьями' : chatCategory === 'events' ? 'Компании на спортивные события' : 'Группы ваших тренировок'}
                         </p>
                       </div>
                       <span className="text-[10px] font-black bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 px-2.5 py-1 rounded-xl flex items-center gap-1 shadow">
@@ -2904,8 +2909,9 @@ export default function App(): JSX.Element {
                     </div>
 
                     {/* Matches / Friends switcher */}
-                    <div className="bg-slate-900 border border-slate-800 p-1 rounded-2xl flex gap-1">
+                    <div className="bg-slate-900 border border-slate-800 p-1 rounded-2xl flex gap-1 overflow-x-auto">
                       {([
+                        { id: 'trainers' as ChatCategory, label: 'Тренеры', icon: '✓', count: allChatThreads.filter(thread=>thread.trainerBookingApproved).length },
                         { id: 'matches' as ChatCategory, label: 'Мэтчи', icon: '💚', count: currentUser.matchIds.length },
                         { id: 'friends' as ChatCategory, label: 'Друзья', icon: '👥', count: friendsCount },
                         { id: 'trainings' as ChatCategory, label: 'Тренировки', icon: '🏃', count: allChatThreads.filter(thread=>thread.kind==='training').length },
@@ -2914,7 +2920,7 @@ export default function App(): JSX.Element {
                         <button
                           key={c.id}
                           onClick={() => { triggerHapticImpact('light'); setChatCategory(c.id); setOpenChatId(null); }}
-                          className={`flex-1 py-2.5 rounded-xl text-[11px] font-black transition-all flex items-center justify-center gap-1.5 ${
+                          className={`flex-1 shrink-0 min-w-24 px-2 py-2.5 rounded-xl text-[11px] font-black transition-all flex items-center justify-center gap-1.5 ${
                             chatCategory === c.id
                               ? 'bg-emerald-500 text-slate-950 shadow-[0_0_12px_rgba(16,185,129,0.4)]'
                               : 'text-slate-400 hover:text-slate-200'
@@ -2959,12 +2965,12 @@ export default function App(): JSX.Element {
                           {chatCategory === 'matches' ? '💬' : chatCategory === 'friends' ? '👥' : chatCategory === 'events' ? '🎟️' : '🏃'}
                         </div>
                         <h3 className="text-base font-bold text-white">
-                          {chatSearch.trim() ? 'Ничего не найдено' : chatCategory === 'matches' ? 'Пока нет взаимных симпатий' : chatCategory === 'friends' ? 'Пока нет друзей' : chatCategory === 'events' ? 'Пока нет групп событий' : 'Пока нет групп тренировок'}
+                          {chatSearch.trim() ? 'Ничего не найдено' : chatCategory === 'trainers' ? 'Здесь появятся одобренные записи' : chatCategory === 'matches' ? 'Пока нет взаимных симпатий' : chatCategory === 'friends' ? 'Пока нет друзей' : chatCategory === 'events' ? 'Пока нет групп событий' : 'Пока нет групп тренировок'}
                         </h3>
                         <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
                           {chatSearch.trim()
                             ? 'Попробуйте изменить запрос.'
-                            : chatCategory === 'matches'
+                            : chatCategory === 'trainers' ? 'Выберите тренера и отправьте заявку. После одобрения здесь появится диалог.' : chatCategory === 'matches'
                               ? 'Чат открывается автоматически, когда вы и другой спортсмен из Санкт-Петербурга ставите друг другу «Симпатию».'
                               : chatCategory === 'friends'
                                 ? 'Добавляйте спортсменов в друзья из анкет и таблицы лидеров — чат откроется после взаимного согласия.'
@@ -2973,10 +2979,10 @@ export default function App(): JSX.Element {
                                 : 'Запишитесь на тренировку или создайте свою — общий чат появится автоматически для участников.'}
                         </p>
                         <button
-                          onClick={() => handleTabChange(chatCategory==='trainings'||chatCategory==='events'?'trainings':'discover')}
+                          onClick={() => handleTabChange(chatCategory==='trainings'||chatCategory==='events'||chatCategory==='trainers'?'trainings':'discover')}
                           className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold px-5 py-2.5 rounded-2xl text-xs transition shadow-[0_0_18px_rgba(16,185,129,0.4)] active:scale-95 inline-flex items-center gap-2"
                         >
-                          {chatCategory==='trainings'
+                          {chatCategory==='trainers' ? 'Найти тренера' : chatCategory==='trainings'
                             ? <><Dumbbell className="w-4 h-4" /> Открыть тренировки</>
                             : chatCategory==='events'
                               ? <><Ticket className="w-4 h-4" /> Открыть события</>
@@ -3025,7 +3031,7 @@ export default function App(): JSX.Element {
                                       alt={(companion?.name || 'Собеседник')}
                                       className="w-12 h-12 rounded-full object-cover border-2 border-emerald-500/70"
                                     />
-                                    {Date.now()-Number(companion!.lastSeenAt||0)<5*60*1000&&(
+                                    {Date.now()-Number(companion?.lastSeenAt||0)<5*60*1000&&(
                                       <span title="Онлайн" className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full"/>
                                     )}
                                   </>
@@ -3269,6 +3275,7 @@ export default function App(): JSX.Element {
 
                 {profileSection === 'overview' && (
                   <>
+                <div id="trainer-requests"><TrainerBookings key={`trainer-in-${CURRENT_USER_ID}`} incoming={currentUser.personalTrainer?.enabled===true} refreshKey={trainerRequestsVersion} forceOpen={trainerRequestsOpen} onChat={id=>setPendingNotificationLink('#chat='+encodeURIComponent(id))}/></div>
                 {operations.featureFlags.sportPassportEnabled&&<PersonalTrainerPanel userId={currentUser.id} onOpenVerification={()=>{setProfileSection('passport');setTimeout(()=>document.getElementById('personal-trainer-verification')?.scrollIntoView({block:'start',behavior:'smooth'}),150);}} onChanged={trainer=>setCurrentUser(old=>old?{...old,personalTrainer:trainer}:old)}/>}
                 {/* Profile Card & Avatar */}
                 <div className="bg-gradient-to-b from-slate-900 to-slate-900/90 border border-slate-800 rounded-3xl p-4 sm:p-5 shadow-2xl relative">
@@ -3888,6 +3895,7 @@ export default function App(): JSX.Element {
               <div>
                 <h3 className="text-lg font-black text-white">{selectedUserModal.name}, {selectedUserModal.age}</h3>
                 {selectedUserModal.personalTrainer?.status==='verified'&&<p className="mt-1 text-sm font-semibold text-lime-300">✓ Персональный тренер · {selectedUserModal.personalTrainer.sports.join(' · ')}</p>}
+                {selectedUserModal.personalTrainer?.status==='verified'&&<div className="mt-3 space-y-2 rounded-xl bg-slate-950 p-3 text-left"><p className="font-bold text-lime-300">{selectedUserModal.personalTrainer.hourlyRate?`${selectedUserModal.personalTrainer.hourlyRate.toLocaleString('ru-RU')} ₽ / 60 минут`:'Стоимость ещё не указана'}</p>{selectedUserModal.personalTrainer.serviceDescription&&<p className="whitespace-pre-wrap break-words text-sm text-slate-300">{selectedUserModal.personalTrainer.serviceDescription}</p>}</div>}
                 <p className="text-xs text-emerald-400 flex items-center gap-1 mt-0.5">
                   <MapPin className="w-3.5 h-3.5 shrink-0" /> {districtLabel(selectedUserModal.districtId) || selectedUserModal.locationName}
                 </p>

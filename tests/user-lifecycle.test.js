@@ -55,3 +55,8 @@ test('financial social moderation content and media records are hard blockers',(
   assert.equal(media.safeToDelete,false);
   assert.ok(media.blockers.some(x=>x.includes('медиахранилища')));
 });
+
+test('trainer booking prevents classifying a client as an empty disposable account',()=>{
+ const result=evaluateDeletionSafety({email:'test@example.com',user:{isVerified:false,isSuspended:true,avatar:'',photoPortfolio:[]},counts:{...emptyCounts(),trainerBookingsAsClient:1},authDisabled:true});
+ assert.equal(result.safeToDelete,false);assert.ok(result.blockers.some(x=>x.includes('тренеру')));
+});

@@ -51,3 +51,15 @@ test('leisure reads only opened meeting identities, excluding self and invalid I
  assert.equal(leisureIdentityKey('me',event),leisureIdentityKey('me',{...event,participantIds:[...event.participantIds].reverse(),title:'changed'}));
  assert.notEqual(leisureIdentityKey('me',event),leisureIdentityKey('me',{...event,participantIds:['new']}));
 });
+
+test('approved trainer chats appear without friendship or match and hydrate the companion identity',()=>{
+ const thread={id:'chat_me__t',participantIds:['me','t'],companionId:'t',trainerBookingApproved:true,messages:[],lastMessageAt:1};
+ const stranger={...thread,id:'foreign',participantIds:['a','t']};
+ const me={id:'me',friendIds:[],matchIds:[]};
+ assert.deepEqual(chats.chatThreadsForCategory(me,'trainers',[thread,stranger]).map(x=>x.id),[thread.id]);
+ assert.equal(chats.chatThreadsForCategory(me,'friends',[thread]).length,0);
+ assert.equal(chats.chatThreadsForCategory(me,'matches',[thread]).length,0);
+ assert.deepEqual(JSON.parse(socialIdentityKey(me,[thread],thread.id)),['t']);
+ globalThis.localStorage={getItem:()=>JSON.stringify({[thread.id]:thread}),setItem:()=>{}};
+ assert.equal(chats.loadChatThreads(me,[],'trainers').length,1);
+});

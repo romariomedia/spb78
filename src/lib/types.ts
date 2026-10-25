@@ -40,7 +40,7 @@ export interface SportPassportProfile {
 }
 
 export interface UserProfile {
-  personalTrainer?: {enabled:boolean; sports:string[]; status:string; verifiedAt?:string};
+  personalTrainer?: {enabled:boolean; sports:string[]; status:string; verifiedAt?:string;hourlyRate?:number|null;serviceDescription?:string};
   id: string;
   name: string;
   age: number;
@@ -302,7 +302,7 @@ export interface LeaderboardEntry {
   isCurrentUser: boolean;
 }
 
-export type ChatCategory = 'matches' | 'friends' | 'trainings' | 'events';
+export type ChatCategory = 'matches' | 'friends' | 'trainings' | 'events' | 'trainers';
 
 export const MAX_PORTFOLIO_PHOTOS = 5;
 export const AVATAR_GRACE_PERIOD_HOURS = 24;
@@ -499,6 +499,7 @@ export interface ChatThread {
   participantIds: string[];
   companionId: string;     // empty for group chats
   kind?: 'direct' | 'training' | 'event';
+  trainerBookingApproved?: boolean;
   trainingId?: string;
   trainingTitle?: string;
   trainingSport?: string;

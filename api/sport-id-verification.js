@@ -1,3 +1,4 @@
+import {saveTrainerServices, mutateTrainerBooking, listTrainerBookings} from '../server/trainer-bookings.js';
 import { randomUUID } from 'node:crypto';
 import { mutateTrainer, publicTrainer } from '../server/personal-trainer.js';
 import { FieldPath } from 'firebase-admin/firestore';
@@ -25,6 +26,10 @@ export default async function handler(req,res){
     const {profile:user}=await requireActiveUser(db,uid);
     const action=String(req.body?.action||'list');
     const passport=user.sportPassport||{};
+
+    if(action==='trainerServices')return res.json(await saveTrainerServices(db,uid,req.body));
+    if(action==='bookingList')return res.json(await listTrainerBookings(db,uid,req.body,FieldPath.documentId()));
+    if(['bookingCreate','bookingAccept','bookingReject','bookingCancel'].includes(action))return res.json(await mutateTrainerBooking(db,uid,action,req.body));
 
     if(action==='trainerRead'){
       const id=verificationRequestId(uid,{claimType:'trainer',claimId:'trainer'});

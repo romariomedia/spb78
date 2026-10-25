@@ -167,3 +167,14 @@ test('device registration records Android platform under authenticated owner',as
  assert.equal(device.uid,'a');assert.equal(device.platform,'android');
  assert.equal((await request(f,'a',{action:'register',token,platform:'other'})).statusCode,400);
 });
+
+test('trainer request push is suppressed after cancellation or replacement and delivered only to participants',async()=>{
+ const request={version:'v1',status:'pending',trainerId:'b',clientId:'a'};
+ const j={...job(),category:'trainings',kind:'trainer_booking',entityId:'r',requestVersion:'v1',bookingStatus:'pending',link:'#trainer-requests'};
+ for(const patch of [{status:'cancelled'},{status:'accepted'},{version:'v2'},{trainerId:'other'}]){
+  const f=fixture({'users/b':{},'trainerBookings/r':{...request,...patch}});
+  await deliverNotification(f.db,f.messaging,j,'b');assert.equal(f.rows.has('notificationInboxes/b'),false);
+ }
+ const f=fixture({'users/b':{},'trainerBookings/r':request,'pushDevices/d':{uid:'b',token:'token',updatedAt:Date.now()}});
+ await deliverNotification(f.db,f.messaging,j,'b');assert.equal(f.sends.length,1);assert.equal(f.rows.get('notificationInboxes/b').entries[0].link,'#trainer-requests');
+});
