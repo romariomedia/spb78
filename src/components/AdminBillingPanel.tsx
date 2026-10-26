@@ -1,4 +1,5 @@
 import {useEffect,useState} from 'react';
+import {AdminBusinessCrm} from './AdminBusinessCrm';
 import {BadgeRussianRuble,Link2,RefreshCw,Save,ShieldCheck,Unlink,WalletCards} from 'lucide-react';
 import {
   AdminBillingState,BusinessSubjectType,assignBusinessOwner,grantBusinessAccess,
@@ -54,6 +55,8 @@ export function AdminBillingPanel(){
     {notice&&<div className="rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-3 text-sm text-emerald-200">{notice}</div>}
 
     {state&&<>
+      <AdminBusinessCrm state={state} onReload={load}/>
+
       <div className="rounded-2xl border border-lime-300/20 bg-lime-300/5 p-4">
         <div className="flex items-center gap-2"><ShieldCheck size={17} className="text-lime-300"/><p className="text-sm font-black text-white">Защита запуска 2027</p></div>
         <p className="mt-2 text-xs leading-relaxed text-slate-400">Даже если включить переключатель сейчас, создание B2B-платежей заблокировано сервером до 01.01.2027. Это позволяет заранее настроить тарифы и проверить интерфейс.</p>
