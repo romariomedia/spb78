@@ -1,6 +1,7 @@
 import {TrainerLevelBadge} from './components/TrainerLevelBadge';
 import {TrainerBookings} from './components/TrainerBookings';
 import { PersonalTrainerPanel } from './components/PersonalTrainerPanel';
+import { BusinessBillingPanel } from './components/BusinessBillingPanel';
 import { PersonalTrainers } from './components/PersonalTrainers';
 import { InstallApp } from './components/InstallApp';
 import OnboardingAssistant from './components/OnboardingAssistant';
@@ -3278,6 +3279,7 @@ export default function App(): JSX.Element {
                   <>
                 <div id="trainer-requests"><TrainerBookings key={`trainer-in-${CURRENT_USER_ID}`} incoming={currentUser.personalTrainer?.enabled===true} refreshKey={trainerRequestsVersion} forceOpen={trainerRequestsOpen} onChat={id=>setPendingNotificationLink('#chat='+encodeURIComponent(id))}/></div>
                 {operations.featureFlags.sportPassportEnabled&&<PersonalTrainerPanel userId={currentUser.id} onOpenVerification={()=>{setProfileSection('passport');setTimeout(()=>document.getElementById('personal-trainer-verification')?.scrollIntoView({block:'start',behavior:'smooth'}),150);}} onChanged={trainer=>setCurrentUser(old=>old?{...old,personalTrainer:trainer}:old)}/>}
+                <BusinessBillingPanel />
                 {/* Profile Card & Avatar */}
                 <div className="bg-gradient-to-b from-slate-900 to-slate-900/90 border border-slate-800 rounded-3xl p-4 sm:p-5 shadow-2xl relative">
                   <ProfileSummary

@@ -1,6 +1,7 @@
 import { cert, getApps, initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { paymentMatches, validPaymentId } from '../server/payment-config.js';
+import {addCalendarMonths,businessPaymentMatches,businessSubscriptionId} from '../server/business-billing.js';
 function init() {
   if (getApps().length) return;
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
@@ -25,20 +26,57 @@ export default async function handler(req, res) {
     });
     if (!response.ok) return res.status(503).json({ error: 'Не удалось проверить платёж' });
     const remote = await response.json();
-    if (!paymentMatches(remote, local.data(), id)) return res.status(400).json({ error: 'Платёж не прошёл серверную проверку' });
+    const initial = local.data();
+    const isBusiness = initial.product === 'business_subscription';
+    const matches = isBusiness ? businessPaymentMatches(remote, initial, id) : paymentMatches(remote, initial, id);
+    if (!matches) return res.status(400).json({ error: 'Платёж не прошёл серверную проверку' });
     await db.runTransaction(async tx => {
       const fresh = await tx.get(ref);
       if (!fresh.exists) throw new Error('Payment disappeared');
       const expected = fresh.data();
       if (expected.processed) return;
-      if (!paymentMatches(remote, expected, id)) throw new Error('Payment changed');
-      const userRef = db.collection('users').doc(expected.userId), user = await tx.get(userRef);
-      if (!user.exists) throw new Error('User missing');
-      const raw = user.data().premiumUntil;
-      const expiry = raw?.toDate ? raw.toDate().getTime() : Date.parse(String(raw || ''));
-      const now = Date.now(), base = Number.isFinite(expiry) && expiry > now ? expiry : now;
-      const premiumUntil = new Date(base + expected.days * 86400000).toISOString();
-      tx.update(userRef, { subscriptionPlan: 'premium', premiumUntil });
+      const valid = expected.product === 'business_subscription'
+        ? businessPaymentMatches(remote, expected, id)
+        : paymentMatches(remote, expected, id);
+      if (!valid) throw new Error('Payment changed');
+      const now = Date.now();
+
+      if (expected.product === 'business_subscription') {
+        const subscriptionId = businessSubscriptionId(expected.subjectType, expected.subjectId);
+        const subscriptionRef = db.collection('businessSubscriptions').doc(subscriptionId);
+        const adminRef = expected.subjectType === 'trainer' ? db.collection('userAdmin').doc(expected.subjectId) : null;
+        const subscriptionSnap = await tx.get(subscriptionRef);
+        const adminSnap = adminRef ? await tx.get(adminRef) : null;
+        const subscription = subscriptionSnap.exists ? subscriptionSnap.data() || {} : {};
+        const currentRaw = subscription.activeUntil;
+        const currentExpiry = currentRaw?.toDate ? currentRaw.toDate().getTime() : Date.parse(String(currentRaw || ''));
+        const freeRaw = adminSnap?.exists && adminSnap.data()?.foundingCoach === true ? adminSnap.data()?.foundingCoachFreeUntil : '';
+        const freeExpiry = freeRaw?.toDate ? freeRaw.toDate().getTime() : Date.parse(String(freeRaw || ''));
+        const base = Math.max(now, Number.isFinite(currentExpiry) ? currentExpiry : 0, Number.isFinite(freeExpiry) ? freeExpiry : 0);
+        const activeUntil = addCalendarMonths(new Date(base), expected.months).toISOString();
+        const next = {
+          ...subscription,
+          subjectType:expected.subjectType,subjectId:expected.subjectId,subjectLabel:expected.subjectLabel,
+          ownerUserId:expected.ownerUserId,activeUntil,paidUntil:activeUntil,
+          createdAt:subscription.createdAt || expected.createdAt || new Date(now).toISOString(),
+          updatedAt:new Date(now).toISOString(),lastPaymentAt:new Date(now).toISOString(),lastPaymentId:id
+        };
+        tx.set(subscriptionRef,next,{merge:false});
+        tx.create(db.collection('billingLedger').doc(`yookassa:${id}`),{
+          eventType:'payment',provider:'yookassa',paymentId:id,
+          subjectType:expected.subjectType,subjectId:expected.subjectId,subjectLabel:expected.subjectLabel,
+          ownerUserId:expected.ownerUserId,interval:expected.interval,months:expected.months,
+          amountRub:Number(expected.amount),currency:'RUB',createdAt:new Date(now).toISOString(),activeUntil
+        });
+      } else {
+        const userRef = db.collection('users').doc(expected.userId), user = await tx.get(userRef);
+        if (!user.exists) throw new Error('User missing');
+        const raw = user.data().premiumUntil;
+        const expiry = raw?.toDate ? raw.toDate().getTime() : Date.parse(String(raw || ''));
+        const base = Number.isFinite(expiry) && expiry > now ? expiry : now;
+        const premiumUntil = new Date(base + expected.days * 86400000).toISOString();
+        tx.update(userRef, { subscriptionPlan: 'premium', premiumUntil });
+      }
       tx.update(ref, { status: 'succeeded', processed: true, processedAt: new Date(now).toISOString() });
     });
     return res.status(200).json({ received: true });

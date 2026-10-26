@@ -3,6 +3,7 @@ import { publicTrainer } from './personal-trainer.js';
 import { assertUserActive } from './user-status.js';
 import { buildServerChatId } from './chat-policy.js';
 import { enqueueNotification } from './notification-policy.js';
+import {hasBusinessAccess} from './business-billing.js';
 const fail=(message,status=400)=>{throw Object.assign(new Error(message),{status});};
 const idValue=value=>{if(typeof value!=='string'||!value||value.length>1500||value.includes('/'))fail('Некорректный идентификатор.');return value;};
 const text=(value,max)=>typeof value==='string'?value.trim().slice(0,max):'';
@@ -22,7 +23,9 @@ export async function saveTrainerServices(db,uid,input){
 }
 export async function mutateTrainerBooking(db,uid,action,body){
   const create=action==='bookingCreate';
-  const requestId=create?bookingId(idValue(body.trainerId),uid):idValue(body.requestId);
+  const createTrainerId=create?idValue(body.trainerId):'';
+  if(create&&!await hasBusinessAccess(db,'trainer',createTrainerId))fail('Размещение тренера временно неактивно.',409);
+  const requestId=create?bookingId(createTrainerId,uid):idValue(body.requestId);
   const ref=db.collection('trainerBookings').doc(requestId);
   return db.runTransaction(async tx=>{
     const before=await tx.get(ref),old=before.exists?before.data():null;

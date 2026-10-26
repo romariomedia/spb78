@@ -8,6 +8,7 @@ import { initializeApp,getApps,cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 import { requireActiveUser } from '../server/user-status.js';
+import {COMMERCIAL_LAUNCH_AT,getBillingConfig,hasBusinessAccess} from '../server/business-billing.js';
 import {
   claimFingerprint,claimFromPassport,sanitizeVerificationEvidence,verificationClaimId,verificationRequestId
 } from '../server/sport-id-verification.js';
@@ -46,7 +47,14 @@ export default async function handler(req,res){
       let query=db.collection('users').where(level==='all'?'personalTrainer.status':'personalTrainer.trainerLevel','==',level==='all'?'verified':level).orderBy(FieldPath.documentId()).limit(24);
       if(cursor)query=query.startAfter(cursor);
       const snap=await query.get();
-      return res.json({trainers:snap.docs.filter(d=>publicTrainer(d.data())).map(d=>publicProfile(d.id,d.data())),nextCursor:snap.docs.length===24?snap.docs.at(-1).id:null});
+      const afterLaunch=Date.now()>=Date.parse(COMMERCIAL_LAUNCH_AT);
+      const billingConfig=afterLaunch?await getBillingConfig(db):null;
+      const trainers=(await Promise.all(snap.docs.map(async d=>{
+        if(!publicTrainer(d.data()))return null;
+        if(!afterLaunch)return publicProfile(d.id,d.data());
+        return await hasBusinessAccess(db,'trainer',d.id,billingConfig)?publicProfile(d.id,d.data()):null;
+      }))).filter(Boolean);
+      return res.json({trainers,nextCursor:snap.docs.length===24?snap.docs.at(-1).id:null});
     }
 
     if(action==='list'){
