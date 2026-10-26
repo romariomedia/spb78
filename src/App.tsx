@@ -3767,14 +3767,16 @@ export default function App(): JSX.Element {
         />
       </Suspense>}
 
-      {/* 3. Bottom Navigation Bar */}
-      <BottomNav
-        activeTab={activeTab}
-        onChangeTab={handleTabChange}
-        unreadCount={unreadNotifCount}
-        chatUnreadCount={chatUnreadCount}
-        isPremium={isPremium}
-      />
+      {/* 3. Bottom Navigation Bar. Admin workspace owns the whole viewport. */}
+      {!isAdminOpen && !isAdminAccessOpen && (
+        <BottomNav
+          activeTab={activeTab}
+          onChangeTab={handleTabChange}
+          unreadCount={unreadNotifCount}
+          chatUnreadCount={chatUnreadCount}
+          isPremium={isPremium}
+        />
+      )}
 
       {/* 4. MODALS */}
 
