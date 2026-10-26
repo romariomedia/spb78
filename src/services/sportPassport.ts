@@ -60,8 +60,11 @@ export async function saveSportPassport(sportId:SportPassportDraft):Promise<Spor
   const data=await call<{sportId:SportPassportSnapshot}>({action:'update',sportId});
   return data.sportId;
 }
-export async function setSportIdPublic(enabled:boolean):Promise<SportPassportSnapshot>{
-  const data=await call<{sportId:SportPassportSnapshot}>({action:'setPublic',enabled});
+export const PUBLIC_SPORT_ID_CONSENT_VERSION='SB78-SPORT-ID-PUBLIC-2026-10-26';
+export async function setSportIdPublic(enabled:boolean,publicConsentConfirmed=false):Promise<SportPassportSnapshot>{
+  const data=await call<{sportId:SportPassportSnapshot}>({
+    action:'setPublic',enabled,publicConsentConfirmed,publicConsentVersion:PUBLIC_SPORT_ID_CONSENT_VERSION
+  });
   return data.sportId;
 }
 export async function loadPublicSportId(slug:string):Promise<SportPassportSnapshot>{
