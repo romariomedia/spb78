@@ -28,7 +28,7 @@ function fixture(users){
 }
 test('public projection excludes social graph, rewards, contacts and unpublished Sport ID',()=>{
  const profile=publicProfile('a',visible({name:'Athlete',avatar:'https://example.com/a.jpg',age:30,friendIds:['b'],matchIds:['b'],likedUserIds:['c'],blockedUserIds:['d'],matchHistory:[{}],email:'secret@example.com',phone:'123',deviceId:'secret',birthDate:'1990-01-01',rewardItems:[{code:'SECRET'}],redeemedPromoCodes:['SECRET'],sportPassport:{publicEnabled:false,rankTitle:'Draft'},futureSecret:'secret'},['identity']));
- assert.deepEqual(profile,{id:'a',name:'Athlete',avatar:'https://example.com/a.jpg',age:30});
+ assert.deepEqual(profile,{id:'a',publicConsentVersion:PUBLIC_DISSEMINATION_VERSION,name:'Athlete',avatar:'https://example.com/a.jpg',age:30});
 });
 test('public profiles require valid non-revoked authentication and reject suspended callers',async()=>{
  let request=fixture({me:{isSuspended:true}});
@@ -73,7 +73,7 @@ test('targeted identity lookup is bounded, deduplicated and projects only public
  const users={me:visible({name:'Me'},['identity']),alice:visible({name:'Alice',email:'secret'},['identity']),hidden:visible({isSuspended:true},['identity']),demo:visible({isDemo:true},['identity'])};
  const request=fixture(users);
  const response=await request({ids:['alice','alice','hidden','demo','missing']});
- assert.equal(response.code,200);assert.deepEqual(response.body,{profiles:[{id:'alice',name:'Alice'}],nextCursor:null});
+ assert.equal(response.code,200);assert.deepEqual(response.body,{profiles:[{id:'alice',publicConsentVersion:PUBLIC_DISSEMINATION_VERSION,name:'Alice'}],nextCursor:null});
  for(const ids of ['alice',[null],['a/b'],Array(51).fill('alice')])assert.equal((await request({ids})).code,400);
  assert.equal((await request({ids:['alice'],cursor:'a'})).code,400);
  assert.equal((await request({ids:['alice']},'invalid')).code,401);
