@@ -9,6 +9,7 @@ import { applyVerifiedClaims,claimFingerprint,claimFromPassport } from '../serve
 if(!getApps().length)initializeApp({credential:cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY||'{}'))});
 
 const clean=(value,max=300)=>typeof value==='string'?value.trim().slice(0,max):'';
+const PUBLIC_SPORT_ID_CONSENT_VERSION='SB78-SPORT-ID-PUBLIC-2026-10-26';
 
 async function buildSportIdSnapshot(db,uid,user){
   const [checkinsSnap,ownedSnap,resultsSnap,claimsSnap]=await Promise.all([
@@ -104,11 +105,31 @@ export default async function handler(req,res){
     if(action==='setPublic'){
       const current=sanitizeSportPassportDraft(user.sportPassport||{},Array.isArray(user.sports)?user.sports:[]);
       const enabled=req.body?.enabled===true;
+      if(enabled&&(req.body?.publicConsentConfirmed!==true||String(req.body?.publicConsentVersion||'')!==PUBLIC_SPORT_ID_CONSENT_VERSION))
+        return res.status(409).json({code:'SPORT_ID_PUBLIC_CONSENT_REQUIRED',error:'Перед публикацией QR Sport ID отдельно подтвердите распространение указанных в карточке персональных данных в сети Интернет.'});
       const publicSlug=current.publicSlug||randomBytes(12).toString('base64url');
-      await db.collection('users').doc(uid).update({
-        'sportPassport.publicEnabled':enabled,
-        'sportPassport.publicSlug':publicSlug,
-        'sportPassport.updatedAt':new Date().toISOString()
+      const now=new Date().toISOString();
+      const consent=enabled?{
+        active:true,version:PUBLIC_SPORT_ID_CONSENT_VERSION,grantedAt:now,revokedAt:'',
+        scope:'Внешняя read-only страница SportBuddy78 ID по непредсказуемой ссылке/QR.',
+        fields:['name','avatar','district/location','verification','sports','experience','rank','achievements','SportBuddy78 results','rating','workout statistics','verified trainer public fields']
+      }:{
+        ...(user.sportPassport?.publicConsent||{}),active:false,version:String(user.sportPassport?.publicConsent?.version||PUBLIC_SPORT_ID_CONSENT_VERSION),revokedAt:now
+      };
+      const eventRef=db.collection('legalConsentEvents').doc(`sport-id:${uid}:${Date.now()}:${randomBytes(5).toString('hex')}`);
+      await db.runTransaction(async tx=>{
+        const ref=db.collection('users').doc(uid),fresh=await tx.get(ref);
+        if(!fresh.exists)throw Object.assign(new Error('Профиль не найден.'),{status:404});
+        tx.update(ref,{
+          'sportPassport.publicEnabled':enabled,
+          'sportPassport.publicSlug':publicSlug,
+          'sportPassport.publicConsent':consent,
+          'sportPassport.updatedAt':now
+        });
+        tx.create(eventRef,{
+          ownerUserId:uid,kind:'sport_id_public',action:enabled?'grant':'revoke',
+          version:consent.version,createdAt:now,scope:consent.scope||'',fields:consent.fields||[]
+        });
       });
       const fresh=(await db.collection('users').doc(uid).get()).data()||{};
       return res.json({sportId:await buildSportIdSnapshot(db,uid,fresh)});
