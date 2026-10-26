@@ -118,6 +118,17 @@ export async function foundingCoachUntil(db,subjectType,subjectId){
   if(!snap.exists||snap.data()?.foundingCoach!==true)return '';
   return iso(snap.data()?.foundingCoachFreeUntil);
 }
+export async function hasBusinessAccess(db,subjectType,subjectId,config=null,now=Date.now()){
+  const effectiveConfig=config||await getBillingConfig(db);
+  if(!billingIsOpen(effectiveConfig,now))return true;
+  const id=businessSubscriptionId(subjectType,subjectId);
+  const [subscriptionSnap,freeUntil]=await Promise.all([
+    db.collection('businessSubscriptions').doc(id).get(),
+    foundingCoachUntil(db,subjectType,subjectId)
+  ]);
+  if(!subscriptionSnap.exists&&!freeUntil)return false;
+  return effectiveBusinessUntil(subscriptionSnap.exists?subscriptionSnap.data()||{}:{},freeUntil)>now;
+}
 export function businessPaymentMatches(remote,expected,paymentId){
   return remote?.id===paymentId && remote?.status==='succeeded' && remote?.paid===true
     && (remote?.test!==true || process.env.YOOKASSA_ALLOW_TEST_PAYMENTS==='true')
