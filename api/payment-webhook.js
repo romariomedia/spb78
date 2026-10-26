@@ -2,6 +2,7 @@ import { cert, getApps, initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { paymentMatches, validPaymentId } from '../server/payment-config.js';
 import {addCalendarMonths,businessPaymentMatches,businessPromotionPaymentMatches,businessSubscriptionId} from '../server/business-billing.js';
+import {buildBusinessContractSnapshot} from '../server/business-legal.js';
 function init() {
   if (getApps().length) return;
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
@@ -58,17 +59,24 @@ export default async function handler(req, res) {
         const freeRaw = adminSnap?.exists && adminSnap.data()?.foundingCoach === true ? adminSnap.data()?.foundingCoachFreeUntil : '';
         const freeExpiry = freeRaw?.toDate ? freeRaw.toDate().getTime() : Date.parse(String(freeRaw || ''));
         const base = Math.max(now, Number.isFinite(currentExpiry) ? currentExpiry : 0, Number.isFinite(freeExpiry) ? freeExpiry : 0);
+        const serviceStart=new Date(base).toISOString();
         const activeUntil = addCalendarMonths(new Date(base), expected.months).toISOString();
+        const contract=buildBusinessContractSnapshot({
+          payment:{...expected,paymentId:id},
+          serviceStart,serviceUntil:activeUntil,createdAt:new Date(now)
+        });
         const next = {
           ...subscription,
           subjectType:expected.subjectType,subjectId:expected.subjectId,subjectLabel:expected.subjectLabel,
           ownerUserId:expected.ownerUserId,activeUntil,paidUntil:activeUntil,
           createdAt:subscription.createdAt || expected.createdAt || new Date(now).toISOString(),
-          updatedAt:new Date(now).toISOString(),lastPaymentAt:new Date(now).toISOString(),lastPaymentId:id
+          updatedAt:new Date(now).toISOString(),lastPaymentAt:new Date(now).toISOString(),lastPaymentId:id,
+          lastContractId:id,lastContractNumber:contract.contractNumber
         };
         tx.set(subscriptionRef,next,{merge:false});
+        tx.create(db.collection('businessContracts').doc(id),contract);
         tx.create(db.collection('billingLedger').doc(`yookassa:${id}`),{
-          eventType:'payment',provider:'yookassa',paymentId:id,
+          eventType:'payment',provider:'yookassa',paymentId:id,contractId:id,contractNumber:contract.contractNumber,
           subjectType:expected.subjectType,subjectId:expected.subjectId,subjectLabel:expected.subjectLabel,
           ownerUserId:expected.ownerUserId,interval:expected.interval,months:expected.months,
           amountRub:Number(expected.amount),currency:'RUB',createdAt:new Date(now).toISOString(),activeUntil
@@ -83,13 +91,20 @@ export default async function handler(req, res) {
         const currentRaw = subscription.promotedUntil;
         const currentExpiry = currentRaw?.toDate ? currentRaw.toDate().getTime() : Date.parse(String(currentRaw || ''));
         const base = Number.isFinite(currentExpiry) && currentExpiry > now ? currentExpiry : now;
+        const serviceStart=new Date(base).toISOString();
         const promotedUntil = new Date(base + expected.days * 86400000).toISOString();
+        const contract=buildBusinessContractSnapshot({
+          payment:{...expected,paymentId:id},
+          serviceStart,serviceUntil:promotedUntil,createdAt:new Date(now)
+        });
         tx.update(subscriptionRef,{
           promotedUntil,updatedAt:new Date(now).toISOString(),
-          lastPromotionPaymentAt:new Date(now).toISOString(),lastPromotionPaymentId:id
+          lastPromotionPaymentAt:new Date(now).toISOString(),lastPromotionPaymentId:id,
+          lastContractId:id,lastContractNumber:contract.contractNumber
         });
+        tx.create(db.collection('businessContracts').doc(id),contract);
         tx.create(db.collection('billingLedger').doc(`yookassa:${id}`),{
-          eventType:'promotion_payment',provider:'yookassa',paymentId:id,
+          eventType:'promotion_payment',provider:'yookassa',paymentId:id,contractId:id,contractNumber:contract.contractNumber,
           subjectType:expected.subjectType,subjectId:expected.subjectId,subjectLabel:expected.subjectLabel,
           ownerUserId:expected.ownerUserId,days:expected.days,
           amountRub:Number(expected.amount),currency:'RUB',createdAt:new Date(now).toISOString(),promotedUntil
@@ -103,7 +118,10 @@ export default async function handler(req, res) {
         const premiumUntil = new Date(base + expected.days * 86400000).toISOString();
         tx.update(userRef, { subscriptionPlan: 'premium', premiumUntil });
       }
-      tx.update(ref, { status: 'succeeded', processed: true, processedAt: new Date(now).toISOString() });
+      tx.update(ref, {
+        status:'succeeded',processed:true,processedAt:new Date(now).toISOString(),
+        ...(['business_subscription','business_promotion'].includes(expected.product)?{contractId:id}:{})
+      });
     });
     return res.status(200).json({ received: true });
   } catch {
