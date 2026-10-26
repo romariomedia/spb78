@@ -49,7 +49,12 @@ async function buildSportIdSnapshot(db,uid,user){
       isVerified:user.isVerified===true,registeredAt:user.registeredAt?.toDate?.()?.toISOString?.()||String(user.registeredAt||'')
     },
     profile:{...draft,declaredAchievements:verified.achievements,rankVerification:verified.rankVerification,levelLabel:levelLabel(draft.level)},
-    public:{enabled:draft.publicEnabled===true,slug:draft.publicSlug||''},
+    public:{
+      enabled:draft.publicEnabled===true
+        && user.sportPassport?.publicConsent?.active===true
+        && user.sportPassport?.publicConsent?.version===PUBLIC_SPORT_ID_CONSENT_VERSION,
+      slug:draft.publicSlug||''
+    },
     stats:{
       totalWorkouts:Number(user.totalWorkouts||0),verifiedCheckins:checkins.filter(x=>x.verified===true).length,
       organizedTrainings:ownedSnap?.size||0,rating:Number(user.rating||0),ratingCount:Number(user.ratingCount||0),
