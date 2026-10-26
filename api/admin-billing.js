@@ -3,7 +3,7 @@ import {cert,getApps,initializeApp} from 'firebase-admin/app';
 import {getFirestore} from 'firebase-admin/firestore';
 import {requireAdminSession,writeAdminAudit} from '../server/admin-control.js';
 import {
-  DEFAULT_BILLING_CONFIG,businessSubscriptionId,effectiveBusinessUntil,
+  DEFAULT_BILLING_CONFIG,businessSubscriptionId,effectiveBusinessUntil,foundingCoachUntil,
   getBillingConfig,publicBusinessSubscription,resolveBusinessSubject,sanitizeBillingConfig
 } from '../server/business-billing.js';
 
@@ -100,10 +100,11 @@ export default async function handler(req,res){
       const days=int(body.days,1,730),note=clean(body.note,300);
       if(note.length<3)return res.status(400).json({error:'Укажите причину бесплатного продления.'});
       const now=Date.now();
+      const inheritedFreeUntil=await foundingCoachUntil(db,subjectType,subjectId);
       await db.runTransaction(async tx=>{
         const snap=await tx.get(ref),before=snap.exists?snap.data()||{}:{};
         const ownerUserId=subjectType==='trainer'?subjectId:clean(before.ownerUserId,180);
-        const base=Math.max(now,effectiveBusinessUntil(before));
+        const base=Math.max(now,effectiveBusinessUntil(before,inheritedFreeUntil));
         const until=new Date(base+days*86400000).toISOString();
         const next={
           ...before,subjectType,subjectId,subjectLabel:subject.label,ownerUserId,
