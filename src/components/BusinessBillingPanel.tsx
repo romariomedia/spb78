@@ -127,7 +127,6 @@ export function BusinessBillingPanel(){
           <option value="ip">ИП</option>
           <option value="self_employed">Самозанятый / НПД</option>
           <option value="legal_entity">Юридическое лицо</option>
-          <option value="individual_professional">Физлицо для профессиональной деятельности</option>
         </select>
         <input value={legalDraft.legalName} onChange={e=>setLegalDraft({...legalDraft,legalName:e.target.value})} placeholder="ФИО / полное наименование" className="rounded-xl border border-slate-800 bg-slate-900 px-3 py-3 text-sm text-white"/>
         <input value={legalDraft.inn} onChange={e=>setLegalDraft({...legalDraft,inn:e.target.value})} placeholder="ИНН" inputMode="numeric" className="rounded-xl border border-slate-800 bg-slate-900 px-3 py-3 text-sm text-white"/>
@@ -135,6 +134,10 @@ export function BusinessBillingPanel(){
         <input value={legalDraft.email} onChange={e=>setLegalDraft({...legalDraft,email:e.target.value})} placeholder="E-mail для договора и чека" type="email" className="rounded-xl border border-slate-800 bg-slate-900 px-3 py-3 text-sm text-white"/>
         <input value={legalDraft.phone} onChange={e=>setLegalDraft({...legalDraft,phone:e.target.value})} placeholder="Телефон (необязательно)" className="rounded-xl border border-slate-800 bg-slate-900 px-3 py-3 text-sm text-white"/>
         <input value={legalDraft.address} onChange={e=>setLegalDraft({...legalDraft,address:e.target.value})} placeholder="Юридический / почтовый адрес" className="rounded-xl border border-slate-800 bg-slate-900 px-3 py-3 text-sm text-white sm:col-span-2"/>
+        {legalDraft.entityType==='legal_entity'&&<>
+          <input value={legalDraft.representative} onChange={e=>setLegalDraft({...legalDraft,representative:e.target.value})} placeholder="ФИО подписанта" className="rounded-xl border border-slate-800 bg-slate-900 px-3 py-3 text-sm text-white"/>
+          <input value={legalDraft.basis} onChange={e=>setLegalDraft({...legalDraft,basis:e.target.value})} placeholder="Основание полномочий (Устав / доверенность)" className="rounded-xl border border-slate-800 bg-slate-900 px-3 py-3 text-sm text-white"/>
+        </>}
       </div>
       {state.legalProfile.errors?.length>0&&<div className="rounded-xl border border-amber-400/20 bg-amber-400/5 p-3 text-[11px] text-amber-200">{state.legalProfile.errors.join(' · ')}</div>}
       <button type="button" disabled={legalSaving} onClick={()=>void saveLegal()} className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-cyan-400 px-4 text-sm font-black text-slate-950 disabled:opacity-50">
