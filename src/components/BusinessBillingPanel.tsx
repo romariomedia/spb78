@@ -78,7 +78,7 @@ export function BusinessBillingPanel(){
     const key='subscription:'+item.subjectType+':'+item.subjectId;
     setPaying(key);setError('');
     try{
-      const payment=await createBusinessPayment(item.subjectType,item.subjectId,interval);
+      const payment=await createBusinessPayment(item.subjectType,item.subjectId,interval,offerAccepted);
       if(!payment.confirmationUrl)throw new Error('ЮKassa не вернула ссылку на оплату.');
       window.location.assign(payment.confirmationUrl);
     }catch(e){setError(e instanceof Error?e.message:'Не удалось перейти к оплате.');setPaying('');}
@@ -90,7 +90,7 @@ export function BusinessBillingPanel(){
     const key='promotion:'+item.subjectType+':'+item.subjectId;
     setPaying(key);setError('');
     try{
-      const payment=await createBusinessPromotionPayment(item.subjectType,item.subjectId);
+      const payment=await createBusinessPromotionPayment(item.subjectType,item.subjectId,offerAccepted);
       if(!payment.confirmationUrl)throw new Error('ЮKassa не вернула ссылку на оплату.');
       window.location.assign(payment.confirmationUrl);
     }catch(e){setError(e instanceof Error?e.message:'Не удалось включить продвижение.');setPaying('');}
