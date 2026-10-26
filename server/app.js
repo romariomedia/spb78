@@ -7,9 +7,9 @@ import { sharePreviewImage, sharePreviewPage } from './share-preview.js';
 
 // Explicit routes prevent an accidentally copied maintenance script becoming an API.
 export const API_ROUTES = Object.freeze([
-  'onboarding-assistant', 'create-payment', 'create-business-payment', 'payment-webhook', 'business-billing', 'business-dashboard', 'business-event', 'admin-billing', 'verify-profile', 'delete-expired-profile', 'analytics-session',
-  'send-password-reset', 'vk-login', 'feed-list', 'activities-list', 'feed-create', 'admin-request-otp',
-  'admin-verify-otp', 'admin-session', 'admin-dashboard', 'admin-audit', 'admin-users', 'admin-user-lifecycle', 'admin-analytics', 'admin-sport-id-verification', 'admin-config', 'admin-push', 'admin-announcements', 'admin-partners', 'admin-official-trainings', 'admin-moderation', 'app-config', 'announcements', 'partners', 'report', 'admin-mutate-event', 'admin-event-results', 'admin-mutate-venue', 'admin-mutate-leisure', 'sportbuddy-mutation', 'sport-passport', 'sport-id-verification', 'public-sport-id', 'public-profiles', 'notifications', 'stories', 'guest-catalog', 'leisure', 'massage', 'admin-massage', 'venues'
+  'onboarding-assistant', 'create-payment', 'create-business-payment', 'payment-webhook', 'business-billing', 'business-dashboard', 'business-event', 'business-legal-profile', 'business-contract-download', 'admin-billing', 'verify-profile', 'delete-expired-profile', 'analytics-session',
+  'send-password-reset', 'vk-login', 'feed-list', 'activities-list', 'feed-create', 'legal-acceptance', 'public-consent', 'privacy-request', 'admin-request-otp',
+  'admin-verify-otp', 'admin-session', 'admin-dashboard', 'admin-audit', 'admin-users', 'admin-user-lifecycle', 'admin-analytics', 'admin-sport-id-verification', 'admin-config', 'admin-push', 'admin-announcements', 'admin-partners', 'admin-official-trainings', 'admin-moderation', 'admin-legal-compliance', 'admin-privacy-requests', 'app-config', 'announcements', 'partners', 'report', 'admin-mutate-event', 'admin-event-results', 'admin-mutate-venue', 'admin-mutate-leisure', 'sportbuddy-mutation', 'sport-passport', 'sport-id-verification', 'public-sport-id', 'public-profiles', 'notifications', 'stories', 'guest-catalog', 'leisure', 'massage', 'admin-massage', 'venues'
 ]);
 
 export async function createApiApp({ apiDir, enforceOperations }) {
