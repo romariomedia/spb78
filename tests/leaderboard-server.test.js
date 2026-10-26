@@ -19,7 +19,11 @@ test('ranking uses stored metrics, excludes hidden/demo users and never exposes 
 });
 
 test('rank ties use rating then stable ID and pages do not mutate the snapshot',()=>{
- const snapshot=rankingSnapshot([rankingRow('z',visible({totalWorkouts:1,rating:2})),rankingRow('b',visible({totalWorkouts:1,rating:4}),rankingRow('a',visible({totalWorkouts:1,rating:4})]);
+ const snapshot=rankingSnapshot([
+   rankingRow('z',visible({totalWorkouts:1,rating:2})),
+   rankingRow('b',visible({totalWorkouts:1,rating:4})),
+   rankingRow('a',visible({totalWorkouts:1,rating:4}))
+ ]);
  const before=JSON.stringify(snapshot);
  const page=rankingPage(snapshot,'missing',{});
  assert.deepEqual(page.entries.map(e=>e.user.id),['a','b','z']);
