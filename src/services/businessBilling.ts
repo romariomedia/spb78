@@ -131,7 +131,7 @@ export async function loadBusinessBilling():Promise<BusinessBillingState>{
 function requestKey(uid:string,subjectType:BusinessSubjectType,subjectId:string,kind:string){
   return `sb78_business_payment_${uid}_${subjectType}_${subjectId}_${kind}`;
 }
-async function createBusinessCheckout(subjectType:BusinessSubjectType,subjectId:string,interval:BusinessBillingInterval|'',purpose:'subscription'|'promotion',offerAccepted=true){
+async function createBusinessCheckout(subjectType:BusinessSubjectType,subjectId:string,interval:BusinessBillingInterval|'',purpose:'subscription'|'promotion',offerAccepted=false){
 
   const user=auth.currentUser;if(!user)throw new Error('Сначала войдите в аккаунт.');
   const key=requestKey(user.uid,subjectType,subjectId,purpose==='promotion'?'promotion':interval);
@@ -168,9 +168,9 @@ async function createBusinessCheckout(subjectType:BusinessSubjectType,subjectId:
     throw error;
   }finally{window.clearTimeout(timer);}
 }
-export const createBusinessPayment=(subjectType:BusinessSubjectType,subjectId:string,interval:BusinessBillingInterval,offerAccepted=true)=>
+export const createBusinessPayment=(subjectType:BusinessSubjectType,subjectId:string,interval:BusinessBillingInterval,offerAccepted=false)=>
   createBusinessCheckout(subjectType,subjectId,interval,'subscription',offerAccepted);
-export const createBusinessPromotionPayment=(subjectType:BusinessSubjectType,subjectId:string,offerAccepted=true)=>
+export const createBusinessPromotionPayment=(subjectType:BusinessSubjectType,subjectId:string,offerAccepted=false)=>
   createBusinessCheckout(subjectType,subjectId,'','promotion',offerAccepted);
 
 export async function saveBusinessLegalProfile(profile:Omit<BusinessLegalProfile,'ready'|'errors'>):Promise<BusinessLegalProfile>{
