@@ -9,7 +9,7 @@ import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 import { requireActiveUser } from '../server/user-status.js';
 import {recordBusinessMetric} from '../server/business-insights.js';
-import {COMMERCIAL_LAUNCH_AT,getBillingConfig,hasBusinessAccess} from '../server/business-billing.js';
+import {COMMERCIAL_LAUNCH_AT,businessListingStates,getBillingConfig} from '../server/business-billing.js';
 import {
   claimFingerprint,claimFromPassport,sanitizeVerificationEvidence,verificationClaimId,verificationRequestId
 } from '../server/sport-id-verification.js';
@@ -56,11 +56,16 @@ export default async function handler(req,res){
       const snap=await query.get();
       const afterLaunch=Date.now()>=Date.parse(COMMERCIAL_LAUNCH_AT);
       const billingConfig=afterLaunch?await getBillingConfig(db):null;
-      const trainers=(await Promise.all(snap.docs.map(async d=>{
+      const states=afterLaunch?await businessListingStates(db,'trainer',snap.docs.map(d=>d.id),billingConfig):new Map();
+      const trainers=snap.docs.map(d=>{
         if(!publicTrainer(d.data()))return null;
-        if(!afterLaunch)return publicProfile(d.id,d.data());
-        return await hasBusinessAccess(db,'trainer',d.id,billingConfig)?publicProfile(d.id,d.data()):null;
-      }))).filter(Boolean);
+        const state=states.get(d.id);
+        if(afterLaunch&&state?.allowed!==true)return null;
+        const profile=publicProfile(d.id,d.data());
+        return state?.isPromoted&&profile.personalTrainer
+          ? {...profile,personalTrainer:{...profile.personalTrainer,isPromoted:true}}
+          : profile;
+      }).filter(Boolean).sort((a,b)=>Number(b.personalTrainer?.isPromoted===true)-Number(a.personalTrainer?.isPromoted===true));
       return res.json({trainers,nextCursor:snap.docs.length===24?snap.docs.at(-1).id:null});
     }
 
