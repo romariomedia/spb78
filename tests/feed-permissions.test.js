@@ -13,6 +13,7 @@ const result = await build({ entryPoints: ['api/feed-create.js'], bundle: true, 
     }[args.path],loader:'js'}));
   }}] });
 const {default:handler}=await import(`data:text/javascript;base64,${Buffer.from(result.outputFiles[0].text+'\n//# sourceURL=feed-permissions-fixture.js').toString('base64')}`);
+const consentBody=(body={})=>({...body,publicConsentConfirmed:true,publicConsentVersion:'SB78-FEED-2026-10-26'});
 async function request(profile, body) {
   let saved;
   globalThis.__feedDb={collection:name=>({doc:()=> name==='users'
@@ -24,22 +25,38 @@ async function request(profile, body) {
 }
 const valid={name:'Athlete',isVerified:true,premiumUntil:new Date(Date.now()+86400000).toISOString()};
 test('verified active Premium user can publish media',async()=>{
-  const {response,saved}=await request(valid,{mediaUrl:'https://example.com/photo.jpg'});
+  const {response,saved}=await request(valid,consentBody({mediaUrl:'https://example.com/photo.jpg'}));
   assert.equal(response.statusCode,200);assert.equal(saved.authorId,'athlete');assert.equal(saved.mediaType,'image');
 });
 test('verification and Premium denials have distinct reasons',async()=>{
-  assert.equal((await request({...valid,isVerified:false},{content:'post'})).response.body.code,'VERIFICATION_REQUIRED');
-  assert.equal((await request({...valid,premiumUntil:'2020-01-01'},{content:'post'})).response.body.code,'PREMIUM_REQUIRED');
+  assert.equal((await request({...valid,isVerified:false},consentBody({content:'post'}))).response.body.code,'VERIFICATION_REQUIRED');
+  assert.equal((await request({...valid,premiumUntil:'2020-01-01'},consentBody({content:'post'}))).response.body.code,'PREMIUM_REQUIRED');
 });
 test('text-only post has no undefined Firestore fields',async()=>{
-  const {response,saved}=await request(valid,{content:'post'});assert.equal(response.statusCode,200);assert.equal('mediaUrl' in saved,false);
+  const {response,saved}=await request(valid,consentBody({content:'post'}));assert.equal(response.statusCode,200);assert.equal('mediaUrl' in saved,false);
 });
 
 test('beta publication still requires verification and reverts to Premium at deadline',async t=>{
   t.mock.timers.setTime(Date.parse('2026-12-31T20:59:59Z'));
   const expired={...valid,premiumUntil:'2020-01-01'};
-  assert.equal((await request(expired,{content:'Beta post'})).response.statusCode,200);
-  assert.equal((await request({...expired,isVerified:false},{content:'Beta post'})).response.body.code,'VERIFICATION_REQUIRED');
+  assert.equal((await request(expired,consentBody({content:'Beta post'}))).response.statusCode,200);
+  assert.equal((await request({...expired,isVerified:false},consentBody({content:'Beta post'}))).response.body.code,'VERIFICATION_REQUIRED');
   t.mock.timers.setTime(Date.parse('2026-12-31T21:00:00Z'));
-  assert.equal((await request(expired,{content:'Post'})).response.body.code,'PREMIUM_REQUIRED');
+  assert.equal((await request(expired,consentBody({content:'Post'}))).response.body.code,'PREMIUM_REQUIRED');
+});
+
+
+test('feed publication requires separate consent for that post',async()=>{
+  const missing=await request(valid,{content:'post'});
+  assert.equal(missing.response.statusCode,409);
+  assert.equal(missing.response.body.code,'PUBLICATION_CONSENT_REQUIRED');
+  const wrong=await request(valid,{content:'post',publicConsentConfirmed:true,publicConsentVersion:'old'});
+  assert.equal(wrong.response.body.code,'PUBLICATION_CONSENT_REQUIRED');
+});
+
+test('successful feed post stores consent evidence server-side',async()=>{
+  const {response,saved}=await request(valid,consentBody({content:'post'}));
+  assert.equal(response.statusCode,200);
+  assert.equal(saved.publicConsent.version,'SB78-FEED-2026-10-26');
+  assert.ok(saved.publicConsent.acceptedAt);
 });
