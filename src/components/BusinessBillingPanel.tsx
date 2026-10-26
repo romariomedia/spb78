@@ -1,11 +1,11 @@
 import {useEffect,useMemo,useState,type ReactNode} from 'react';
 import {
-  BadgeRussianRuble,BarChart3,CalendarClock,Crown,Eye,MousePointerClick,
-  RefreshCw,Rocket,TrendingUp,UserRoundCheck,WalletCards
+  BadgeRussianRuble,BarChart3,CalendarClock,Crown,Download,Eye,FileText,MousePointerClick,
+  RefreshCw,Rocket,Save,ShieldCheck,TrendingUp,UserRoundCheck,WalletCards
 } from 'lucide-react';
 import {
-  BusinessBillingInterval,BusinessDashboardState,BusinessDashboardSubject,
-  createBusinessPayment,createBusinessPromotionPayment,loadBusinessDashboard
+  BUSINESS_OFFER_VERSION,BusinessBillingInterval,BusinessDashboardState,BusinessDashboardSubject,BusinessLegalProfile,
+  createBusinessPayment,createBusinessPromotionPayment,downloadBusinessContract,loadBusinessDashboard,saveBusinessLegalProfile
 } from '../services/businessBilling';
 
 const formatDate=(value:string)=>{
@@ -43,13 +43,37 @@ export function BusinessBillingPanel(){
   const [state,setState]=useState<BusinessDashboardState|null>(null);
   const [busy,setBusy]=useState(false),[paying,setPaying]=useState(''),[error,setError]=useState('');
   const [intervals,setIntervals]=useState<Record<string,BusinessBillingInterval>>({});
-  const load=async()=>{setBusy(true);setError('');try{setState(await loadBusinessDashboard());}catch(e){setError(e instanceof Error?e.message:'Не удалось загрузить кабинет партнёра.');}finally{setBusy(false);}};
+  const [legalDraft,setLegalDraft]=useState<Omit<BusinessLegalProfile,'ready'|'errors'>|null>(null);
+  const [legalSaving,setLegalSaving]=useState(false);
+  const [offerAccepted,setOfferAccepted]=useState(false);
+  const load=async()=>{setBusy(true);setError('');try{
+    const next=await loadBusinessDashboard();setState(next);
+    setLegalDraft({
+      entityType:next.legalProfile.entityType,legalName:next.legalProfile.legalName,inn:next.legalProfile.inn,
+      ogrn:next.legalProfile.ogrn,address:next.legalProfile.address,email:next.legalProfile.email,
+      phone:next.legalProfile.phone,representative:next.legalProfile.representative,basis:next.legalProfile.basis
+    });
+  }catch(e){setError(e instanceof Error?e.message:'Не удалось загрузить кабинет партнёра.');}finally{setBusy(false);}};
   useEffect(()=>{void load();},[]);
   const ledger=useMemo(()=>state?.ledger?.slice(0,12)||[],[state?.ledger]);
+  const legalReady=state?.legalProfile?.ready===true;
+  const saveLegal=async()=>{
+    if(!legalDraft)return;setLegalSaving(true);setError('');
+    try{
+      const profile=await saveBusinessLegalProfile(legalDraft);
+      setState(old=>old?{...old,legalProfile:profile}:old);
+    }catch(e){setError(e instanceof Error?e.message:'Не удалось сохранить реквизиты.');}
+    finally{setLegalSaving(false);}
+  };
+  const downloadContract=async(id:string,number:string)=>{
+    setError('');try{await downloadBusinessContract(id,number);}catch(e){setError(e instanceof Error?e.message:'Не удалось скачать договор.');}
+  };
   if(!busy&&!error&&state&&state.subjects.length===0)return null;
 
   const pay=async(item:BusinessDashboardSubject)=>{
     if(!state?.config.billingOpen)return;
+    if(!legalReady){setError('Заполните и сохраните реквизиты заказчика для договора.');return;}
+    if(!offerAccepted){setError('Перед оплатой примите актуальную оферту SportBuddy78 Business.');return;}
     const interval=intervals[item.subjectType+':'+item.subjectId]||'monthly';
     const key='subscription:'+item.subjectType+':'+item.subjectId;
     setPaying(key);setError('');
@@ -61,6 +85,8 @@ export function BusinessBillingPanel(){
   };
   const promote=async(item:BusinessDashboardSubject)=>{
     if(!state?.config.billingOpen||item.status!=='active')return;
+    if(!legalReady){setError('Заполните и сохраните реквизиты заказчика для договора.');return;}
+    if(!offerAccepted){setError('Перед оплатой примите актуальную оферту SportBuddy78 Business.');return;}
     const key='promotion:'+item.subjectType+':'+item.subjectId;
     setPaying(key);setError('');
     try{
@@ -84,6 +110,40 @@ export function BusinessBillingPanel(){
     {!state?.config.billingOpen&&<div className="rounded-2xl border border-lime-300/20 bg-lime-300/5 p-3">
       <p className="text-sm font-bold text-lime-200">Бета-период · размещение бесплатно</p>
       <p className="mt-1 text-xs leading-relaxed text-slate-400">Кабинет и статистика уже работают. Реальная оплата подписок и продвижения заблокирована сервером до 1 января 2027 года и запускается отдельным переключателем администратора.</p>
+    </div>}
+
+    {state&&legalDraft&&<div className="rounded-2xl border border-cyan-400/20 bg-slate-950 p-4 space-y-3">
+      <div className="flex items-start gap-3">
+        <span className="rounded-xl bg-cyan-400/10 p-2 text-cyan-300"><FileText size={18}/></span>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-black text-white">Реквизиты для договоров и чеков</p>
+          <p className="mt-1 text-[11px] leading-relaxed text-slate-400">Заполняются один раз. После успешной оплаты SportBuddy78 автоматически фиксирует договор с этими реквизитами.</p>
+        </div>
+        <span className={`rounded-full px-2 py-1 text-[10px] font-black ${legalReady?'bg-emerald-500/15 text-emerald-300':'bg-amber-500/15 text-amber-300'}`}>{legalReady?'ГОТОВО':'НУЖНО ЗАПОЛНИТЬ'}</span>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <select value={legalDraft.entityType} onChange={e=>setLegalDraft({...legalDraft,entityType:e.target.value as BusinessLegalProfile['entityType']})} className="rounded-xl border border-slate-800 bg-slate-900 px-3 py-3 text-sm text-white">
+          <option value="">Статус заказчика</option>
+          <option value="ip">ИП</option>
+          <option value="self_employed">Самозанятый / НПД</option>
+          <option value="legal_entity">Юридическое лицо</option>
+          <option value="individual_professional">Физлицо для профессиональной деятельности</option>
+        </select>
+        <input value={legalDraft.legalName} onChange={e=>setLegalDraft({...legalDraft,legalName:e.target.value})} placeholder="ФИО / полное наименование" className="rounded-xl border border-slate-800 bg-slate-900 px-3 py-3 text-sm text-white"/>
+        <input value={legalDraft.inn} onChange={e=>setLegalDraft({...legalDraft,inn:e.target.value})} placeholder="ИНН" inputMode="numeric" className="rounded-xl border border-slate-800 bg-slate-900 px-3 py-3 text-sm text-white"/>
+        <input value={legalDraft.ogrn} onChange={e=>setLegalDraft({...legalDraft,ogrn:e.target.value})} placeholder="ОГРН / ОГРНИП (если применимо)" inputMode="numeric" className="rounded-xl border border-slate-800 bg-slate-900 px-3 py-3 text-sm text-white"/>
+        <input value={legalDraft.email} onChange={e=>setLegalDraft({...legalDraft,email:e.target.value})} placeholder="E-mail для договора и чека" type="email" className="rounded-xl border border-slate-800 bg-slate-900 px-3 py-3 text-sm text-white"/>
+        <input value={legalDraft.phone} onChange={e=>setLegalDraft({...legalDraft,phone:e.target.value})} placeholder="Телефон (необязательно)" className="rounded-xl border border-slate-800 bg-slate-900 px-3 py-3 text-sm text-white"/>
+        <input value={legalDraft.address} onChange={e=>setLegalDraft({...legalDraft,address:e.target.value})} placeholder="Юридический / почтовый адрес" className="rounded-xl border border-slate-800 bg-slate-900 px-3 py-3 text-sm text-white sm:col-span-2"/>
+      </div>
+      {state.legalProfile.errors?.length>0&&<div className="rounded-xl border border-amber-400/20 bg-amber-400/5 p-3 text-[11px] text-amber-200">{state.legalProfile.errors.join(' · ')}</div>}
+      <button type="button" disabled={legalSaving} onClick={()=>void saveLegal()} className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-cyan-400 px-4 text-sm font-black text-slate-950 disabled:opacity-50">
+        <Save size={16}/>{legalSaving?'Сохраняем…':'Сохранить реквизиты'}
+      </button>
+      <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-800 bg-slate-900 p-3">
+        <input type="checkbox" checked={offerAccepted} onChange={e=>setOfferAccepted(e.target.checked)} className="mt-0.5 h-4 w-4 accent-lime-300"/>
+        <span className="text-[11px] leading-relaxed text-slate-300"><b className="text-white">Принимаю договор-оферту SportBuddy78 Business</b> редакции {BUSINESS_OFFER_VERSION}. Понимаю, что акцепт фиксируется в авторизованном кабинете, а после оплаты формируется индивидуальный договор.</span>
+      </label>
     </div>}
     {error&&<p role="alert" className="rounded-xl border border-rose-500/30 bg-rose-950/20 p-3 text-sm text-rose-200">{error}</p>}
     {busy&&!state&&<p role="status" className="text-sm text-slate-400">Загружаем кабинет…</p>}
@@ -129,10 +189,10 @@ export function BusinessBillingPanel(){
         </div>
 
         <div className="grid gap-2 sm:grid-cols-2">
-          <button disabled={!state.config.billingOpen||paused||paying==='subscription:'+id||price<=0} onClick={()=>void pay(item)} className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-cyan-400 px-3 py-3 text-sm font-black text-slate-950 disabled:bg-slate-800 disabled:text-slate-500">
+          <button disabled={!state.config.billingOpen||!legalReady||!offerAccepted||paused||paying==='subscription:'+id||price<=0} onClick={()=>void pay(item)} className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-cyan-400 px-3 py-3 text-sm font-black text-slate-950 disabled:bg-slate-800 disabled:text-slate-500">
             <BadgeRussianRuble size={17}/>{paused?'Размещение приостановлено':paying==='subscription:'+id?'Переход к ЮKassa…':!state.config.billingOpen?'Оплата откроется в 2027':active?'Продлить размещение':'Оформить размещение'}
           </button>
-          <button disabled={!state.config.billingOpen||!active||paying==='promotion:'+id||promo.priceRub<=0} onClick={()=>void promote(item)} className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-fuchsia-400/30 bg-fuchsia-400/10 px-3 py-3 text-sm font-black text-fuchsia-200 disabled:border-slate-800 disabled:bg-slate-950 disabled:text-slate-600">
+          <button disabled={!state.config.billingOpen||!legalReady||!offerAccepted||!active||paying==='promotion:'+id||promo.priceRub<=0} onClick={()=>void promote(item)} className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-fuchsia-400/30 bg-fuchsia-400/10 px-3 py-3 text-sm font-black text-fuchsia-200 disabled:border-slate-800 disabled:bg-slate-950 disabled:text-slate-600">
             <Rocket size={17}/>{paying==='promotion:'+id?'Переход к ЮKassa…':`Продвинуть на 7 дней · ${promo.priceRub.toLocaleString('ru-RU')} ₽`}
           </button>
         </div>
@@ -143,6 +203,22 @@ export function BusinessBillingPanel(){
     {state&&state.subjects.length>0&&<div className="grid grid-cols-2 gap-2">
       <div className="rounded-2xl border border-slate-800 bg-slate-950 p-3"><p className="text-[10px] uppercase text-slate-500">Оплачено за размещение</p><p className="mt-1 text-lg font-black text-white">{money(state.finance.paidRub)}</p></div>
       <div className="rounded-2xl border border-slate-800 bg-slate-950 p-3"><p className="text-[10px] uppercase text-slate-500">Оплачено за продвижение</p><p className="mt-1 text-lg font-black text-white">{money(state.finance.promotionRub)}</p></div>
+    </div>}
+
+    {state&&state.contracts.length>0&&<div className="rounded-2xl border border-emerald-400/20 bg-slate-950 p-4">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div><p className="text-sm font-black text-white">Договоры SportBuddy78 Business</p><p className="mt-1 text-[10px] text-slate-500">Формируются сервером после подтвержденной оплаты YooKassa.</p></div>
+        <ShieldCheck size={18} className="text-emerald-300"/>
+      </div>
+      <div className="space-y-2">{state.contracts.map(contract=><div key={contract.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-900 p-3">
+        <div className="min-w-0">
+          <p className="truncate text-xs font-black text-white">Договор № {contract.contractNumber}</p>
+          <p className="mt-1 text-[10px] text-slate-500">{contract.subjectLabel} · {contract.createdAt?new Date(contract.createdAt).toLocaleDateString('ru-RU'):'—'} · {money(contract.amountRub)}</p>
+        </div>
+        <button type="button" onClick={()=>void downloadContract(contract.id,contract.contractNumber)} className="flex min-h-10 items-center gap-2 rounded-xl border border-emerald-400/25 bg-emerald-400/10 px-3 text-xs font-black text-emerald-200">
+          <Download size={15}/>Скачать договор
+        </button>
+      </div>)}</div>
     </div>}
 
     {ledger.length>0&&<div className="rounded-2xl border border-slate-800 bg-slate-950 p-4">
