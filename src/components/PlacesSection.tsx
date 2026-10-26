@@ -228,7 +228,8 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, o
     return [...list].sort((a, b) => {
       if (sort === 'rating') return (b.rating ?? 0) - (a.rating ?? 0);
       if (sort === 'reviews') return (b.reviews ?? 0) - (a.reviews ?? 0);
-      return venueScore(b) - venueScore(a);
+      const promotion = Number(b.isPromoted === true) - Number(a.isPromoted === true);
+      return promotion || venueScore(b) - venueScore(a);
     });
   }, [catalog, deferredQuery, sport, sort, showOnlyReady, network]);
 
@@ -271,7 +272,7 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, o
             <section className="rounded-3xl border border-slate-800 bg-slate-900 p-4 shadow-2xl">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <h3 className="text-xl font-black">{selected.name}</h3>
+                  <div className="flex flex-wrap items-center gap-2"><h3 className="text-xl font-black">{selected.name}</h3>{selected.isPromoted&&<span className="rounded-full border border-fuchsia-400/30 bg-fuchsia-400/10 px-2 py-1 text-[9px] font-black text-fuchsia-200">🚀 В приоритете</span>}</div>
                   <p className="mt-1 text-xs text-slate-400 flex gap-1.5 items-start">
                     <MapPin className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                     {selected.address}
@@ -515,6 +516,7 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, o
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5 min-w-0">
                         <h3 className="font-black text-sm truncate">{venue.name}</h3>
+                        {venue.isPromoted&&<span className="shrink-0 rounded-lg border border-fuchsia-400/30 bg-fuchsia-400/10 px-1.5 py-0.5 text-[8px] font-black text-fuchsia-200">🚀</span>}
                         {venue.isVerified && (
                           <span className="shrink-0 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[8px] font-black text-emerald-300">
                             ✓ Проверено
