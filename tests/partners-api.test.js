@@ -21,7 +21,7 @@ function fixture(initial={}){
  const request=async(handler,body={},token='valid')=>{const r={code:200,status(n){this.code=n;return this},json(v){this.body=v;return this},setHeader(k,v){this[k]=v}};await handler({method:handler===feed?'GET':'POST',body,headers:{authorization:token?'Bearer '+token:''}},r);return r};
  return {rows,request,reads:()=>partnerReads};
 }
-const draft={name:'Тестовый партнёр',offerTitle:'Предложение',description:'Описание',isActive:true};
+const draft={name:'Тестовый партнёр',offerTitle:'Предложение',description:'Описание',isActive:true,isAdvertising:false};
 const session={expiresAt:{toMillis:()=>Date.now()+60000},email:'admin@example.invalid'};
 test('partner admin requires a live OTP session before all writes',async()=>{
  const f=fixture({'adminSessions/expired':{expiresAt:{toMillis:()=>0}}});
@@ -55,4 +55,23 @@ test('publication filter and priority run before display limit; expired and futu
 test('partner feed denies missing/invalid auth and suspended accounts',async()=>{
  const f=fixture({'users/user':{isSuspended:true}});
  assert.equal((await f.request(feed,{},'')).code,401);assert.equal((await f.request(feed,{},'bad')).code,401);assert.equal((await f.request(feed)).code,403);assert.equal(f.reads(),0);
+});
+
+
+test('advertising partner cannot go live without ERID and public feed exposes marking metadata',async()=>{
+ const f=fixture({'adminSessions/live':session});
+ const send=body=>f.request(admin,{sessionId:'live',...body});
+ const missing=await send({operation:'create',partner:{name:'Ad',offerTitle:'Реклама',description:'Описание',isActive:true,isAdvertising:true}});
+ assert.equal(missing.code,400);
+ const created=await send({operation:'create',partner:{
+   name:'Ad',offerTitle:'Реклама',description:'Описание',isActive:true,isAdvertising:true,
+   advertiserName:'ИП Иванов',advertiserInn:'781234567890',erid:'2VtzqExample123',ordName:'ОРД'
+ }});
+ assert.equal(created.code,200);
+ await send({operation:'setVisibility',visible:true});
+ const result=await f.request(feed);
+ assert.equal(result.body.partners.length,1);
+ assert.equal(result.body.partners[0].isAdvertising,true);
+ assert.equal(result.body.partners[0].advertiserName,'ИП Иванов');
+ assert.equal(result.body.partners[0].erid,'2VtzqExample123');
 });
