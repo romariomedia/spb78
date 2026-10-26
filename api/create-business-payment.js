@@ -165,6 +165,10 @@ export default async function handler(req,res){
     return res.status(200).json({paymentId:payment.id,confirmationUrl,amount:intent.amount});
   }catch(error){
     const status=error.code?.startsWith?.('auth/')?401:error.status||503;
-    return res.status(status).json({error:status===401?'Требуется повторный вход':error.status?error.message:'Платёжный сервис временно недоступен. Повторите попытку.'});
+    return res.status(status).json({
+      ...(error?.code&&!String(error.code).startsWith('auth/')?{code:String(error.code)}:{}),
+      error:status===401?'Требуется повторный вход':error.status?error.message:'Платёжный сервис временно недоступен. Повторите попытку.',
+      ...(Array.isArray(error?.details)?{details:error.details}:{})
+    });
   }
 }
