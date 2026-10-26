@@ -17,6 +17,22 @@ const int=(value,min,max)=>{
   return n;
 };
 const money=value=>Number.isFinite(Number(value))?Math.max(0,Number(value)):0;
+const iso=value=>{
+  const date=value?.toDate?value.toDate():new Date(String(value||''));
+  return Number.isFinite(date.getTime())?date.toISOString():'';
+};
+async function mapLimit(items,limit,mapper){
+  const out=new Array(items.length);
+  let cursor=0;
+  await Promise.all(Array.from({length:Math.min(limit,items.length)},async()=>{
+    while(true){
+      const index=cursor++;
+      if(index>=items.length)return;
+      out[index]=await mapper(items[index],index);
+    }
+  }));
+  return out;
+}
 
 export default async function handler(req,res){
   res.setHeader('Cache-Control','no-store');
@@ -44,19 +60,31 @@ export default async function handler(req,res){
       };
       const ledger=ledgerSnap.docs.map(doc=>({id:doc.id,...doc.data()}))
         .sort((a,b)=>Date.parse(String(b.createdAt||''))-Date.parse(String(a.createdAt||''))).slice(0,300);
-      const foundingById=new Map(foundingSnap.docs.map(doc=>[doc.id,doc.data()?.foundingCoachFreeUntil||'']));
+      const foundingById=new Map(foundingSnap.docs.map(doc=>[doc.id,iso(doc.data()?.foundingCoachFreeUntil)]));
       const financeBySubject=new Map();
       for(const row of ledger){
-        const key=businessSubscriptionId(String(row.subjectType||''),String(row.subjectId||''));
+        let key='';
+        try{key=businessSubscriptionId(String(row.subjectType||''),String(row.subjectId||''));}catch{continue;}
         const current=financeBySubject.get(key)||{paidRub:0,promotionRub:0};
         if(row.eventType==='payment')current.paidRub+=money(row.amountRub);
         if(row.eventType==='promotion_payment')current.promotionRub+=money(row.amountRub);
         financeBySubject.set(key,current);
       }
-      const items=(await Promise.all(snap.docs.map(async doc=>{
-        const raw=doc.data()||{};
+      const source=snap.docs.map(doc=>({id:doc.id,raw:doc.data()||{}}));
+      const known=new Set(source.map(row=>row.id));
+      for(const doc of trainerSnap.docs){
+        const id=businessSubscriptionId('trainer',doc.id);
+        if(known.has(id))continue;
+        source.push({id,raw:{
+          subjectType:'trainer',subjectId:doc.id,subjectLabel:clean(doc.data()?.name,160)||'Тренер',ownerUserId:doc.id
+        }});
+        known.add(id);
+      }
+      const items=(await mapLimit(source,8,async row=>{
+        const raw=row.raw||{};
         if(!['trainer','venue','massage'].includes(raw.subjectType))return null;
-        const key=businessSubscriptionId(raw.subjectType,raw.subjectId);
+        let key='';
+        try{key=businessSubscriptionId(raw.subjectType,raw.subjectId);}catch{return null;}
         const freeUntil=raw.subjectType==='trainer'?foundingById.get(raw.subjectId)||'':'';
         let metrics={total30:{views:0,clicks:0,leads:0},total7:{views:0,clicks:0,leads:0},conversion30:0,clickRate30:0};
         try{
@@ -64,12 +92,12 @@ export default async function handler(req,res){
           metrics=summarizeBusinessMetrics(series);
         }catch{/* analytics must not make the admin economy unavailable */}
         return {
-          id:doc.id,...publicBusinessSubscription(raw,freeUntil),
+          id:row.id,...publicBusinessSubscription(raw,freeUntil),
           foundingCoachFreeUntil:freeUntil,
           metrics,
           finance:financeBySubject.get(key)||{paidRub:0,promotionRub:0}
         };
-      }))).filter(Boolean).sort((a,b)=>(a.subjectLabel||a.subjectId).localeCompare(b.subjectLabel||b.subjectId,'ru'));
+      })).filter(Boolean).sort((a,b)=>(a.subjectLabel||a.subjectId).localeCompare(b.subjectLabel||b.subjectId,'ru'));
       return res.json({config,items,catalog,ledger});
     }
 
