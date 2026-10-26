@@ -763,11 +763,16 @@ export async function toggleLikeProfile(targetUserId: string): Promise<{ isLiked
 
 // 5. createPost
 export async function createPost(
-  content: string, sportTag: string, mediaUrl?: string, mediaType: 'image' | 'video' = 'image', publisher?: UserProfile
+  content: string, sportTag: string, mediaUrl?: string, mediaType: 'image' | 'video' = 'image',
+  publisher?: UserProfile, publicConsentConfirmed = false
 ): Promise<FeedPost | null> {
   if (!publisher && !getOfflineCache()?.currentUser) return null;
   try {
-    const result = await callServer<{ post: FeedPost }>('/api/feed-create', { content, sportTag, mediaUrl, mediaType });
+    const result = await callServer<{ post: FeedPost }>('/api/feed-create', {
+      content,sportTag,mediaUrl,mediaType,
+      publicConsentConfirmed,
+      publicConsentVersion:'SB78-FEED-2026-10-26'
+    });
     const cached = getOfflineCache(); if (cached) { cached.feedPosts = [result.post, ...cached.feedPosts.filter(p => p.id !== result.post.id)]; saveOfflineCache(cached); }
     return result.post;
   } catch { return null; }
