@@ -32,7 +32,10 @@ export default async function handler(req,res){
         id:item.id,name:item.name,partnerLabel:item.partnerLabel||'Партнёр SportBuddy78',offerTitle:item.offerTitle,
         description:item.description,promoCode:item.promoCode||'',ctaLabel:item.ctaLabel||'Подробнее',ctaUrl:item.ctaUrl||'',
         logoUrl:item.logoUrl||'',coverUrl:item.coverUrl||'',mediaUrl:item.mediaUrl||'',mediaType:item.mediaType||'none',
-        startAt:item.startAt||'',endAt:item.endAt||'',priority:Number(item.priority||0)
+        startAt:item.startAt||'',endAt:item.endAt||'',priority:Number(item.priority||0),
+        isAdvertising:item.isAdvertising!==false,
+        advertiserName:item.advertiserName||'',advertiserInn:item.advertiserInn||'',
+        erid:item.erid||'',ordName:item.ordName||''
       }));
     return res.json({visible:true,partners});
   }catch(error){
