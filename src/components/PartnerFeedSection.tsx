@@ -70,6 +70,10 @@ export function PartnerFeedSection(){
         </div>
 
         <div className="p-3.5">
+          {item.isAdvertising&&<div className="mb-2 rounded-lg border border-amber-500/25 bg-amber-500/10 px-2.5 py-2 text-[9px] leading-relaxed text-amber-100">
+            <b>Реклама</b>{item.advertiserName?` · ${item.advertiserName}`:''}
+            {item.erid&&<span className="block mt-0.5 font-mono">erid: {item.erid}</span>}
+          </div>}
           <h3 className="text-sm font-black leading-snug text-white">{item.offerTitle}</h3>
           <p className="mt-1.5 line-clamp-3 text-[11px] leading-relaxed text-slate-400">{item.description}</p>
           {item.promoCode&&<div className="mt-3 flex items-center gap-2 rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2">
