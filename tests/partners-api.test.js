@@ -21,7 +21,7 @@ function fixture(initial={}){
  const request=async(handler,body={},token='valid')=>{const r={code:200,status(n){this.code=n;return this},json(v){this.body=v;return this},setHeader(k,v){this[k]=v}};await handler({method:handler===feed?'GET':'POST',body,headers:{authorization:token?'Bearer '+token:''}},r);return r};
  return {rows,request,reads:()=>partnerReads};
 }
-const draft={name:'Тестовый партнёр',offerTitle:'Предложение',description:'Описание',isActive:true,isAdvertising:false};
+const draft={name:'Тестовый партнёр',offerTitle:'Предложение',description:'Описание',isActive:true,isAdvertising:false,adExemptionReason:'Информационная карточка без продвижения объекта рекламы'};
 const session={expiresAt:{toMillis:()=>Date.now()+60000},email:'admin@example.invalid'};
 test('partner admin requires a live OTP session before all writes',async()=>{
  const f=fixture({'adminSessions/expired':{expiresAt:{toMillis:()=>0}}});
