@@ -7,6 +7,7 @@ import {
   publicBusinessSubscription,resolveBusinessSubject
 } from '../server/business-billing.js';
 import {loadBusinessMetricSeries,summarizeBusinessMetrics} from '../server/business-insights.js';
+import {publicBusinessLegalProfile} from '../server/business-legal.js';
 
 if(!getApps().length){
   const raw=process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
@@ -25,6 +26,25 @@ export default async function handler(req,res){
     const db=getFirestore();
     const {profile:user}=await requireActiveUser(db,uid);
     const config=await getBillingConfig(db);
+    const [legalSnap,contractsSnap]=await Promise.all([
+      db.collection('businessLegalProfiles').doc(uid).get(),
+      db.collection('businessContracts').where('ownerUserId','==',uid).limit(100).get()
+    ]);
+    const legalProfile=publicBusinessLegalProfile(legalSnap.exists?legalSnap.data()||{}:{
+      entityType:'',legalName:String(user?.name||'').trim(),inn:'',ogrn:'',address:'',
+      email:String(user?.email||'').trim(),phone:'',representative:'',basis:''
+    });
+    const contracts=contractsSnap.docs.map(doc=>{
+      const value=doc.data()||{};
+      return {
+        id:doc.id,contractNumber:String(value.contractNumber||''),
+        product:String(value.product||''),subjectType:String(value.subjectType||''),
+        subjectId:String(value.subjectId||''),subjectLabel:String(value.subjectLabel||''),
+        amountRub:money(value.amountRub),currency:String(value.currency||'RUB'),
+        createdAt:String(value.createdAt||''),serviceStart:String(value.serviceStart||''),
+        serviceUntil:String(value.serviceUntil||''),paymentId:String(value.paymentId||'')
+      };
+    }).sort((a,b)=>Date.parse(b.createdAt||'')-Date.parse(a.createdAt||''));
     const subjects=[];
     const seen=new Set();
 
@@ -72,7 +92,7 @@ export default async function handler(req,res){
         enabled:config.enabled,commercialLaunchAt:config.commercialLaunchAt,billingOpen:billingIsOpen(config),
         plans:config.plans,promotions:config.promotions||{}
       },
-      subjects,ledger,finance
+      subjects,ledger,finance,legalProfile,contracts
     });
   }catch(error){
     const status=Number(error?.status||(error?.code?.startsWith?.('auth/')?401:500));
