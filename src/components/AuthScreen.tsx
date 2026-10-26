@@ -1,4 +1,7 @@
 import { InstallApp } from './InstallApp';
+import { Modal } from './Modal';
+import { LegalSection } from './LegalSection';
+import { recordRegistrationLegalAcceptance } from '../services/legalAcceptance';
 import { nativeVkAuthorizeUrl, exchangeNativeVkCallback } from '../services/nativeVk';
 import { beginVkRedirect, consumeVkRedirect, cleanVkCallback } from '../services/vkRedirect';
 import { isBetaActive } from '../lib/release';
@@ -12,7 +15,7 @@ import {
 import type { AuthAccount } from '../lib/types';
 import {
   loginWithVK, TRIAL_DAYS,
-  registerAccount, loginWithPassword, requestPasswordRecovery
+  registerAccount, loginWithPassword, requestPasswordRecovery, logout as clearLocalAuthSession
 } from '../services/auth';
 import {
   getHighQualityVKAvatar,
@@ -84,12 +87,15 @@ export function AuthScreen({ onAuthenticated, initialNotice = '', onBrowse }: Pr
   const [showPassword, setShowPassword] = useState(false);
   const [emailBusy, setEmailBusy] = useState(false);
   const [recoverySent, setRecoverySent] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [personalDataAccepted, setPersonalDataAccepted] = useState(false);
+  const [legalOpen, setLegalOpen] = useState(false);
   // Gender is chosen once at registration and locked afterwards.
   const [regGender, setRegGender] = useState<'male' | 'female' | null>(null);
 
-
   const oAuthContainerRef = useRef<HTMLDivElement>(null);
-
+  const termsAcceptedRef = useRef(false);
+  const personalDataAcceptedRef = useRef(false);
   const vkInFlight = useRef(false);
 
   // Shared tail of the VK ID flow: exchange code → profile → local account.
@@ -126,6 +132,21 @@ export function AuthScreen({ onAuthenticated, initialNotice = '', onBrowse }: Pr
       if (!result.ok || !result.account) {
         setError(result.error || 'Не удалось войти. Попробуйте позже.');
         return;
+      }
+
+      if (result.isNewAccount) {
+        if (!termsAcceptedRef.current || !personalDataAcceptedRef.current) {
+          clearLocalAuthSession();
+          setError('Для создания нового аккаунта сначала отдельно примите Пользовательское соглашение и Согласие на обработку персональных данных.');
+          return;
+        }
+        try {
+          await recordRegistrationLegalAcceptance('vk');
+        } catch (consentError) {
+          clearLocalAuthSession();
+          setError(consentError instanceof Error ? consentError.message : 'Не удалось зафиксировать юридические согласия.');
+          return;
+        }
       }
 
       onAuthenticated(result.account, result.isNewAccount ?? false, getHighQualityVKAvatar((u.avatar as string) || ''));
@@ -296,6 +317,14 @@ export function AuthScreen({ onAuthenticated, initialNotice = '', onBrowse }: Pr
         setError('Выберите пол — он определяет подбор напарников и не меняется после регистрации');
         return;
       }
+      if (isRegister && !termsAccepted) {
+        setError('Отдельно примите Пользовательское соглашение.');
+        return;
+      }
+      if (isRegister && !personalDataAccepted) {
+        setError('Отдельно предоставьте Согласие на обработку персональных данных.');
+        return;
+      }
       const result = isRegister
         ? await registerAccount(name, email, password, regGender ?? undefined)
         : await loginWithPassword(email, password);
@@ -303,6 +332,16 @@ export function AuthScreen({ onAuthenticated, initialNotice = '', onBrowse }: Pr
       if (!result.ok || !result.account) {
         setError(result.error || 'Ошибка входа');
         return;
+      }
+      if (isRegister && result.isNewAccount) {
+        try {
+          await recordRegistrationLegalAcceptance('email');
+        } catch (consentError) {
+          clearLocalAuthSession();
+          setIsRegister(false);
+          setError((consentError instanceof Error ? consentError.message : 'Не удалось зафиксировать юридические согласия.') + ' Аккаунт уже создан — войдите через вкладку «Уже есть аккаунт» после восстановления соединения.');
+          return;
+        }
       }
       onAuthenticated(result.account, result.isNewAccount ?? false);
     } finally {
@@ -571,6 +610,39 @@ export function AuthScreen({ onAuthenticated, initialNotice = '', onBrowse }: Pr
                 </p>
               )}
 
+              {isRegister && (
+                <div className="space-y-2 rounded-2xl border border-slate-800 bg-slate-950/55 p-3">
+                  <label className="flex cursor-pointer items-start gap-2.5">
+                    <input
+                      type="checkbox"
+                      checked={termsAccepted}
+                      onChange={(e) => { setTermsAccepted(e.target.checked); termsAcceptedRef.current = e.target.checked; }}
+                      className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-400"
+                    />
+                    <span className="text-[10px] leading-relaxed text-slate-300">
+                      Я отдельно принимаю <b className="text-white">Пользовательское соглашение SportBuddy78</b>.
+                    </span>
+                  </label>
+                  <label className="flex cursor-pointer items-start gap-2.5">
+                    <input
+                      type="checkbox"
+                      checked={personalDataAccepted}
+                      onChange={(e) => { setPersonalDataAccepted(e.target.checked); personalDataAcceptedRef.current = e.target.checked; }}
+                      className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-400"
+                    />
+                    <span className="text-[10px] leading-relaxed text-slate-300">
+                      Я отдельно предоставляю <b className="text-white">Согласие на обработку персональных данных</b> в указанном в документе объёме.
+                    </span>
+                  </label>
+                  <button type="button" onClick={() => setLegalOpen(true)} className="text-[10px] font-bold text-emerald-300 underline underline-offset-2">
+                    Открыть правовые документы до регистрации
+                  </button>
+                  <p className="text-[9px] leading-relaxed text-slate-600">
+                    Согласие на публичное распространение данных сюда не включено и оформляется отдельно при использовании публичных функций.
+                  </p>
+                </div>
+              )}
+
               <button
                 type="submit"
                 disabled={emailBusy}
@@ -653,11 +725,14 @@ export function AuthScreen({ onAuthenticated, initialNotice = '', onBrowse }: Pr
           </div>
 
           <p className="mt-5 text-center text-[10px] leading-relaxed text-slate-600">
-            Входя в приложение, вы соглашаетесь с условиями SportBuddy78
-            и политикой конфиденциальности.
+            Для нового аккаунта юридические согласия подтверждаются отдельными действиями и фиксируются сервером.
+            <button type="button" onClick={() => setLegalOpen(true)} className="ml-1 text-emerald-300 underline">Правовые документы</button>
           </p>
         </motion.section>
       </main>
+      <Modal isOpen={legalOpen} onClose={() => setLegalOpen(false)} title="Правовые документы SportBuddy78" subtitle="Редакция от 26.10.2026" maxWidth="xl">
+        <LegalSection initialView="documents" />
+      </Modal>
     </div>
   );
 }
