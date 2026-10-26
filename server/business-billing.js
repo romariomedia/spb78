@@ -103,6 +103,7 @@ export function effectiveBusinessUntil(subscription={},extraUntil=''){
 }
 export function publicBusinessSubscription(subscription={},extraUntil='',now=Date.now()){
   const effective=effectiveBusinessUntil(subscription,extraUntil);
+  const adminPaused=subscription.adminPaused===true;
   return {
     subjectType:clean(subscription.subjectType,30),
     subjectId:clean(subscription.subjectId,180),
@@ -112,8 +113,11 @@ export function publicBusinessSubscription(subscription={},extraUntil='',now=Dat
     paidUntil:iso(subscription.paidUntil),
     complimentaryUntil:iso(subscription.complimentaryUntil),
     promotedUntil:iso(subscription.promotedUntil),
-    isPromoted:millis(subscription.promotedUntil)>now,
-    status:effective>now?'active':'inactive',
+    isPromoted:!adminPaused&&millis(subscription.promotedUntil)>now,
+    adminPaused,
+    adminPausedAt:iso(subscription.adminPausedAt),
+    adminPausedReason:clean(subscription.adminPausedReason,300),
+    status:adminPaused?'paused':effective>now?'active':'inactive',
     lastPaymentAt:iso(subscription.lastPaymentAt),
     lastGrantedAt:iso(subscription.lastGrantedAt),
     lastPromotionPaymentAt:iso(subscription.lastPromotionPaymentAt)
@@ -145,10 +149,7 @@ export async function businessListingStates(db,subjectType,subjectIds,config=nul
   const effectiveConfig=config||await getBillingConfig(db);
   const ids=[...new Set((subjectIds||[]).filter(validBusinessSubjectId))];
   const result=new Map();
-  if(!billingIsOpen(effectiveConfig,now)){
-    for(const id of ids)result.set(id,{allowed:true,isPromoted:false,promotedUntil:''});
-    return result;
-  }
+  const commercialOpen=billingIsOpen(effectiveConfig,now);
   const subscriptions=await db.collection('businessSubscriptions').where('subjectType','==',subjectType).limit(1000).get();
   const byId=new Map(subscriptions.docs.map(doc=>[String(doc.data()?.subjectId||''),doc.data()||{}]));
   const founding=new Map();
@@ -159,8 +160,11 @@ export async function businessListingStates(db,subjectType,subjectIds,config=nul
   for(const id of ids){
     const subscription=byId.get(id);
     const freeUntil=founding.get(id)||'';
+    const paused=subscription?.adminPaused===true;
     let allowed;
-    if(!subscription)allowed=subjectType!=='trainer'||millis(freeUntil)>now;
+    if(paused)allowed=false;
+    else if(!commercialOpen)allowed=true;
+    else if(!subscription)allowed=subjectType!=='trainer'||millis(freeUntil)>now;
     else if(subjectType!=='trainer'&&!clean(subscription.ownerUserId,180))allowed=true;
     else allowed=effectiveBusinessUntil(subscription,freeUntil)>now;
     const promotedUntil=subscription?iso(subscription.promotedUntil):'';
