@@ -18,13 +18,25 @@ export default async function handler(req,res){
     if(!token)return res.status(401).json({error:'Требуется авторизация'});
     const decoded=await getAuth().verifyIdToken(token,true);
     const uid=decoded.uid;
+    const db=getFirestore();
+    const operation=String(req.body?.operation||'accept');
+
+    if(operation==='status'){
+      const docs=await Promise.all(ALLOWED.map(kind=>db.collection('legalAcceptances').doc(`${uid}:${kind}:${USER_LEGAL_VERSION}`).get()));
+      const accepted=ALLOWED.filter((_,index)=>docs[index].exists);
+      const missing=ALLOWED.filter(kind=>!accepted.includes(kind));
+      return res.json({version:USER_LEGAL_VERSION,accepted,missing,complete:missing.length===0});
+    }
+
+    if(operation!=='accept')return res.status(400).json({error:'Unknown operation'});
+
     const acceptances=Array.isArray(req.body?.acceptances)?req.body.acceptances:[];
     const kinds=[...new Set(acceptances.map(String).filter(value=>ALLOWED.includes(value)))];
     if(kinds.length===0)return res.status(400).json({error:'Не указано согласие'});
     if(String(req.body?.version||'')!==USER_LEGAL_VERSION)
       return res.status(409).json({error:'Документы обновились. Ознакомьтесь с актуальной редакцией.'});
 
-    const db=getFirestore(),now=new Date().toISOString();
+    const now=new Date().toISOString();
     await db.runTransaction(async tx=>{
       for(const kind of kinds){
         const id=`${uid}:${kind}:${USER_LEGAL_VERSION}`;
