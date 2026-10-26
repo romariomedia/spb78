@@ -67,6 +67,7 @@ import { createFreshProfile } from './services/reset';
 import { setJoinedTraining, clearJoinedTrainings } from './services/memberships';
 import { syncSubscriptionPlan, isPremiumActive } from './services/promo';
 import { AuthScreen } from './components/AuthScreen';
+import { LegalReacceptanceGate } from './components/LegalReacceptanceGate';
 import { SuccessScreen } from './components/SuccessScreen';
 import { PromoSection } from './components/PromoSection';
 const ProfileEditor = lazy(() => import('./components/ProfileEditor').then(module => ({ default: module.ProfileEditor })));
@@ -4715,6 +4716,8 @@ export default function App(): JSX.Element {
       >
         {rewardModal?.content}
       </Modal>
+
+      <LegalReacceptanceGate active={Boolean(account && currentUser && !isLoading)} />
     </div>
   );
 }
