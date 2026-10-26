@@ -60,7 +60,7 @@ export async function recordBusinessMetric(db,input={}){
       subjectType:event.subjectType,subjectId:event.subjectId,eventType:event.eventType,
       target:event.target,actorIdHash:createHash('sha256').update(actorId).digest('hex'),
       day,createdAt:new Date().toISOString(),
-      expiresAt:new Date(Date.now()+40*86400000).toISOString()
+      expiresAt:new Date(Date.now()+40*86400000)
     });
     return {counted:true};
   });
