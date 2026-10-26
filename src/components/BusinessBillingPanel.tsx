@@ -1,4 +1,4 @@
-import {useEffect,useMemo,useState} from 'react';
+import {useEffect,useMemo,useState,type ReactNode} from 'react';
 import {
   BadgeRussianRuble,BarChart3,CalendarClock,Crown,Eye,MousePointerClick,
   RefreshCw,Rocket,TrendingUp,UserRoundCheck,WalletCards
@@ -17,7 +17,7 @@ const typeLabel=(item:BusinessDashboardSubject)=>item.subjectType==='trainer'?'�
 const money=(value:number)=>Number(value||0).toLocaleString('ru-RU')+' ₽';
 const eventLabel=(value:string)=>value==='payment'?'Оплата размещения':value==='promotion_payment'?'Продвижение':value==='admin_grant'?'Бесплатное продление':value==='owner_assigned'?'Привязка владельца':value==='owner_unlinked'?'Отвязка владельца':value;
 
-function Metric({label,value,sub,icon}:{label:string;value:string|number;sub:string;icon:React.ReactNode}){
+function Metric({label,value,sub,icon}:{label:string;value:string|number;sub:string;icon:ReactNode}){
   return <div className="rounded-2xl border border-slate-800 bg-slate-950 p-3">
     <div className="flex items-center gap-2 text-slate-500">{icon}<span className="text-[10px] font-black uppercase tracking-wider">{label}</span></div>
     <p className="mt-2 text-2xl font-black text-white">{value}</p>
