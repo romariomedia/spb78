@@ -11,10 +11,11 @@ interface LegalSectionProps {
   onReport?: () => void;
   onAdminTrigger?: () => void;
   initialView?: LegalView;
+  initialDocumentId?: string;
 }
 
-export const LegalSection: React.FC<LegalSectionProps> = ({ onReport, onAdminTrigger, initialView = 'safety' }) => {
-  const [openId, setOpenId] = useState<string | null>(null);
+export const LegalSection: React.FC<LegalSectionProps> = ({ onReport, onAdminTrigger, initialView = 'safety', initialDocumentId }) => {
+  const [openId, setOpenId] = useState<string | null>(initialDocumentId || null);
   // Safety rules open first — they are the most important for users
   const [view, setView] = useState<LegalView>(initialView);
 
