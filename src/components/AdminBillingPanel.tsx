@@ -104,17 +104,6 @@ export function AdminBillingPanel(){
       </div>
 
       <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4">
-        <div className="mb-3 flex items-center justify-between"><p className="text-sm font-black text-white">Коммерческие карточки</p><span className="text-xs text-slate-500">{state.items.length}</span></div>
-        <div className="space-y-2 max-h-[520px] overflow-y-auto">
-          {state.items.length===0&&<p className="rounded-xl border border-dashed border-slate-800 p-4 text-center text-xs text-slate-500">Пока нет привязанных коммерческих услуг.</p>}
-          {state.items.map(item=><article key={item.id||item.subjectType+item.subjectId} className="rounded-xl border border-slate-800 bg-slate-900 p-3">
-            <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="truncate text-xs font-black text-white">{item.subjectLabel||item.subjectId}</p><p className="mt-1 text-[10px] text-slate-500">{item.subjectType} · {item.subjectId}</p></div><span className={`rounded-full px-2 py-1 text-[10px] font-black ${item.status==='active'?'bg-emerald-500/15 text-emerald-300':'bg-slate-800 text-slate-500'}`}>{item.status==='active'?'ACTIVE':'INACTIVE'}</span></div>
-            <div className="mt-2 grid gap-1 text-[11px] text-slate-400 sm:grid-cols-2"><p>Владелец: <b className="text-slate-200">{item.ownerUserId||'не привязан'}</b></p><p>Активно до: <b className="text-slate-200">{formatDate(item.activeUntil)}</b></p><p>Оплачено до: {formatDate(item.paidUntil)}</p><p>Бесплатно до: {formatDate(item.complimentaryUntil)}</p></div>
-          </article>)}
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4">
         <div className="mb-3 flex items-center justify-between">
           <p className="text-sm font-black text-white">Журнал экономики</p>
           <span className="text-xs text-slate-500">последние {state.ledger?.length||0}</span>
