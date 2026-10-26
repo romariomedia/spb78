@@ -1,6 +1,6 @@
 import {districtLabel} from '../shared/districts.js';
 import {LEISURE_CATALOG} from '../shared/leisure-destinations.js';
-import {COMMERCIAL_LAUNCH_AT,getBillingConfig,hasBusinessAccess} from './business-billing.js';
+import {COMMERCIAL_LAUNCH_AT,businessListingStates,getBillingConfig} from './business-billing.js';
 const text=(v,n=300)=>typeof v==='string'?v.slice(0,n):'';
 const image=v=>{const s=text(v,1800);if(/^\/(?!\/)[a-zA-Z0-9_./-]+$/.test(s))return s;try{const u=new URL(s);return u.protocol==='https:'&&!u.username&&!u.password?s:'';}catch{return '';}};
 export const GUEST_SECTIONS=['trainings','events','leisure','massage','partners','venues'];
@@ -18,7 +18,7 @@ export function guestItem(section,id,v,now=Date.now()){
  }
  if(section==='massage'){
   if(v.isPublished!==true)return null;
-  return {id,title:text(v.name,100),description:text(v.description,5000),services:text(v.services,2000),price:text(v.priceText,1500),address:text(v.address),label:v.providerType==='private'?'Частный специалист':'Массажный салон',photo:image(v.media?.find(m=>m.type==='image')?.url)};
+  return {id,title:text(v.name,100),description:text(v.description,5000),services:text(v.services,2000),price:text(v.priceText,1500),address:text(v.address),label:v.providerType==='private'?'Частный специалист':'Массажный салон',photo:image(v.media?.find(m=>m.type==='image')?.url),isPromoted:v.isPromoted===true};
  }
  if(section==='partners'){
   if(v.isActive!==true||(v.startAt&&(!Number.isFinite(Date.parse(v.startAt))||Date.parse(v.startAt)>now))||(v.endAt&&(!Number.isFinite(Date.parse(v.endAt))||Date.parse(v.endAt)<=now)))return null;
@@ -26,7 +26,7 @@ export function guestItem(section,id,v,now=Date.now()){
  }
  if(section==='leisure')return {id,title:text(v.name,160),description:text(v.description,2500),photo:image(v.photo),label:text(v.format||'Активный отдых',100),address:text(v.address||v.region),price:text(v.priceText,500),services:text(v.plan,1800)};
  if(section==='venues'){
-  const result={id};for(const key of ['name','networkId','sports','address','coordinates','hours','priceText','photos','status','isPublished','checkedAt'])if(v[key]!==undefined)result[key]=v[key];return result;
+  const result={id};for(const key of ['name','networkId','sports','address','coordinates','hours','priceText','photos','status','isPublished','checkedAt','isPromoted'])if(v[key]!==undefined)result[key]=v[key];return result;
  }
  return null;
 }
@@ -46,11 +46,12 @@ export async function readGuestCatalog(db,section,now=Date.now()){
  if((section==='massage'||section==='venues')&&now>=Date.parse(COMMERCIAL_LAUNCH_AT)){
   const billingConfig=await getBillingConfig(db);
   const subjectType=section==='massage'?'massage':'venue';
-  rows=(await Promise.all(rows.map(async row=>{
-   const allowed=await hasBusinessAccess(db,subjectType,row.id,billingConfig,now);
-   if(allowed)return row;
-   return section==='venues'?{id:row.id,value:{isPublished:false,commercialInactive:true}}:null;
-  }))).filter(Boolean);
+  const states=await businessListingStates(db,subjectType,rows.map(row=>row.id),billingConfig,now);
+  rows=rows.map(row=>{
+   const state=states.get(row.id);
+   if(state?.allowed!==true)return section==='venues'?{id:row.id,value:{isPublished:false,commercialInactive:true}}:null;
+   return state?.isPromoted?{...row,value:{...row.value,isPromoted:true}}:row;
+  }).filter(Boolean).sort((a,b)=>Number(b.value?.isPromoted===true)-Number(a.value?.isPromoted===true));
  }
  if(section==='leisure'){
   const map=new Map(LEISURE_CATALOG.map(v=>[v.id,{id:v.id,value:v}]));for(const row of rows)map.set(row.id,row);rows=[...map.values()];
