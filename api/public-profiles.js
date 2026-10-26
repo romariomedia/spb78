@@ -28,7 +28,7 @@ export default async function handler(req,res){
       const page=await publicProfileCache(db).get('ids:'+JSON.stringify(unique),async()=>{
         const docs=await Promise.all(unique.map(async id=>({id,snapshot:await db.collection('users').doc(id).get()})));
         return {profiles:docs.filter(({snapshot:s})=>s.exists && s.data().isSuspended!==true && s.data().isDemo!==true)
-          .map(({id,snapshot:s})=>publicProfile(id,s.data())),nextCursor:null};
+          .map(({id,snapshot:s})=>publicProfile(id,s.data())).filter(Boolean),nextCursor:null};
       });
       return res.status(200).json(page);
     }
@@ -41,7 +41,7 @@ export default async function handler(req,res){
       if(cursor)query=query.startAfter(cursor);
       const snap=await query.get();
       const profiles=snap.docs.filter(doc=>doc.data().isSuspended!==true && doc.data().isDemo!==true)
-        .map(doc=>publicProfile(doc.id,doc.data()));
+        .map(doc=>publicProfile(doc.id,doc.data())).filter(Boolean);
       return {profiles,nextCursor:snap.docs.length===pageSize?snap.docs.at(-1).id:null};
     });
     return res.status(200).json(page);
