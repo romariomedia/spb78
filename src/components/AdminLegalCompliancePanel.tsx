@@ -3,6 +3,9 @@ import {AlertTriangle,CheckCircle2,RefreshCw,Save,ShieldCheck,XCircle} from 'luc
 import {
   AdminLegalCompliance,LegalCheckKey,loadAdminLegalCompliance,saveAdminLegalCompliance
 } from '../services/adminLegalCompliance';
+import {
+  AdminPrivacyRequest,AdminPrivacyRequestStatus,loadAdminPrivacyRequests,updateAdminPrivacyRequest
+} from '../services/adminPrivacyRequests';
 
 const CHECKS:Array<{key:LegalCheckKey;title:string;description:string;evidence?:keyof AdminLegalCompliance['state']['evidence']}>= [
   {key:'pdLocalizationConfirmed',title:'Локализация персональных данных',description:'Документально подтверждено, где выполняются первичная запись, систематизация, накопление, хранение, уточнение и извлечение ПД граждан РФ.',evidence:'pdLocalization'},
@@ -33,10 +36,15 @@ export function AdminLegalCompliancePanel(){
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
   const [notice,setNotice]=useState('');
+  const [privacyRequests,setPrivacyRequests]=useState<AdminPrivacyRequest[]>([]);
+  const [privacyBusy,setPrivacyBusy]=useState(false);
 
   const load=async()=>{
     setBusy(true);setError('');
-    try{setData(await loadAdminLegalCompliance());}
+    try{
+      const [legal,requests]=await Promise.all([loadAdminLegalCompliance(),loadAdminPrivacyRequests()]);
+      setData(legal);setPrivacyRequests(requests.requests);
+    }
     catch(e){setError(e instanceof Error?e.message:'Не удалось загрузить юридическую готовность.');}
     finally{setBusy(false);}
   };
@@ -55,7 +63,17 @@ export function AdminLegalCompliancePanel(){
     setData({...data,state:{...data.state,evidence:{...data.state.evidence,[key]:value}}});
   };
 
-  const save=async()=>{
+  const updatePrivacy=async(item:AdminPrivacyRequest,status:AdminPrivacyRequestStatus,responseNote:string)=>{
+    setPrivacyBusy(true);setError('');setNotice('');
+    try{
+      const result=await updateAdminPrivacyRequest(item.id,status,responseNote);
+      setPrivacyRequests(old=>old.map(row=>row.id===item.id?result.request:row));
+      setNotice('Статус запроса субъекта ПД обновлён и записан в административный аудит.');
+    }catch(e){setError(e instanceof Error?e.message:'Не удалось обновить запрос субъекта ПД.');}
+    finally{setPrivacyBusy(false);}
+  };
+
+    const save=async()=>{
     if(!data)return;
     setBusy(true);setError('');setNotice('');
     try{
@@ -161,6 +179,37 @@ export function AdminLegalCompliancePanel(){
       </button>
 
       {data.state.updatedAt&&<p className="text-center text-[9px] text-slate-600">Последнее изменение: {new Date(data.state.updatedAt).toLocaleString('ru-RU')} · {data.state.updatedBy||'admin'}</p>}
+
+      <div className="rounded-2xl border border-violet-400/20 bg-slate-950 p-4 space-y-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div><p className="text-sm font-black text-white">Запросы субъектов персональных данных</p><p className="mt-1 text-[10px] text-slate-500">Статус и ответ фиксируются в административном аудите. Завершайте запрос только после фактического исполнения.</p></div>
+          <span className="rounded-full bg-violet-500/15 px-2.5 py-1 text-[10px] font-black text-violet-200">{privacyRequests.filter(x=>!['completed','rejected'].includes(x.status)).length} открытых</span>
+        </div>
+        {privacyRequests.length===0?<p className="rounded-xl border border-slate-800 bg-slate-900 p-4 text-xs text-slate-500">Запросов пока нет.</p>:
+          <div className="space-y-2">{privacyRequests.slice(0,50).map(item=><PrivacyAdminRow key={item.id} item={item} busy={privacyBusy} onSave={updatePrivacy}/>)}</div>}
+      </div>
     </>}
   </section>;
+}
+
+
+function PrivacyAdminRow({item,busy,onSave}:{item:AdminPrivacyRequest;busy:boolean;onSave:(item:AdminPrivacyRequest,status:AdminPrivacyRequestStatus,note:string)=>void}){
+  const [status,setStatus]=useState<AdminPrivacyRequestStatus>(item.status);
+  const [note,setNote]=useState(item.responseNote||'');
+  useEffect(()=>{setStatus(item.status);setNote(item.responseNote||'');},[item.id,item.status,item.responseNote]);
+  return <div className="rounded-xl border border-slate-800 bg-slate-900 p-3">
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-black text-white">{item.type} · {item.contactEmail||item.ownerUserId}</p>
+        <p className="mt-1 text-[9px] text-slate-500">{item.createdAt?new Date(item.createdAt).toLocaleString('ru-RU'):'—'} · UID {item.ownerUserId}</p>
+        {item.details&&<p className="mt-2 whitespace-pre-wrap text-[10px] leading-relaxed text-slate-300">{item.details}</p>}
+      </div>
+      <select value={status} onChange={e=>setStatus(e.target.value as AdminPrivacyRequestStatus)} className="rounded-lg border border-slate-700 bg-slate-950 px-2 py-2 text-[10px] text-white">
+        <option value="received">Получен</option><option value="in_review">В работе</option><option value="waiting_user">Ждём пользователя</option><option value="completed">Исполнен</option><option value="rejected">Отклонён / нет основания</option>
+      </select>
+    </div>
+    <textarea rows={2} maxLength={1600} value={note} onChange={e=>setNote(e.target.value)} placeholder="Ответ/результат обработки запроса"
+      className="mt-2 w-full resize-none rounded-lg border border-slate-800 bg-slate-950 p-2 text-[10px] text-slate-200 outline-none focus:border-violet-400"/>
+    <button type="button" disabled={busy} onClick={()=>onSave(item,status,note)} className="mt-2 rounded-lg bg-violet-400 px-3 py-2 text-[10px] font-black text-slate-950 disabled:opacity-40">Сохранить статус</button>
+  </div>;
 }
