@@ -5,6 +5,9 @@ import {
   COMMERCIAL_LAUNCH_AT,DEFAULT_BILLING_CONFIG,addCalendarMonths,billingIsOpen,
   businessListingStates,businessPaymentMatches,businessPromotionPaymentMatches,publicBusinessSubscription,sanitizeBillingConfig
 } from '../server/business-billing.js';
+import {
+  BUSINESS_OFFER_VERSION,buildBusinessContractSnapshot,businessLegalProfileReady,renderBusinessContractRtf
+} from '../server/business-legal.js';
 
 test('business billing stays closed before 2027 even when admin switch is on',()=>{
   const config=sanitizeBillingConfig({enabled:true,plans:DEFAULT_BILLING_CONFIG.plans});
@@ -95,7 +98,11 @@ function fixture(){
       trainer:{label:'Персональный тренер',monthlyRub:500,yearlyRub:5000},
       venue:{label:'Спортивная площадка / студия',monthlyRub:1000,yearlyRub:10000},
       massage:{label:'Массаж / wellness',monthlyRub:1500,yearlyRub:15000}
-    }}]
+    }}],
+    ['businessLegalProfiles/athlete',{
+      entityType:'self_employed',legalName:'Иванов Иван Иванович',inn:'781234567890',ogrn:'',
+      address:'Санкт-Петербург',email:'athlete@example.ru',phone:'',representative:'',basis:''
+    }]
   ]);
   let providerMode='create';
   let remoteValue={
@@ -135,6 +142,8 @@ function fixture(){
     }
   };
   process.env.YOOKASSA_SHOP_ID='shop';process.env.YOOKASSA_SECRET_KEY='secret';delete process.env.YOOKASSA_ALLOW_TEST_PAYMENTS;
+  process.env.YOOKASSA_RECEIPT_MODE='yookassa';process.env.YOOKASSA_VAT_CODE='1';delete process.env.YOOKASSA_TAX_SYSTEM_CODE;
+  process.env.SB_AD_MARKING_READY='true';
   globalThis.fetch=async(url)=>{
     if(providerMode==='create')return {ok:true,json:async()=>({id:'business-payment-1',status:'pending',confirmation:{confirmation_url:'https://yookassa.ru/checkout'}})};
     return {ok:true,json:async()=>structuredClone(remoteValue)};
@@ -149,7 +158,7 @@ function fixture(){
 test('trainer can buy a business month after launch and webhook activates exactly one entitlement',async t=>{
   t.mock.timers.enable({apis:['Date'],now:Date.parse('2027-02-01T12:00:00Z')});
   const f=fixture();
-  const created=await f.request(createPayment,{subjectType:'trainer',subjectId:'athlete',interval:'monthly',requestId:'business-request-123456'});
+  const created=await f.request(createPayment,{subjectType:'trainer',subjectId:'athlete',interval:'monthly',requestId:'business-request-123456',offerAccepted:true,offerVersion:BUSINESS_OFFER_VERSION});
   assert.equal(created.statusCode,200);
   assert.equal(created.body.amount,'500.00');
   assert.equal(f.data.get('payments/business-payment-1').processed,false);
@@ -164,6 +173,9 @@ test('trainer can buy a business month after launch and webhook activates exactl
   assert.equal(sub.activeUntil,'2027-03-01T12:00:00.000Z');
   assert.equal(f.data.get('payments/business-payment-1').processed,true);
   assert.ok(f.data.has('billingLedger/yookassa:business-payment-1'));
+  assert.ok(f.data.has('businessContracts/business-payment-1'));
+  assert.equal(f.data.get('businessContracts/business-payment-1').ownerUserId,'athlete');
+  assert.match(f.data.get('businessContracts/business-payment-1').contractNumber,/^SB78-/);
 
   const second=await f.request(webhook,event);
   assert.equal(second.statusCode,200);
@@ -179,7 +191,7 @@ test('admin-paused business listing cannot create a YooKassa payment',async t=>{
     activeUntil:'2027-04-01T12:00:00.000Z',paidUntil:'2027-04-01T12:00:00.000Z',
     adminPaused:true,adminPausedReason:'moderation'
   });
-  const created=await f.request(createPayment,{subjectType:'trainer',subjectId:'athlete',interval:'monthly',requestId:'paused-payment-123456'});
+  const created=await f.request(createPayment,{subjectType:'trainer',subjectId:'athlete',interval:'monthly',requestId:'paused-payment-123456',offerAccepted:true,offerVersion:BUSINESS_OFFER_VERSION});
   assert.equal(created.statusCode,409);
   assert.match(created.body.error,/приостановлено/i);
   assert.equal([...f.data.keys()].some(key=>key.startsWith('businessPaymentRequests/')),false);
@@ -193,7 +205,7 @@ test('paid promotion activates for seven days exactly once',async t=>{
     activeUntil:'2027-04-01T12:00:00.000Z',paidUntil:'2027-04-01T12:00:00.000Z'
   });
   const created=await f.request(createPayment,{
-    subjectType:'trainer',subjectId:'athlete',purpose:'promotion',interval:'',requestId:'promotion-request-123456'
+    subjectType:'trainer',subjectId:'athlete',purpose:'promotion',interval:'',requestId:'promotion-request-123456',offerAccepted:true,offerVersion:BUSINESS_OFFER_VERSION
   });
   assert.equal(created.statusCode,200);
   assert.equal(created.body.amount,'299.00');
@@ -212,4 +224,85 @@ test('paid promotion activates for seven days exactly once',async t=>{
 
   assert.equal((await f.request(webhook,event)).statusCode,200);
   assert.equal(f.data.get('businessSubscriptions/trainer:athlete').promotedUntil,'2027-02-08T12:00:00.000Z');
+});
+
+
+test('business checkout requires explicit current offer acceptance',async t=>{
+  t.mock.timers.enable({apis:['Date'],now:Date.parse('2027-02-01T12:00:00Z')});
+  const f=fixture();
+  const response=await f.request(createPayment,{
+    subjectType:'trainer',subjectId:'athlete',interval:'monthly',requestId:'missing-offer-123456'
+  });
+  assert.equal(response.statusCode,409);
+  assert.equal(response.body.code,'OFFER_ACCEPTANCE_REQUIRED');
+  assert.equal([...f.data.keys()].some(key=>key.startsWith('payments/')),false);
+});
+
+test('business checkout requires complete legal requisites',async t=>{
+  t.mock.timers.enable({apis:['Date'],now:Date.parse('2027-02-01T12:00:00Z')});
+  const f=fixture();
+  f.data.delete('businessLegalProfiles/athlete');
+  const response=await f.request(createPayment,{
+    subjectType:'trainer',subjectId:'athlete',interval:'monthly',requestId:'missing-legal-123456',
+    offerAccepted:true,offerVersion:BUSINESS_OFFER_VERSION
+  });
+  assert.equal(response.statusCode,409);
+  assert.equal(response.body.code,'LEGAL_PROFILE_REQUIRED');
+});
+
+test('business checkout fails closed when fiscalization is not configured',async t=>{
+  t.mock.timers.enable({apis:['Date'],now:Date.parse('2027-02-01T12:00:00Z')});
+  const f=fixture();
+  delete process.env.YOOKASSA_RECEIPT_MODE;
+  const response=await f.request(createPayment,{
+    subjectType:'trainer',subjectId:'athlete',interval:'monthly',requestId:'missing-fiscal-123456',
+    offerAccepted:true,offerVersion:BUSINESS_OFFER_VERSION
+  });
+  assert.equal(response.statusCode,503);
+  assert.equal(response.body.code,'FISCALIZATION_NOT_CONFIGURED');
+});
+
+test('paid promotion fails closed until ad marking is enabled',async t=>{
+  t.mock.timers.enable({apis:['Date'],now:Date.parse('2027-02-01T12:00:00Z')});
+  const f=fixture();
+  f.data.set('businessSubscriptions/trainer:athlete',{
+    subjectType:'trainer',subjectId:'athlete',subjectLabel:'Coach',ownerUserId:'athlete',
+    activeUntil:'2027-04-01T12:00:00.000Z',paidUntil:'2027-04-01T12:00:00.000Z'
+  });
+  delete process.env.SB_AD_MARKING_READY;
+  const response=await f.request(createPayment,{
+    subjectType:'trainer',subjectId:'athlete',purpose:'promotion',interval:'',requestId:'no-ad-marking-123456',
+    offerAccepted:true,offerVersion:BUSINESS_OFFER_VERSION
+  });
+  assert.equal(response.statusCode,503);
+  assert.equal(response.body.code,'AD_MARKING_NOT_CONFIGURED');
+});
+
+test('legal profile validation and generated contract preserve immutable payment terms',()=>{
+  assert.equal(businessLegalProfileReady({
+    entityType:'ip',legalName:'ИП Петров Петр Петрович',inn:'781234567890',ogrn:'326784700311111',
+    address:'Санкт-Петербург',email:'petrov@example.ru'
+  }),true);
+  const contract=buildBusinessContractSnapshot({
+    payment:{
+      id:'pay-legal-1',paymentId:'pay-legal-1',product:'business_subscription',
+      ownerUserId:'owner-1',subjectType:'trainer',subjectId:'trainer-1',subjectLabel:'Тренер',
+      interval:'monthly',months:1,amount:'500.00',currency:'RUB',
+      offerAcceptedAt:'2027-02-01T12:00:00.000Z',
+      legalProfileSnapshot:{
+        entityType:'self_employed',legalName:'Иванов Иван Иванович',inn:'781234567890',ogrn:'',
+        address:'Санкт-Петербург',email:'ivanov@example.ru'
+      }
+    },
+    serviceStart:'2027-02-01T12:00:00.000Z',
+    serviceUntil:'2027-03-01T12:00:00.000Z',
+    createdAt:new Date('2027-02-01T12:00:00.000Z')
+  });
+  assert.equal(contract.amountRub,500);
+  assert.equal(contract.contractVersion,BUSINESS_OFFER_VERSION);
+  assert.equal(contract.provider.inn,'272199019189');
+  assert.equal(contract.customer.email,'ivanov@example.ru');
+  const rtf=renderBusinessContractRtf(contract);
+  assert.match(rtf,/SB78-/);
+  assert.match(rtf,/40802810300010024999/);
 });
