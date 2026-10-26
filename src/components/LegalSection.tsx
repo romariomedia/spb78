@@ -10,12 +10,13 @@ type LegalView = 'safety' | 'documents';
 interface LegalSectionProps {
   onReport?: () => void;
   onAdminTrigger?: () => void;
+  initialView?: LegalView;
 }
 
-export const LegalSection: React.FC<LegalSectionProps> = ({ onReport, onAdminTrigger }) => {
+export const LegalSection: React.FC<LegalSectionProps> = ({ onReport, onAdminTrigger, initialView = 'safety' }) => {
   const [openId, setOpenId] = useState<string | null>(null);
   // Safety rules open first — they are the most important for users
-  const [view, setView] = useState<LegalView>('safety');
+  const [view, setView] = useState<LegalView>(initialView);
 
   return (
     <div className="space-y-4">
