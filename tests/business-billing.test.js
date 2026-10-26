@@ -142,7 +142,7 @@ function fixture(){
     }
   };
   process.env.YOOKASSA_SHOP_ID='shop';process.env.YOOKASSA_SECRET_KEY='secret';delete process.env.YOOKASSA_ALLOW_TEST_PAYMENTS;
-  process.env.YOOKASSA_RECEIPT_MODE='yookassa';process.env.YOOKASSA_VAT_CODE='1';delete process.env.YOOKASSA_TAX_SYSTEM_CODE;
+  process.env.YOOKASSA_RECEIPT_MODE='yookassa';process.env.YOOKASSA_VAT_CODE='1';process.env.YOOKASSA_PAYMENT_MODE='full_payment';delete process.env.YOOKASSA_TAX_SYSTEM_CODE;
   process.env.SB_LEGAL_COMPLIANCE_READY='true';process.env.SB_AD_MARKING_READY='true';
   globalThis.fetch=async(url)=>{
     if(providerMode==='create')return {ok:true,json:async()=>({id:'business-payment-1',status:'pending',confirmation:{confirmation_url:'https://yookassa.ru/checkout'}})};
