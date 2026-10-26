@@ -31,6 +31,7 @@ export default async function handler(req,res){
 
     const subjectType=clean(req.body?.subjectType,30),subjectId=clean(req.body?.subjectId,180),interval=clean(req.body?.interval,20);
     const subject=await resolveBusinessSubject(db,subjectType,subjectId);
+    if(subjectType==='trainer'&&subject.eligibleForPaidListing!==true)return res.status(409).json({error:'Сначала завершите проверку квалификации персонального тренера.'});
     const config=await getBillingConfig(db);
     if(!billingIsOpen(config))return res.status(409).json({
       code:'COMMERCIAL_NOT_LAUNCHED',
