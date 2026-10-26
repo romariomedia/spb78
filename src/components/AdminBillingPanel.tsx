@@ -108,6 +108,27 @@ export function AdminBillingPanel(){
           </article>)}
         </div>
       </div>
+
+      <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <p className="text-sm font-black text-white">Журнал экономики</p>
+          <span className="text-xs text-slate-500">последние {state.ledger?.length||0}</span>
+        </div>
+        <div className="space-y-2 max-h-[420px] overflow-y-auto">
+          {(!state.ledger||state.ledger.length===0)&&<p className="rounded-xl border border-dashed border-slate-800 p-4 text-center text-xs text-slate-500">Платежей и ручных продлений пока нет.</p>}
+          {(state.ledger||[]).map(row=><article key={row.id} className="rounded-xl border border-slate-800 bg-slate-900 p-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate text-xs font-black text-white">{row.subjectLabel||row.subjectId||'Коммерческая услуга'}</p>
+                <p className="mt-1 text-[10px] text-slate-500">{row.eventType} · {row.createdAt?new Date(row.createdAt).toLocaleString('ru-RU'):'—'}</p>
+              </div>
+              <span className="text-xs font-black text-lime-300">{Number(row.amountRub||0)>0?Number(row.amountRub).toLocaleString('ru-RU')+' ₽':'0 ₽'}</span>
+            </div>
+            <div className="mt-2 text-[11px] text-slate-400">{row.months?'Продление: '+row.months+' мес.':row.days?'Продление: '+row.days+' дн.':'Служебное изменение'}{row.activeUntil?' · до '+formatDate(row.activeUntil):''}</div>
+            {row.note&&<p className="mt-1 text-[11px] text-slate-500">{row.note}</p>}
+          </article>)}
+        </div>
+      </div>
     </>}
   </section>;
 }
