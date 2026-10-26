@@ -80,7 +80,9 @@ export function publicConsentDocument(uid,groups,now=new Date()){
     grantedAt,
     revokedAt:'',
     purpose:'Публичный профиль SportBuddy78, поиск спортивных партнёров, отображение в сообществе и функциях рекомендаций.',
-    recipients:'Авторизованные пользователи SportBuddy78 и, для отдельно включённых публичных страниц, неопределённый круг лиц.',
+    recipients:'Только авторизованные пользователи SportBuddy78 в пределах функций поиска, рекомендаций, рейтингов и сообщества.',
+    conditions:'Не использовать это согласие для внешней публичной страницы, поисковой индексации или иной аудитории за пределами авторизованных пользователей SportBuddy78 без отдельного основания/согласия.',
+    prohibitions:'Не распространять категории персональных данных, не выбранные субъектом в настоящем согласии.',
     operator:'ИП Сайдашев Роман Витальевич, ИНН 272199019189'
   };
 }
@@ -97,6 +99,8 @@ export function revokedPublicConsentDocument(uid,previous={},now=new Date()){
     revokedAt,
     purpose:clean(previous.purpose),
     recipients:clean(previous.recipients),
+    conditions:clean(previous.conditions),
+    prohibitions:clean(previous.prohibitions),
     operator:clean(previous.operator)
   };
 }
