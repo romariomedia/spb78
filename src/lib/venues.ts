@@ -21,6 +21,8 @@ export interface SportVenue {
   photos?: string[];
   /** Direct confirmation by the venue/club, not inferred from public data. */
   isVerified?: boolean;
+  /** Paid priority placement in the recommended catalog. */
+  isPromoted?: boolean;
   /** Draft cards stay available to admin but are hidden from athletes. */
   isPublished?: boolean;
   contactName?: string;
