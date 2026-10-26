@@ -12,6 +12,15 @@ const ADMIN_EMAIL = 'support@sportbuddy78.ru';
 const text = (value, max = 200) => typeof value === 'string' ? value.trim().slice(0, max) : '';
 const iso = value => value?.toDate ? value.toDate().toISOString() : String(value || '');
 const list = (value, max = 12) => Array.isArray(value) ? value.filter(v => typeof v === 'string').map(v => v.trim()).filter(Boolean).slice(0, max) : [];
+function addCalendarMonths(value, months) {
+  const date = new Date(value);
+  const day = date.getUTCDate();
+  date.setUTCDate(1);
+  date.setUTCMonth(date.getUTCMonth() + months);
+  const lastDay = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)).getUTCDate();
+  date.setUTCDate(Math.min(day, lastDay));
+  return date;
+}
 
 function userRow(doc, privateData = {}, adminData = {}) {
   const data = doc.data() || {};
@@ -31,6 +40,11 @@ function userRow(doc, privateData = {}, adminData = {}) {
     subscriptionPlan: data.subscriptionPlan === 'premium' ? 'premium' : 'free',
     isSuspended: data.isSuspended === true,
     analyticsExcluded: data.analyticsExcluded === true,
+    isPersonalTrainer: data.personalTrainer?.enabled === true,
+    foundingCoach: adminData.foundingCoach === true,
+    foundingCoachSince: iso(adminData.foundingCoachSince),
+    foundingCoachFreeUntil: iso(adminData.foundingCoachFreeUntil),
+    foundingCoachGrantedBy: text(adminData.foundingCoachGrantedBy, 180),
     suspensionReason: data.isSuspended === true ? text(adminData.suspensionReason, 300) : ''
   };
 }
@@ -108,6 +122,46 @@ export default async function handler(req, res) {
         if(operation==='setPremiumUntil')next.premiumUntil=body.premiumUntil||'';
         tx.update(ref,patch);
         await writeAdminAudit(db,session,{action:'user.'+operation,entityType:'user',entityId:userId,before:snapshot(old),after:{...snapshot(next),reason},requestId:String(body.requestId||'')},tx);
+      });
+      return res.json({ok:true,user:await readUserDetails(db,userId)});
+    } else if (operation === 'setFoundingCoach') {
+      const enabled = body.enabled === true;
+      const now = new Date();
+      const freeUntil = addCalendarMonths(now, 3);
+      await db.runTransaction(async tx => {
+        const [fresh, freshAdmin] = await Promise.all([tx.get(ref), tx.get(adminRef)]);
+        if (!fresh.exists) throw Object.assign(new Error('User not found.'), {status:404});
+        const oldAdmin = freshAdmin.exists ? freshAdmin.data() || {} : {};
+        const adminPatch = enabled
+          ? {
+              foundingCoach:true,
+              foundingCoachSince:oldAdmin.foundingCoachSince || Timestamp.fromDate(now),
+              foundingCoachFreeUntil:Timestamp.fromDate(freeUntil),
+              foundingCoachGrantedBy:String(session.email || ADMIN_EMAIL),
+              foundingCoachRemovedAt:FieldValue.delete(),
+              foundingCoachRemovedBy:FieldValue.delete()
+            }
+          : {
+              foundingCoach:false,
+              foundingCoachFreeUntil:FieldValue.delete(),
+              foundingCoachRemovedAt:Timestamp.fromDate(now),
+              foundingCoachRemovedBy:String(session.email || ADMIN_EMAIL)
+            };
+        tx.set(adminRef, adminPatch, {merge:true});
+        await writeAdminAudit(db, session, {
+          action:'user.setFoundingCoach', entityType:'user', entityId:userId,
+          before:{
+            foundingCoach:oldAdmin.foundingCoach === true,
+            foundingCoachSince:iso(oldAdmin.foundingCoachSince),
+            foundingCoachFreeUntil:iso(oldAdmin.foundingCoachFreeUntil)
+          },
+          after:{
+            foundingCoach:enabled,
+            foundingCoachSince:enabled ? iso(oldAdmin.foundingCoachSince || now) : iso(oldAdmin.foundingCoachSince),
+            foundingCoachFreeUntil:enabled ? freeUntil.toISOString() : ''
+          },
+          requestId:String(body.requestId || '')
+        }, tx);
       });
       return res.json({ok:true,user:await readUserDetails(db,userId)});
     } else if (operation === 'setSuspension') {

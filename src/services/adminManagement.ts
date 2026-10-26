@@ -16,6 +16,11 @@ export interface AdminUserRow {
   subscriptionPlan:'free'|'premium';
   isSuspended:boolean;
   analyticsExcluded:boolean;
+  isPersonalTrainer:boolean;
+  foundingCoach:boolean;
+  foundingCoachSince:string;
+  foundingCoachFreeUntil:string;
+  foundingCoachGrantedBy:string;
   suspensionReason:string;
   avatar:string;
 }
@@ -97,6 +102,10 @@ export async function setAdminUserPremiumUntil(userId:string,premiumUntil:string
 }
 export async function setAdminUserAnalyticsExcluded(userId:string,excluded:boolean):Promise<void>{
   await post('/api/admin-users',{operation:'setAnalyticsExcluded',userId,excluded,requestId:crypto.randomUUID?.()||String(Date.now())});
+}
+export async function setAdminUserFoundingCoach(userId:string,enabled:boolean):Promise<AdminUserDetails>{
+  const data=await post<{user:AdminUserDetails}>('/api/admin-users',{operation:'setFoundingCoach',userId,enabled,requestId:crypto.randomUUID?.()||String(Date.now())});
+  return data.user;
 }
 export async function setAdminUserSuspension(userId:string,suspended:boolean,reason=''):Promise<AdminUserDetails>{
   const data=await post<{user:AdminUserDetails}>('/api/admin-users',{operation:'setSuspension',userId,suspended,reason,requestId:crypto.randomUUID?.()||String(Date.now())});
