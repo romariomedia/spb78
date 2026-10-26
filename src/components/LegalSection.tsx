@@ -119,6 +119,7 @@ export const LegalSection: React.FC<LegalSectionProps> = ({ onReport, onAdminTri
         <div className="space-y-1">
           <p className="text-[11px] font-bold text-white">{APP_LEGAL_INFO.operator}</p>
           <p className="text-[10px] text-slate-400 font-mono">{APP_LEGAL_INFO.inn}</p>
+          <p className="text-[10px] text-slate-400 font-mono">{APP_LEGAL_INFO.ogrnip}</p>
           <p className="text-[10px] text-slate-400">{APP_LEGAL_INFO.region}</p>
         </div>
 
@@ -161,8 +162,8 @@ export const LegalSection: React.FC<LegalSectionProps> = ({ onReport, onAdminTri
       </div>
 
       <p className="text-[10px] text-slate-600 leading-relaxed text-center">
-        Продолжая использовать приложение, вы подтверждаете согласие на обработку персональных данных
-        в соответствии с 152-ФЗ.
+        Согласия на обработку и на распространение персональных данных, когда они требуются законом,
+        оформляются отдельными действиями. Само продолжение использования SportBuddy78 не заменяет такое согласие.
       </p>
     </div>
       )}
