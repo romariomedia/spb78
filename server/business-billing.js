@@ -103,7 +103,7 @@ export async function resolveBusinessSubject(db,subjectType,subjectId){
     if(!snap.exists)throw Object.assign(new Error('Профиль тренера не найден.'),{status:404});
     const data=snap.data()||{};
     if(data.personalTrainer?.enabled!==true)throw Object.assign(new Error('Сначала включите профиль персонального тренера.'),{status:409});
-    return {subjectType,subjectId,label:clean(data.name,120)||'Персональный тренер',defaultOwnerUserId:subjectId};
+    return {subjectType,subjectId,label:clean(data.name,120)||'Персональный тренер',defaultOwnerUserId:subjectId,eligibleForPaidListing:data.personalTrainer?.status==='verified'};
   }
   const collection=subjectType==='venue'?'venues':'massageServices';
   const snap=await db.collection(collection).doc(subjectId).get();
