@@ -17,7 +17,7 @@ export const SPORTBUDDY_OPERATOR = Object.freeze({
   correspondentAccount: '30101810145250000974'
 });
 
-export const BUSINESS_ENTITY_TYPES = Object.freeze(['ip','self_employed','legal_entity','individual_professional']);
+export const BUSINESS_ENTITY_TYPES = Object.freeze(['ip','self_employed','legal_entity']);
 
 const clean=(value,max=300)=>typeof value==='string'?value.trim().replace(/\s+/g,' ').slice(0,max):'';
 const email=value=>{
@@ -51,6 +51,8 @@ export function businessLegalProfileErrors(profile={}){
   if(p.entityType==='ip'&&!/^\d{15}$/.test(p.ogrn))errors.push('Для ИП укажите ОГРНИП из 15 цифр.');
   if(p.entityType==='legal_entity'&&!/^\d{13}$/.test(p.ogrn))errors.push('Для юридического лица укажите ОГРН из 13 цифр.');
   if(p.entityType==='legal_entity'&&p.address.length<5)errors.push('Для юридического лица укажите юридический адрес.');
+  if(p.entityType==='legal_entity'&&p.representative.length<5)errors.push('Для юридического лица укажите ФИО подписанта.');
+  if(p.entityType==='legal_entity'&&p.basis.length<3)errors.push('Для юридического лица укажите основание полномочий подписанта.');
   return errors;
 }
 
@@ -154,15 +156,14 @@ export function renderBusinessContractRtf(contract){
   const servicePeriod=`${formatRuDate(c.serviceStart)} — ${formatRuDate(c.serviceUntil)}`;
   const customerStatus=customer.entityType==='ip'?'Индивидуальный предприниматель'
     :customer.entityType==='legal_entity'?'Юридическое лицо'
-    :customer.entityType==='self_employed'?'Плательщик налога на профессиональный доход'
-    :'Физическое лицо, приобретающее услугу для профессиональной деятельности';
+    :'Плательщик налога на профессиональный доход';
   const lines=[
     ['ДОГОВОР ОКАЗАНИЯ ИНФОРМАЦИОННЫХ И ЦИФРОВЫХ УСЛУГ',true],
     [`№ ${c.contractNumber}`,true],
     [`г. Санкт-Петербург                                      ${formatRuDate(c.createdAt)}`,false],
     ['',false],
     ['1. СТОРОНЫ И СПОСОБ ЗАКЛЮЧЕНИЯ',true],
-    [`${provider.legalName}, ИНН ${provider.inn}, ОГРНИП ${provider.ogrnip}, далее «Исполнитель», и ${customer.legalName}, статус: ${customerStatus}, ИНН ${customer.inn}${customer.ogrn?', ОГРН/ОГРНИП '+customer.ogrn:''}, далее «Заказчик», заключили настоящий договор в электронной форме.`,false],
+    [`${provider.legalName}, ИНН ${provider.inn}, ОГРНИП ${provider.ogrnip}, далее «Исполнитель», и ${customer.legalName}, статус: ${customerStatus}, ИНН ${customer.inn}${customer.ogrn?', ОГРН/ОГРНИП '+customer.ogrn:''}${customer.representative?', в лице '+customer.representative:''}${customer.basis?', действующего на основании '+customer.basis:''}, далее «Заказчик», заключили настоящий договор в электронной форме.`,false],
     [`Договор заключен путем полного и безоговорочного акцепта Заказчиком договора-оферты SportBuddy78 Business редакции ${c.contractVersion} в авторизованном кабинете и оплаты услуги. Акцепт зафиксирован ${formatRuDate(c.acceptedAt)}. Идентификатор платежа YooKassa: ${c.paymentId}.`,false],
     ['2. ПРЕДМЕТ ДОГОВОРА',true],
     [`Исполнитель оказывает Заказчику услугу: ${c.serviceName}.`,false],
