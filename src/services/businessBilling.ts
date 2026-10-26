@@ -38,6 +38,10 @@ export interface AdminBillingState {
   config:Omit<BusinessBillingConfig,'billingOpen'>;
   items:BusinessSubscription[];
   catalog:Record<BusinessSubjectType,Array<{id:string;name:string}>>;
+  ledger:Array<{
+    id:string;eventType:string;subjectType?:BusinessSubjectType;subjectId?:string;subjectLabel?:string;
+    ownerUserId?:string;amountRub?:number;days?:number;months?:number;createdAt?:string;activeUntil?:string;note?:string;
+  }>;
 }
 
 const REQUEST_TIMEOUT_MS=20_000;
