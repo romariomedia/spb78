@@ -4,7 +4,10 @@ export type PartnerMediaType='none'|'image'|'video';
 export interface AdminPartner{
   id:string;name:string;partnerLabel:string;offerTitle:string;description:string;promoCode:string;
   ctaLabel:string;ctaUrl:string;logoUrl:string;coverUrl:string;mediaUrl:string;mediaType:PartnerMediaType;
-  startAt:string;endAt:string;priority:number;isActive:boolean;createdAt?:string;updatedAt?:string;
+  startAt:string;endAt:string;priority:number;isActive:boolean;
+  isAdvertising:boolean;advertiserName:string;advertiserInn:string;erid:string;ordName:string;
+  adContractNumber:string;adContractDate:string;
+  createdAt?:string;updatedAt?:string;
 }
 export type PartnerDraft=Omit<AdminPartner,'id'|'createdAt'|'updatedAt'>;
 
