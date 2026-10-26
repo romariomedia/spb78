@@ -7,6 +7,9 @@ import {
   billingIsOpen,businessSubscriptionId,getBillingConfig,hasBusinessAccess,planFor,promotionFor,resolveBusinessSubject
 } from '../server/business-billing.js';
 import {validPaymentId} from '../server/payment-config.js';
+import {
+  BUSINESS_OFFER_VERSION,requireBusinessLegalProfile
+} from '../server/business-legal.js';
 
 function init(){
   if(getApps().length)return;
@@ -38,6 +41,24 @@ export default async function handler(req,res){
       code:'COMMERCIAL_NOT_LAUNCHED',
       error:'Коммерческие подписки SportBuddy78 откроются не ранее 1 января 2027 года и после включения администратором.'
     });
+
+    if(req.body?.offerAccepted!==true||clean(req.body?.offerVersion,80)!==BUSINESS_OFFER_VERSION)
+      return res.status(409).json({code:'OFFER_ACCEPTANCE_REQUIRED',error:'Перед оплатой примите актуальную оферту SportBuddy78 Business.'});
+    const legalSnap=await db.collection('businessLegalProfiles').doc(uid).get();
+    const legalProfile=requireBusinessLegalProfile(legalSnap.exists?legalSnap.data()||{}:{});
+
+    const receiptMode=clean(process.env.YOOKASSA_RECEIPT_MODE,30);
+    if(receiptMode!=='yookassa')
+      return res.status(503).json({code:'FISCALIZATION_NOT_CONFIGURED',error:'Коммерческие платежи временно закрыты: не настроена фискализация 54-ФЗ.'});
+    const vatCode=Number(process.env.YOOKASSA_VAT_CODE);
+    if(!Number.isInteger(vatCode)||vatCode<1||vatCode>12)
+      return res.status(503).json({code:'FISCALIZATION_NOT_CONFIGURED',error:'Коммерческие платежи временно закрыты: не настроена ставка НДС для кассового чека.'});
+    const taxSystemCode=Number(process.env.YOOKASSA_TAX_SYSTEM_CODE||0);
+    if(taxSystemCode!==0&&(!Number.isInteger(taxSystemCode)||taxSystemCode<1||taxSystemCode>6))
+      return res.status(503).json({code:'FISCALIZATION_NOT_CONFIGURED',error:'Некорректная система налогообложения для кассового чека.'});
+
+    if(purpose==='promotion'&&process.env.SB_AD_MARKING_READY!=='true')
+      return res.status(503).json({code:'AD_MARKING_NOT_CONFIGURED',error:'Платное продвижение временно закрыто до подключения обязательной маркировки интернет-рекламы.'});
     const plan=purpose==='promotion'?promotionFor(config,subjectType):planFor(config,subjectType,interval);
     if(!plan)return res.status(400).json({error:purpose==='promotion'?'Продвижение недоступно.':'Некорректный тариф'});
     if(purpose==='promotion'&&!await hasBusinessAccess(db,subjectType,subjectId,config))
@@ -63,14 +84,18 @@ export default async function handler(req,res){
       if(subjectType==='trainer'&&subjectId!==uid)throw Object.assign(new Error('Можно оплачивать только собственный профиль тренера.'),{status:403});
       if(subjectType!=='trainer'&&ownerUserId!==uid)throw Object.assign(new Error('Эта организация не привязана к вашему аккаунту.'),{status:403});
       const amount=`${plan.amountRub.toFixed(2)}`;
+      const acceptedAt=new Date().toISOString();
+      const legalProfileSnapshot={...legalProfile};
       const value=purpose==='promotion'
         ? {
             purpose:'promotion',product:'business_promotion',ownerUserId:uid,subjectType,subjectId,subjectLabel:subject.label,
-            interval:'',days:plan.days,amount,currency:'RUB',createdAt:new Date().toISOString()
+            interval:'',days:plan.days,amount,currency:'RUB',createdAt:acceptedAt,
+            offerVersion:BUSINESS_OFFER_VERSION,offerAcceptedAt:acceptedAt,legalProfileSnapshot
           }
         : {
             purpose:'subscription',product:'business_subscription',ownerUserId:uid,subjectType,subjectId,subjectLabel:subject.label,
-            interval,months:plan.months,amount,currency:'RUB',createdAt:new Date().toISOString()
+            interval,months:plan.months,amount,currency:'RUB',createdAt:acceptedAt,
+            offerVersion:BUSINESS_OFFER_VERSION,offerAcceptedAt:acceptedAt,legalProfileSnapshot
           };
       if(!subscriptionSnap.exists){
         tx.create(subscriptionRef,{subjectType,subjectId,subjectLabel:subject.label,ownerUserId:uid,activeUntil:'',paidUntil:'',complimentaryUntil:'',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
@@ -92,6 +117,21 @@ export default async function handler(req,res){
         description:(intent.product==='business_promotion'
           ? `${intent.subjectLabel} · продвижение SportBuddy78 · 7 дней`
           : `${intent.subjectLabel} · SportBuddy78 · ${interval==='yearly'?'12 месяцев':'1 месяц'}`).slice(0,128),
+        receipt:{
+          customer:{email:legalProfile.email},
+          items:[{
+            description:(intent.product==='business_promotion'
+              ? `Продвижение SportBuddy78: ${intent.subjectLabel}`
+              : `Размещение SportBuddy78 Business: ${intent.subjectLabel}`).slice(0,128),
+            quantity:'1.00',
+            amount:{value:intent.amount,currency:'RUB'},
+            vat_code:vatCode,
+            payment_mode:'full_prepayment',
+            payment_subject:'service'
+          }],
+          internet:'true',
+          ...(taxSystemCode?{tax_system_code:taxSystemCode}:{})
+        },
         metadata:intent.product==='business_promotion'
           ? {
               product:'sportbuddy78_business_promotion',userId:uid,
@@ -114,6 +154,7 @@ export default async function handler(req,res){
       if(!saved.exists)tx.create(paymentRef,{
         product:intent.product,ownerUserId:uid,subjectType:intent.subjectType,subjectId:intent.subjectId,subjectLabel:intent.subjectLabel,
         interval:intent.interval||'',months:intent.months||0,days:intent.days||0,amount:intent.amount,currency:'RUB',
+        offerVersion:intent.offerVersion,offerAcceptedAt:intent.offerAcceptedAt,legalProfileSnapshot:intent.legalProfileSnapshot,
         status:payment.status||'pending',processed:false,idempotenceKey:key,createdAt:intent.createdAt
       });
       tx.update(requestRef,{paymentId:payment.id,confirmationUrl});
