@@ -149,11 +149,12 @@ export async function businessListingStates(db,subjectType,subjectIds,config=nul
   const effectiveConfig=config||await getBillingConfig(db);
   const ids=[...new Set((subjectIds||[]).filter(validBusinessSubjectId))];
   const result=new Map();
+  if(ids.length===0)return result;
   const commercialOpen=billingIsOpen(effectiveConfig,now);
   const subscriptions=await db.collection('businessSubscriptions').where('subjectType','==',subjectType).limit(1000).get();
   const byId=new Map(subscriptions.docs.map(doc=>[String(doc.data()?.subjectId||''),doc.data()||{}]));
   const founding=new Map();
-  if(subjectType==='trainer'){
+  if(subjectType==='trainer'&&commercialOpen){
     const admins=await db.collection('userAdmin').where('foundingCoach','==',true).limit(1000).get();
     for(const doc of admins.docs)founding.set(doc.id,iso(doc.data()?.foundingCoachFreeUntil));
   }
