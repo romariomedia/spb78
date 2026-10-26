@@ -86,8 +86,8 @@ export function AdminBusinessCrm({state,onReload}:Props){
         <h3 className="mt-1 text-base font-black text-white">Партнёры и коммерческие карточки</h3>
         <p className="mt-1 text-xs text-slate-500">Статусы, лиды, выручка, сроки размещения и быстрые действия команды.</p>
       </div>
-      <button disabled={busy==='reload'} onClick={()=>void run('reload','Данные обновлены.',onReload)} className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-black text-slate-300 disabled:opacity-50">
-        <RefreshCw size={15} className={busy==='reload'?'animate-spin':''}/>Обновить
+      <button disabled={Boolean(busy)} onClick={()=>void onReload()} className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-black text-slate-300 disabled:opacity-50">
+        <RefreshCw size={15}/>Обновить
       </button>
     </div>
 
@@ -153,7 +153,7 @@ export function AdminBusinessCrm({state,onReload}:Props){
           {item.foundingCoachFreeUntil&&<p className="mt-2 text-[11px] text-lime-200">Founding Coach бесплатно до {formatDate(item.foundingCoachFreeUntil)}</p>}
 
           <div className="mt-3 grid gap-2 sm:grid-cols-3">
-            <button disabled={Boolean(busy)||item.adminPaused} onClick={()=>void run('extend:'+key,'Размещение продлено на 30 дней.',()=>grantBusinessAccess(item.subjectType,item.subjectId,30,'CRM: бесплатное продление на 30 дней'))} className="rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-3 py-2.5 text-xs font-black text-emerald-200 disabled:opacity-40">+30 дней бесплатно</button>
+            <button disabled={Boolean(busy)} onClick={()=>void run('extend:'+key,'Размещение продлено на 30 дней.',()=>grantBusinessAccess(item.subjectType,item.subjectId,30,'CRM: бесплатное продление на 30 дней'))} className="rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-3 py-2.5 text-xs font-black text-emerald-200 disabled:opacity-40">+30 дней бесплатно</button>
             <button disabled={Boolean(busy)||!canPromote} onClick={()=>void run('promo:'+key,'Приоритетное продвижение включено на 7 дней.',()=>grantBusinessPromotion(item.subjectType,item.subjectId,7,'CRM: бесплатное приоритетное продвижение на 7 дней'))} className="flex items-center justify-center gap-2 rounded-xl border border-fuchsia-400/30 bg-fuchsia-400/10 px-3 py-2.5 text-xs font-black text-fuchsia-200 disabled:opacity-40"><Rocket size={14}/>+7 дней приоритет</button>
             <button disabled={Boolean(busy)} onClick={()=>void run('pause:'+key,item.adminPaused?'Карточка возобновлена.':'Карточка приостановлена.',()=>setBusinessPaused(item.subjectType,item.subjectId,!item.adminPaused,item.adminPaused?'CRM: возобновление карточки':'CRM: ручная приостановка администратором'))} className={'flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-xs font-black disabled:opacity-40 '+(item.adminPaused?'border-cyan-400/30 bg-cyan-400/10 text-cyan-200':'border-rose-500/30 bg-rose-500/10 text-rose-200')}>
               {item.adminPaused?<Play size={14}/>:<Pause size={14}/>}
