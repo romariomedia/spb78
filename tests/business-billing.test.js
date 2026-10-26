@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {build} from 'esbuild';
 import {
   COMMERCIAL_LAUNCH_AT,DEFAULT_BILLING_CONFIG,addCalendarMonths,billingIsOpen,
-  businessPaymentMatches,sanitizeBillingConfig
+  businessPaymentMatches,businessPromotionPaymentMatches,sanitizeBillingConfig
 } from '../server/business-billing.js';
 
 test('business billing stays closed before 2027 even when admin switch is on',()=>{
@@ -18,10 +18,14 @@ test('business billing config keeps editable ruble prices within safe limits',()
     trainer:{monthlyRub:700,yearlyRub:7000},
     venue:{monthlyRub:1300,yearlyRub:13000},
     massage:{monthlyRub:1700,yearlyRub:17000}
+  },promotions:{
+    trainer:{priceRub:349},venue:{priceRub:649},massage:{priceRub:849}
   }});
   assert.equal(config.plans.trainer.monthlyRub,700);
   assert.equal(config.plans.venue.monthlyRub,1300);
   assert.equal(config.plans.massage.yearlyRub,17000);
+  assert.equal(config.promotions.trainer.priceRub,349);
+  assert.equal(config.promotions.venue.days,7);
 });
 
 test('calendar subscription renewal preserves end-of-month semantics',()=>{
@@ -35,6 +39,10 @@ test('business payment verification binds owner, subject, interval and amount',(
   assert.equal(businessPaymentMatches(remote,expected,'p'),true);
   assert.equal(businessPaymentMatches({...remote,amount:{value:'1.00',currency:'RUB'}},expected,'p'),false);
   assert.equal(businessPaymentMatches({...remote,metadata:{...remote.metadata,subjectId:'other'}},expected,'p'),false);
+  const promotionExpected={product:'business_promotion',ownerUserId:'u',subjectType:'trainer',subjectId:'u',days:7,amount:'299.00',currency:'RUB'};
+  const promotionRemote={id:'promo',status:'succeeded',paid:true,amount:{value:'299.00',currency:'RUB'},metadata:{product:'sportbuddy78_business_promotion',userId:'u',subjectType:'trainer',subjectId:'u',days:'7'}};
+  assert.equal(businessPromotionPaymentMatches(promotionRemote,promotionExpected,'promo'),true);
+  assert.equal(businessPromotionPaymentMatches({...promotionRemote,metadata:{...promotionRemote.metadata,userId:'other'}},promotionExpected,'promo'),false);
 });
 
 async function load(file){
@@ -61,11 +69,28 @@ function fixture(){
     }}]
   ]);
   let providerMode='create';
+  let remoteValue={
+    id:'business-payment-1',status:'succeeded',paid:true,test:false,
+    amount:{value:'500.00',currency:'RUB'},
+    metadata:{product:'sportbuddy78_business_subscription',userId:'athlete',subjectType:'trainer',subjectId:'athlete',interval:'monthly',months:'1'}
+  };
   const snapshot=path=>({exists:data.has(path),data:()=>structuredClone(data.get(path))});
   const ref=path=>({path,get:async()=>snapshot(path)});
+  const query=(name,filters=[])=>({
+    where(field,op,value){return query(name,[...filters,[field,op,value]]);},
+    limit(){return this;},
+    async get(){
+      const prefix=name+'/';
+      const docs=[...data.entries()].filter(([path,value])=>{
+        if(!path.startsWith(prefix)||path.slice(prefix.length).includes('/'))return false;
+        return filters.every(([field,op,expected])=>op==='=='&&value?.[field]===expected);
+      }).map(([path,value])=>({id:path.slice(prefix.length),data:()=>structuredClone(value)}));
+      return {docs};
+    }
+  });
   let queue=Promise.resolve();
   globalThis.__businessDb={
-    collection(name){return {doc:id=>ref(name+'/'+id)};},
+    collection(name){return {...query(name),doc:id=>ref(name+'/'+id)};},
     runTransaction(callback){
       const run=queue.then(async()=>{
         let wrote=false;const writes=[];
@@ -83,17 +108,13 @@ function fixture(){
   process.env.YOOKASSA_SHOP_ID='shop';process.env.YOOKASSA_SECRET_KEY='secret';delete process.env.YOOKASSA_ALLOW_TEST_PAYMENTS;
   globalThis.fetch=async(url)=>{
     if(providerMode==='create')return {ok:true,json:async()=>({id:'business-payment-1',status:'pending',confirmation:{confirmation_url:'https://yookassa.ru/checkout'}})};
-    return {ok:true,json:async()=>({
-      id:'business-payment-1',status:'succeeded',paid:true,test:false,
-      amount:{value:'500.00',currency:'RUB'},
-      metadata:{product:'sportbuddy78_business_subscription',userId:'athlete',subjectType:'trainer',subjectId:'athlete',interval:'monthly',months:'1'}
-    })};
+    return {ok:true,json:async()=>structuredClone(remoteValue)};
   };
   async function request(handler,body){
     const res={statusCode:200,status(code){this.statusCode=code;return this},json(value){this.body=value;return this}};
     await handler({method:'POST',headers:{authorization:'Bearer token'},body},res);return res;
   }
-  return {data,request,setProviderMode:v=>providerMode=v};
+  return {data,request,setProviderMode:v=>providerMode=v,setRemote:v=>remoteValue=v};
 }
 
 test('trainer can buy a business month after launch and webhook activates exactly one entitlement',async t=>{
@@ -118,4 +139,34 @@ test('trainer can buy a business month after launch and webhook activates exactl
   const second=await f.request(webhook,event);
   assert.equal(second.statusCode,200);
   assert.equal(f.data.get('businessSubscriptions/trainer:athlete').activeUntil,'2027-03-01T12:00:00.000Z');
+});
+
+
+test('paid promotion activates for seven days exactly once',async t=>{
+  t.mock.timers.enable({apis:['Date'],now:Date.parse('2027-02-01T12:00:00Z')});
+  const f=fixture();
+  f.data.set('businessSubscriptions/trainer:athlete',{
+    subjectType:'trainer',subjectId:'athlete',subjectLabel:'Coach',ownerUserId:'athlete',
+    activeUntil:'2027-04-01T12:00:00.000Z',paidUntil:'2027-04-01T12:00:00.000Z'
+  });
+  const created=await f.request(createPayment,{
+    subjectType:'trainer',subjectId:'athlete',purpose:'promotion',interval:'',requestId:'promotion-request-123456'
+  });
+  assert.equal(created.statusCode,200);
+  assert.equal(created.body.amount,'299.00');
+  assert.equal(f.data.get('payments/business-payment-1').product,'business_promotion');
+
+  f.setProviderMode('webhook');
+  f.setRemote({
+    id:'business-payment-1',status:'succeeded',paid:true,test:false,
+    amount:{value:'299.00',currency:'RUB'},
+    metadata:{product:'sportbuddy78_business_promotion',userId:'athlete',subjectType:'trainer',subjectId:'athlete',days:'7'}
+  });
+  const event={event:'payment.succeeded',object:{id:'business-payment-1'}};
+  assert.equal((await f.request(webhook,event)).statusCode,200);
+  assert.equal(f.data.get('businessSubscriptions/trainer:athlete').promotedUntil,'2027-02-08T12:00:00.000Z');
+  assert.equal(f.data.get('billingLedger/yookassa:business-payment-1').eventType,'promotion_payment');
+
+  assert.equal((await f.request(webhook,event)).statusCode,200);
+  assert.equal(f.data.get('businessSubscriptions/trainer:athlete').promotedUntil,'2027-02-08T12:00:00.000Z');
 });
