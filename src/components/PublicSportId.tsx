@@ -1,3 +1,4 @@
+import {TrainerLevelBadge} from './TrainerLevelBadge';
 import { useEffect,useState } from 'react';
 import { CheckCircle2,MapPin,ShieldCheck,Star,Trophy,Dumbbell } from 'lucide-react';
 import { districtLabel } from '../../shared/districts.js';
@@ -23,6 +24,7 @@ export function PublicSportId({slug}:{slug:string}){
           <div className="relative rounded-2xl border border-lime-400/50 p-1"><AvatarImage src={identity.avatar} alt={identity.name} className="h-20 w-20 rounded-xl object-cover"/>{identity.isVerified&&<span className="absolute -bottom-2 -right-2 flex h-7 w-7 items-center justify-center rounded-full bg-lime-400 text-slate-950"><ShieldCheck className="h-4 w-4"/></span>}</div>
           <div className="min-w-0 flex-1"><p className="text-[10px] font-black uppercase tracking-[.2em] text-lime-300">Спортивный ID SportBuddy78</p><h1 className="mt-1 truncate text-xl font-black">{identity.name}</h1><p className="mt-1 text-sm font-black text-lime-300">{profile.mainSport||'Спорт не указан'}</p><p className="mt-1 text-xs text-slate-400">{profile.rankTitle||profile.levelLabel} {profile.rankVerification==='verified'&&<span className="ml-1 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[8px] font-black text-emerald-300">Подтверждено</span>}</p><p className="mt-1 flex items-center gap-1 text-[10px] text-slate-500"><MapPin className="h-3 w-3"/>{districtLabel(identity.districtId)||identity.locationName||'Санкт-Петербург'}</p></div>
         </div>
+        {identity.personalTrainer&&<div className="relative mt-4"><TrainerLevelBadge level={identity.personalTrainer.trainerLevel} details/><p className="mt-2 text-sm text-lime-300">{identity.personalTrainer.sports.join(' · ')}</p></div>}
         <div className="relative mt-5 grid grid-cols-3 gap-2">
           <div className="rounded-xl border border-slate-800 bg-slate-900 p-3"><Dumbbell className="h-4 w-4 text-lime-300"/><p className="mt-1 text-xl font-black">{stats.totalWorkouts}</p><p className="text-[9px] text-slate-500">тренировок</p></div>
           <div className="rounded-xl border border-slate-800 bg-slate-900 p-3"><Star className="h-4 w-4 text-violet-300"/><p className="mt-1 text-xl font-black">{Number(stats.rating||0).toFixed(1)}</p><p className="text-[9px] text-slate-500">рейтинг</p></div>

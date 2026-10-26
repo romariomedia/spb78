@@ -4,7 +4,7 @@ import { auth } from './firebaseAuth';
 export type SportIdClaimType='rank'|'achievement'|'trainer';
 export type SportIdVerificationStatus='pending'|'approved'|'rejected'|'revoked'|'cancelled';
 export interface SportIdVerificationRequest{
-  requestVersion?:string;
+  requestVersion?:string;trainerLevel?:'start'|'pro'|''|null;
   id:string;userId:string;userName:string;userAvatar:string;claimType:SportIdClaimType;claimId:string;
   title:string;sport:string;date?:string;placement?:string;rankTitle?:string;level?:string;
   evidenceUrls?:string[];sports?:string[];
@@ -25,13 +25,13 @@ export async function submitSportIdVerification(input:{claimType:SportIdClaimTyp
 }
 export async function cancelSportIdVerification(requestId:string):Promise<void>{await call({action:'cancel',requestId});}
 
-export interface PersonalTrainer {enabled:boolean;sports:string[];status:string;verifiedAt?:string;hourlyRate?:number|null;serviceDescription?:string}
+export interface PersonalTrainer {enabled:boolean;sports:string[];status:string;verifiedAt?:string;trainerLevel?:'start'|'pro'|''|null;hourlyRate?:number|null;serviceDescription?:string}
 export interface TrainerState {trainer:PersonalTrainer;request?:SportIdVerificationRequest|null}
 export const loadPersonalTrainer=()=>call<TrainerState>({action:'trainerRead'});
 export const savePersonalTrainer=(enabled:boolean,sports:string[])=>call<TrainerState>({action:'trainerSave',enabled,sports});
 export const submitPersonalTrainer=(evidenceUrls:string[],note:string,officialUrl:string)=>call<TrainerState>({action:'trainerSubmit',evidenceUrls,note,officialUrl});
 export const cancelPersonalTrainer=()=>call<TrainerState>({action:'trainerCancel'});
-export const loadPersonalTrainers=(cursor:string|null=null)=>call<{trainers:import('../lib/types').UserProfile[];nextCursor:string|null}>({action:'trainers',cursor});
+export const loadPersonalTrainers=(cursor:string|null=null,trainerLevel:'all'|'start'|'pro'='all')=>call<{trainers:import('../lib/types').UserProfile[];nextCursor:string|null}>({action:'trainers',cursor,trainerLevel});
 
 export interface TrainerBooking {
   id:string;version:string;trainerId:string;clientId:string;trainerName:string;clientName:string;

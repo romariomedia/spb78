@@ -1,3 +1,4 @@
+import {isTrainerLevel} from '../shared/trainer-levels.js';
 import {saveTrainerServices, mutateTrainerBooking, listTrainerBookings} from '../server/trainer-bookings.js';
 import { randomUUID } from 'node:crypto';
 import { mutateTrainer, publicTrainer } from '../server/personal-trainer.js';
@@ -40,7 +41,9 @@ export default async function handler(req,res){
     if(action==='trainers'){
       const cursor=req.body?.cursor;
       if(cursor!==undefined&&cursor!==null&&(typeof cursor!=='string'||cursor.length>1500||cursor.includes('/')))return res.status(400).json({error:'Некорректная страница.'});
-      let query=db.collection('users').where('personalTrainer.status','==','verified').orderBy(FieldPath.documentId()).limit(24);
+      const level=req.body?.trainerLevel||'all';
+      if(level!=='all'&&!isTrainerLevel(level))return res.status(400).json({error:'Выберите Start или Pro.'});
+      let query=db.collection('users').where(level==='all'?'personalTrainer.status':'personalTrainer.trainerLevel','==',level==='all'?'verified':level).orderBy(FieldPath.documentId()).limit(24);
       if(cursor)query=query.startAfter(cursor);
       const snap=await query.get();
       return res.json({trainers:snap.docs.filter(d=>publicTrainer(d.data())).map(d=>publicProfile(d.id,d.data())),nextCursor:snap.docs.length===24?snap.docs.at(-1).id:null});

@@ -1,3 +1,4 @@
+import {TrainerLevelBadge} from './components/TrainerLevelBadge';
 import {TrainerBookings} from './components/TrainerBookings';
 import { PersonalTrainerPanel } from './components/PersonalTrainerPanel';
 import { PersonalTrainers } from './components/PersonalTrainers';
@@ -3894,7 +3895,7 @@ export default function App(): JSX.Element {
               <AvatarImage src={avatarUrl(selectedUserModal.avatar, 128) || AVATAR_FALLBACK} alt="" width={64} height={64} loading="lazy" decoding="async" className="w-16 h-16 rounded-full object-cover border-2 border-emerald-500 shadow" />
               <div>
                 <h3 className="text-lg font-black text-white">{selectedUserModal.name}, {selectedUserModal.age}</h3>
-                {selectedUserModal.personalTrainer?.status==='verified'&&<p className="mt-1 text-sm font-semibold text-lime-300">✓ Персональный тренер · {selectedUserModal.personalTrainer.sports.join(' · ')}</p>}
+                {selectedUserModal.personalTrainer?.status==='verified'&&<div className="mt-2 space-y-2"><TrainerLevelBadge level={selectedUserModal.personalTrainer.trainerLevel} details/><p className="text-sm text-lime-300">{selectedUserModal.personalTrainer.sports.join(' · ')}</p></div>}
                 {selectedUserModal.personalTrainer?.status==='verified'&&<div className="mt-3 space-y-2 rounded-xl bg-slate-950 p-3 text-left"><p className="font-bold text-lime-300">{selectedUserModal.personalTrainer.hourlyRate?`${selectedUserModal.personalTrainer.hourlyRate.toLocaleString('ru-RU')} ₽ / 60 минут`:'Стоимость ещё не указана'}</p>{selectedUserModal.personalTrainer.serviceDescription&&<p className="whitespace-pre-wrap break-words text-sm text-slate-300">{selectedUserModal.personalTrainer.serviceDescription}</p>}</div>}
                 <p className="text-xs text-emerald-400 flex items-center gap-1 mt-0.5">
                   <MapPin className="w-3.5 h-3.5 shrink-0" /> {districtLabel(selectedUserModal.districtId) || selectedUserModal.locationName}

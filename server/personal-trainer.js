@@ -1,3 +1,4 @@
+import {isTrainerLevel} from '../shared/trainer-levels.js';
 import { randomUUID } from 'node:crypto';
 import { SPORTS } from '../shared/sports.js';
 import { assertUserActive } from './user-status.js';
@@ -14,7 +15,7 @@ export function trainerInput(input={}) {
 export function publicTrainer(user={}) {
   const t=user.personalTrainer;
   if(user.isSuspended||user.isDemo||t?.enabled!==true||t.status!=='verified')return null;
-  return {hourlyRate:Number.isSafeInteger(t.hourlyRate)&&t.hourlyRate>0?t.hourlyRate:null,serviceDescription:typeof t.serviceDescription==='string'?t.serviceDescription.slice(0,1200):'',enabled:true,status:'verified',sports:Array.isArray(t.sports)?t.sports.filter(s=>SPORTS.includes(s)):[],verifiedAt:typeof t.verifiedAt==='string'?t.verifiedAt:''};
+  return {trainerLevel:isTrainerLevel(t.trainerLevel)?t.trainerLevel:null,hourlyRate:Number.isSafeInteger(t.hourlyRate)&&t.hourlyRate>0?t.hourlyRate:null,serviceDescription:typeof t.serviceDescription==='string'?t.serviceDescription.slice(0,1200):'',enabled:true,status:'verified',sports:Array.isArray(t.sports)?t.sports.filter(s=>SPORTS.includes(s)):[],verifiedAt:typeof t.verifiedAt==='string'?t.verifiedAt:''};
 }
 export function trainerEvidence(body) {
   if(!Array.isArray(body.evidenceUrls)||body.evidenceUrls.length<1||body.evidenceUrls.length>5)fail('Загрузите от 1 до 5 документов об обучении.');
@@ -41,7 +42,7 @@ export async function mutateTrainer(db,uid,action,body={}) {
     const now=Date.now(),date=new Date(now).toISOString();
     if(action==='trainerSave') {
       if(config.enabled===old.enabled&&JSON.stringify(config.sports)===JSON.stringify(old.sports))return {trainer:old};
-      const trainer={...old,...config,status:'declared',verifiedAt:''};
+      const trainer={...old,...config,status:'declared',trainerLevel:'',verifiedAt:''};
       tx.update(userRef,{personalTrainer:trainer});tx.delete(claimRef);
       if(request)tx.update(requestRef,{status:request.status==='approved'?'revoked':'cancelled',reviewNote:'Дисциплины или статус тренера изменены пользователем.',updatedAt:date,updatedAtMs:now});
       return {trainer};
@@ -51,13 +52,13 @@ export async function mutateTrainer(db,uid,action,body={}) {
       if(request?.status==='pending')fail('Ваша заявка уже рассматривается.',409);
       const claim=claimFromPassport({},trainerClaim,old);
       const value={requestVersion:randomUUID(),id:requestRef.id,userId:uid,userName:String(user.name||'Спортсмен').slice(0,120),userAvatar:String(user.avatar||'').slice(0,2000),...claim,...evidence,fingerprint:claimFingerprint(claim),status:'pending',createdAt:date,createdAtMs:now,updatedAt:date,updatedAtMs:now,reviewNote:'',reviewedAt:'',reviewedBy:''};
-      const trainer={...old,status:'pending',verifiedAt:''};
+      const trainer={...old,status:'pending',trainerLevel:'',verifiedAt:''};
       tx.set(requestRef,value);tx.update(userRef,{personalTrainer:trainer});
       return {trainer,request:value};
     }
     if(action==='trainerCancel') {
       if(request?.status!=='pending')fail('Можно отменить только заявку на проверке.',409);
-      const trainer={...old,status:'declared',verifiedAt:''};
+      const trainer={...old,status:'declared',trainerLevel:'',verifiedAt:''};
       tx.update(requestRef,{status:'cancelled',updatedAt:date,updatedAtMs:now});tx.update(userRef,{personalTrainer:trainer});
       return {trainer};
     }

@@ -1,3 +1,4 @@
+import {publicTrainer} from '../server/personal-trainer.js';
 import { initializeApp,getApps,cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { competitionStats,levelLabel,sanitizeSportPassportDraft } from '../server/sport-passport.js';
@@ -37,6 +38,7 @@ export default async function handler(req,res){
     res.setHeader('Cache-Control','public, max-age=60, stale-while-revalidate=300');
     return res.json({sportId:{
       identity:{
+        personalTrainer:publicTrainer(user),
         name:clean(user.name,120)||'Спортсмен',avatar:clean(user.avatar,2000),
         districtId:clean(user.districtId,80),locationName:clean(user.locationName,180),isVerified:user.isVerified===true
       },

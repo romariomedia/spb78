@@ -18,6 +18,7 @@ export interface SportPassportResult {
 }
 export interface SportPassportSnapshot {
   identity:{
+    personalTrainer?:import('./sportIdVerification').PersonalTrainer|null;
     id:string;name:string;avatar:string;districtId:string;locationName:string;isVerified:boolean;registeredAt:string;
   };
   profile:{

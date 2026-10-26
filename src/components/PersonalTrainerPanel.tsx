@@ -1,3 +1,4 @@
+import {TrainerLevelBadge,TrainerLevelGuide} from './TrainerLevelBadge';
 import {TrainerServicesEditor} from './TrainerServicesEditor';
 import { useEffect, useState } from 'react';
 import { BadgeCheck, FileCheck2, RefreshCw, ArrowRight, X } from 'lucide-react';
@@ -39,6 +40,7 @@ export function PersonalTrainerPanel({userId,verification=false,onOpenVerificati
       {(changed||enabled&&!verification)&&<button disabled={busy||(enabled&&!sports.length)} onClick={()=>void save()} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-lime-400 p-3 font-bold text-slate-950 disabled:opacity-40">{busy?'Сохраняем…':enabled&&!verification?'Продолжить в Спортивном ID':'Сохранить изменения'}<ArrowRight size={18}/></button>}
       {verification&&trainer.enabled&&!changed&&trainer.status!=='verified'&&trainer.status!=='pending'&&<div className="space-y-3 border-t border-slate-700 pt-4">
         <h4 className="font-semibold text-white">Образование и квалификация</h4>
+        <p className="text-sm text-slate-300">Для оценки уровня Pro добавьте также подтверждения спортивных результатов и опыта в выбранных дисциплинах: документы и официальную ссылку. Уровень назначит команда после проверки.</p>
         <label className="block text-sm text-slate-300">Курсы, дипломы и учебные организации<textarea value={note} onChange={e=>setNote(e.target.value)} maxLength={800} rows={3} disabled={busy} placeholder="Название курса, учебный центр, год окончания. Укажите, какие дисциплины подтверждает каждый документ." className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-base text-white"/></label>
         <label className="block text-sm text-slate-300">Документы об обучении · от 1 до 5<input type="file" multiple accept="image/jpeg,image/png,image/webp,application/pdf" disabled={busy||documents.length>=5} onChange={e=>{void upload(e.target.files);e.target.value='';}} className="mt-2 block w-full text-sm file:mr-3 file:rounded-xl file:border-0 file:bg-slate-700 file:p-3 file:text-white"/></label>
         <p className="text-xs text-slate-400">JPG, PNG, WebP или PDF до 10 МБ. Не прикладывайте паспорт и лишние персональные данные. Документы не отображаются в каталоге тренеров.</p>
@@ -47,6 +49,8 @@ export function PersonalTrainerPanel({userId,verification=false,onOpenVerificati
         <button disabled={busy||!documents.length||note.trim().length<5} onClick={()=>void run(async()=>{apply(await submitPersonalTrainer(documents,note,officialUrl));setDocuments([]);setNote('');setOfficialUrl('');})} className="w-full rounded-2xl bg-lime-400 p-3 font-bold text-slate-950 disabled:opacity-40">{busy?'Обрабатываем…':'Отправить на проверку'}</button>
       </div>}
       {verification&&trainer.enabled&&trainer.status==='pending'&&!changed&&<button disabled={busy} onClick={()=>void run(async()=>apply(await cancelPersonalTrainer()))} className="rounded-xl border border-slate-600 p-3 text-sm text-slate-300">Отменить заявку</button>}
+      {trainer.enabled&&<TrainerLevelGuide/>}
+      {trainer.status==='verified'&&<TrainerLevelBadge level={trainer.trainerLevel} details/>}
       {trainer.enabled&&<TrainerServicesEditor key={`${userId}:${trainer.hourlyRate}:${trainer.serviceDescription}`} trainer={trainer} onSaved={value=>{setTrainer(value);onChanged?.(value);}}/>}
       {trainer.enabled&&<button disabled={busy} onClick={()=>void run(async()=>apply(await loadPersonalTrainer()))} className="flex items-center gap-2 text-sm text-slate-400"><RefreshCw size={15}/>Обновить статус</button>}
     </>}

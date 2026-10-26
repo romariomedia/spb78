@@ -1,3 +1,4 @@
+import {TrainerLevelBadge} from './TrainerLevelBadge';
 import {useState} from 'react';
 import {Modal} from './Modal';
 import {UserProfile} from '../lib/types';
@@ -8,6 +9,7 @@ export function TrainerBookingModal({trainer,onClose,onCreated}:{trainer:UserPro
  const submit=async()=>{setBusy(true);setError('');try{const data=await createTrainerBooking({trainerId:trainer.id,sport,hourlyRate:trainer.personalTrainer?.hourlyRate||0,preferredTime:time,note});setResult(data.request);onCreated();}catch(e){setError(e instanceof Error?e.message:'Не удалось отправить заявку');}finally{setBusy(false);}};
  return <Modal isOpen onClose={()=>{if(!busy)onClose();}} title={`Запись: ${trainer.name}`} subtitle="Сначала заявка — затем подтверждение и общение">
  <div className="space-y-4">
+ <TrainerLevelBadge level={trainer.personalTrainer?.trainerLevel} details/>
  <p className="text-2xl font-bold text-lime-300">{trainer.personalTrainer?.hourlyRate?.toLocaleString('ru-RU')} ₽ <span className="text-sm font-normal text-slate-300">/ 60 минут</span></p>
  {trainer.personalTrainer?.serviceDescription&&<p className="whitespace-pre-wrap break-words text-sm text-slate-300">{trainer.personalTrainer.serviceDescription}</p>}
  {result?<div role="status" className="space-y-3 rounded-2xl bg-lime-400/10 p-4 text-lime-200"><p>{result.status==='accepted'?'Тренер уже принял вашу заявку. Чат доступен в разделе «Чаты → Тренеры».':'Заявка отправлена. Тренер получит уведомление. После одобрения можно будет открыть чат.'}</p><p className="text-sm">Статус — в «Моих заявках к тренерам» и в профиле.</p><button className="rounded-xl bg-lime-300 p-3 font-bold text-slate-950" onClick={onClose}>Понятно</button></div>:<>

@@ -20,9 +20,9 @@ function fixture(){
  const faults={audit:false,before:null};
  const snap=path=>({id:path.split('/').at(-1),exists:rows.has(path),data:()=>structuredClone(rows.get(path))});
  const ref=path=>({id:path.split('/').at(-1),path,get:async()=>path.startsWith('adminSessions')?{exists:true,data:()=>rows.get(path)}:snap(path)});
- const db={doc:ref,collection(n){let after='',limit=100,expected;return {doc:id=>ref(n+'/'+id),where(_field,_op,value){expected=value;return this;},orderBy(){return this;},startAfter(value){after=value;return this;},limit(value){limit=value;return this;},async get(){return {docs:[...rows.keys()].filter(k=>k.startsWith(n+'/')).map(snap).filter(d=>d.id>after&&(expected===undefined||d.data().personalTrainer?.status===expected)).sort((a,b)=>a.id.localeCompare(b.id)).slice(0,limit)};}};},async runTransaction(fn){faults.before?.();let written=false;const pending=[];const tx={get:async r=>{assert.equal(written,false,'All reads must precede writes');return snap(r.path);},set(r,v){written=true;if(faults.audit&&r.path.startsWith('adminAuditLogs'))throw Error('Audit unavailable');pending.push(()=>rows.set(r.path,structuredClone(v)));},update(r,v){written=true;pending.push(()=>rows.set(r.path,{...rows.get(r.path),...structuredClone(v)}));},delete(r){written=true;pending.push(()=>rows.delete(r.path));}};const result=await fn(tx);pending.forEach(fn=>fn());return result;}};
+ const db={doc:ref,collection(n){let after='',limit=100,expected,field;return {doc:id=>ref(n+'/'+id),where(_field,_op,value){field=_field;expected=value;return this;},orderBy(){return this;},startAfter(value){after=value;return this;},limit(value){limit=value;return this;},async get(){return {docs:[...rows.keys()].filter(k=>k.startsWith(n+'/')).map(snap).filter(d=>d.id>after&&(expected===undefined||field.split('.').reduce((v,k)=>v?.[k],d.data())===expected)).sort((a,b)=>a.id.localeCompare(b.id)).slice(0,limit)};}};},async runTransaction(fn){faults.before?.();let written=false;const pending=[];const tx={get:async r=>{assert.equal(written,false,'All reads must precede writes');return snap(r.path);},set(r,v){written=true;if(faults.audit&&r.path.startsWith('adminAuditLogs'))throw Error('Audit unavailable');pending.push(()=>rows.set(r.path,structuredClone(v)));},update(r,v){written=true;pending.push(()=>rows.set(r.path,{...rows.get(r.path),...structuredClone(v)}));},delete(r){written=true;pending.push(()=>rows.delete(r.path));}};const result=await fn(tx);pending.forEach(fn=>fn());return result;}};
  globalThis.__trainerDb=db;
- return {db,rows,faults,trainer:()=>rows.get('users/u').personalTrainer,request:()=>rows.get('sportVerificationRequests/'+rid),async admin(operation,note='Проверено',expectedVersion=rows.get('sportVerificationRequests/'+rid)?.requestVersion||''){globalThis.__trainerDb=db;const res={code:200,status(v){this.code=v;return this},json(v){this.body=v;return this}};await admin({method:'POST',body:{sessionId:'live',requestId:rid,operation,note,expectedVersion}},res);return res;},async athlete(body){globalThis.__trainerDb=db;const res={code:200,status(v){this.code=v;return this},json(v){this.body=v;return this}};await athlete({method:'POST',headers:{authorization:'Bearer test'},body},res);return res;}};
+ return {db,rows,faults,trainer:()=>rows.get('users/u').personalTrainer,request:()=>rows.get('sportVerificationRequests/'+rid),async admin(operation,note='Проверено',expectedVersion=rows.get('sportVerificationRequests/'+rid)?.requestVersion||'',trainerLevel='start'){globalThis.__trainerDb=db;const res={code:200,status(v){this.code=v;return this},json(v){this.body=v;return this}};await admin({method:'POST',body:{sessionId:'live',requestId:rid,operation,note,expectedVersion,trainerLevel}},res);return res;},async athlete(body){globalThis.__trainerDb=db;const res={code:200,status(v){this.code=v;return this},json(v){this.body=v;return this}};await athlete({method:'POST',headers:{authorization:'Bearer test'},body},res);return res;}};
 }
 async function pending(f){await mutateTrainer(f.db,'u','trainerSave',{enabled:true,sports:['Бег'],status:'verified'});return mutateTrainer(f.db,'u','trainerSubmit',evidence);}
 test('trainer disciplines validate against shared catalog; status cannot be self-issued',()=>{
@@ -92,4 +92,60 @@ test('stale admin decisions cannot approve, reject or revoke replacement documen
  assert.equal((await f.admin('approve','Обновлённая карточка')).code,200);
  assert.equal((await f.admin('revoke','Старая карточка',oldVersion)).code,409);
  assert.equal(f.trainer().status,'verified');
+});
+
+
+test('trainer approval requires explicit valid level; Pro requires an evidence rationale',async()=>{
+ const f=fixture();await pending(f);
+ for(const value of [null,'','elite','START',2])assert.equal((await f.admin('approve','Проверено',f.request().requestVersion,value)).code,400);
+ assert.equal(f.trainer().status,'pending');
+ assert.equal((await f.admin('approve','Ок',f.request().requestVersion,'pro')).code,400);
+ assert.equal((await f.admin('approve','Проверены диплом и результаты соревнований',f.request().requestVersion,'pro')).code,200);
+ assert.equal(f.trainer().trainerLevel,'pro');assert.equal(f.request().trainerLevel,'pro');
+ assert.equal(f.rows.get('sportVerifiedClaims/'+cid).trainerLevel,'pro');assert.equal(publicProfile('u',f.rows.get('users/u')).personalTrainer.trainerLevel,'pro');
+});
+
+test('admin can assign legacy trainers, promote and downgrade; stale admin card cannot overwrite new level',async()=>{
+ const f=fixture();await pending(f);await f.admin('approve');
+ delete f.rows.get('users/u').personalTrainer.trainerLevel;delete f.rows.get('sportVerificationRequests/'+rid).trainerLevel;delete f.rows.get('sportVerifiedClaims/'+cid).trainerLevel;
+ assert.equal(publicTrainer(f.rows.get('users/u')).trainerLevel,null);
+ const token=f.rows.get('sportVerifiedClaims/'+cid).publicToken,oldVersion=f.request().requestVersion;
+ assert.equal((await f.admin('setTrainerLevel','Проверены документы ОФП',oldVersion,'start')).code,200);
+ assert.equal(f.trainer().trainerLevel,'start');assert.notEqual(f.request().requestVersion,oldVersion);
+ assert.equal((await f.admin('setTrainerLevel','Проверены результаты спорта',oldVersion,'pro')).code,409);
+ assert.equal((await f.admin('revoke','Устаревшее решение',oldVersion)).code,409);
+ assert.equal((await f.admin('setTrainerLevel','Проверены результаты спорта',f.request().requestVersion,'pro')).code,200);
+ assert.equal(f.trainer().trainerLevel,'pro');
+ assert.equal((await f.admin('setTrainerLevel','Переоценка подтверждающих материалов',f.request().requestVersion,'start')).code,200);
+ assert.equal(f.trainer().trainerLevel,'start');assert.equal(f.rows.get('sportVerifiedClaims/'+cid).publicToken,token);
+ assert.ok([...f.rows].some(([key,row])=>key.startsWith('adminAuditLogs/')&&row.action==='sportId.trainer.level'));
+});
+
+test('athletes cannot self-assign tier; discipline changes and revocation clear it',async()=>{
+ const f=fixture();await mutateTrainer(f.db,'u','trainerSave',{enabled:true,sports:['Бег'],trainerLevel:'pro'});assert.equal(f.trainer().trainerLevel,'');
+ await mutateTrainer(f.db,'u','trainerSubmit',{...evidence,trainerLevel:'pro'});assert.equal(f.trainer().trainerLevel,'');
+ await f.admin('approve');assert.equal(f.trainer().trainerLevel,'start');
+ await mutateTrainer(f.db,'u','trainerSave',{enabled:true,sports:['Бег'],trainerLevel:'pro'});assert.equal(f.trainer().trainerLevel,'start');
+ await mutateTrainer(f.db,'u','trainerSave',{enabled:true,sports:['Теннис'],trainerLevel:'pro'});assert.equal(f.trainer().trainerLevel,'');
+ assert.equal(publicTrainer(f.rows.get('users/u')),null);
+ await mutateTrainer(f.db,'u','trainerSubmit',evidence);await f.admin('approve');await f.admin('revoke','Нужна повторная проверка');assert.equal(f.trainer().trainerLevel,'');
+ assert.equal((await f.admin('setTrainerLevel','Нельзя вернуть без проверки',f.request().requestVersion,'pro')).code,409);
+});
+
+test('level review remains atomic on audit failure and requires current active verified qualification',async()=>{
+ const f=fixture();await pending(f);await f.admin('approve');const beforeVersion=f.request().requestVersion;
+ f.faults.audit=true;const log=console.error;console.error=()=>{};try{assert.equal((await f.admin('setTrainerLevel','Подтверждены высокие результаты',beforeVersion,'pro')).code,500);}finally{console.error=log;}
+ assert.equal(f.trainer().trainerLevel,'start');assert.equal(f.request().requestVersion,beforeVersion);assert.equal(f.rows.get('sportVerifiedClaims/'+cid).trainerLevel,'start');
+ f.faults.audit=false;f.rows.get('users/u').isSuspended=true;
+ assert.equal((await f.admin('setTrainerLevel','Подтверждены высокие результаты',beforeVersion,'pro')).code,403);
+});
+
+test('trainer catalog level filter is applied before pagination and excludes invalid/suspended entries',async()=>{
+ const f=fixture();for(let i=0;i<26;i++)f.rows.set('users/p'+String(i).padStart(2,'0'),{name:'Pro trainer',personalTrainer:{enabled:true,status:'verified',sports:['Бег'],trainerLevel:'pro'},isSuspended:i===0});
+ f.rows.set('users/start',{personalTrainer:{enabled:true,status:'verified',sports:['Бег'],trainerLevel:'start'}});
+ f.rows.set('users/legacy',{personalTrainer:{enabled:true,status:'verified',sports:['Бег']}});
+ const first=await f.athlete({action:'trainers',trainerLevel:'pro'});assert.equal(first.code,200);assert.equal(first.body.trainers.length,23);assert.equal(first.body.nextCursor,'p23');assert.ok(first.body.trainers.every(u=>u.personalTrainer.trainerLevel==='pro'));
+ assert.equal((await f.athlete({action:'trainers',trainerLevel:'pro',cursor:first.body.nextCursor})).body.trainers.length,2);
+ assert.deepEqual((await f.athlete({action:'trainers',trainerLevel:'start'})).body.trainers.map(x=>x.id),['start']);
+ assert.equal((await f.athlete({action:'trainers',trainerLevel:'elite'})).code,400);
 });
