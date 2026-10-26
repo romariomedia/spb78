@@ -4,7 +4,7 @@ import {getAuth} from 'firebase-admin/auth';
 import {getFirestore} from 'firebase-admin/firestore';
 import {requireActiveUser} from '../server/user-status.js';
 import {
-  billingIsOpen,businessSubscriptionId,getBillingConfig,planFor,promotionFor,resolveBusinessSubject
+  billingIsOpen,businessSubscriptionId,getBillingConfig,hasBusinessAccess,planFor,promotionFor,resolveBusinessSubject
 } from '../server/business-billing.js';
 import {validPaymentId} from '../server/payment-config.js';
 
@@ -40,6 +40,8 @@ export default async function handler(req,res){
     });
     const plan=purpose==='promotion'?promotionFor(config,subjectType):planFor(config,subjectType,interval);
     if(!plan)return res.status(400).json({error:purpose==='promotion'?'Продвижение недоступно.':'Некорректный тариф'});
+    if(purpose==='promotion'&&!await hasBusinessAccess(db,subjectType,subjectId,config))
+      return res.status(409).json({error:'Сначала активируйте размещение, затем включайте продвижение.'});
     if(!Number.isInteger(plan.amountRub)||plan.amountRub<=0)return res.status(409).json({code:'PLAN_DISABLED',error:'Этот тариф пока недоступен для оплаты.'});
 
     const subscriptionId=businessSubscriptionId(subjectType,subjectId);
