@@ -4,6 +4,8 @@ import {adminPost} from './adminRequest';
 
 export type BusinessSubjectType='trainer'|'venue'|'massage';
 export type BusinessBillingInterval='monthly'|'yearly';
+export type BusinessEntityType='ip'|'self_employed'|'legal_entity';
+export const BUSINESS_OFFER_VERSION='SB78-B2B-2026-10-26';
 
 export interface BusinessPlan {
   label:string;
@@ -14,6 +16,33 @@ export interface BusinessPromotionPlan {
   label:string;
   days:number;
   priceRub:number;
+}
+export interface BusinessLegalProfile {
+  entityType:BusinessEntityType|'';
+  legalName:string;
+  inn:string;
+  ogrn:string;
+  address:string;
+  email:string;
+  phone:string;
+  representative:string;
+  basis:string;
+  ready:boolean;
+  errors:string[];
+}
+export interface BusinessContractSummary {
+  id:string;
+  contractNumber:string;
+  product:string;
+  subjectType:string;
+  subjectId:string;
+  subjectLabel:string;
+  amountRub:number;
+  currency:string;
+  createdAt:string;
+  serviceStart:string;
+  serviceUntil:string;
+  paymentId:string;
 }
 export interface BusinessBillingConfig {
   enabled:boolean;
@@ -68,6 +97,8 @@ export interface BusinessDashboardState {
   subjects:BusinessDashboardSubject[];
   ledger:BusinessLedgerRow[];
   finance:{paidRub:number;promotionRub:number};
+  legalProfile:BusinessLegalProfile;
+  contracts:BusinessContractSummary[];
 }
 export interface AdminBusinessCRMItem extends BusinessSubscription {
   metrics:BusinessMetricSummary;
@@ -100,7 +131,7 @@ export async function loadBusinessBilling():Promise<BusinessBillingState>{
 function requestKey(uid:string,subjectType:BusinessSubjectType,subjectId:string,kind:string){
   return `sb78_business_payment_${uid}_${subjectType}_${subjectId}_${kind}`;
 }
-async function createBusinessCheckout(subjectType:BusinessSubjectType,subjectId:string,interval:BusinessBillingInterval|'',purpose:'subscription'|'promotion'){
+async function createBusinessCheckout(subjectType:BusinessSubjectType,subjectId:string,interval:BusinessBillingInterval|'',purpose:'subscription'|'promotion',offerAccepted=false){
 
   const user=auth.currentUser;if(!user)throw new Error('Сначала войдите в аккаунт.');
   const key=requestKey(user.uid,subjectType,subjectId,purpose==='promotion'?'promotion':interval);
@@ -119,7 +150,10 @@ async function createBusinessCheckout(subjectType:BusinessSubjectType,subjectId:
     const response=await apiFetch('/api/create-business-payment',{
       method:'POST',signal:controller.signal,
       headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},
-      body:JSON.stringify({subjectType,subjectId,interval,purpose,requestId:current.id})
+      body:JSON.stringify({
+        subjectType,subjectId,interval,purpose,requestId:current.id,
+        offerAccepted,offerVersion:BUSINESS_OFFER_VERSION
+      })
     });
     const data=await response.json().catch(()=>({}));
     if(!response.ok){
@@ -134,10 +168,40 @@ async function createBusinessCheckout(subjectType:BusinessSubjectType,subjectId:
     throw error;
   }finally{window.clearTimeout(timer);}
 }
-export const createBusinessPayment=(subjectType:BusinessSubjectType,subjectId:string,interval:BusinessBillingInterval)=>
-  createBusinessCheckout(subjectType,subjectId,interval,'subscription');
-export const createBusinessPromotionPayment=(subjectType:BusinessSubjectType,subjectId:string)=>
-  createBusinessCheckout(subjectType,subjectId,'','promotion');
+export const createBusinessPayment=(subjectType:BusinessSubjectType,subjectId:string,interval:BusinessBillingInterval,offerAccepted=false)=>
+  createBusinessCheckout(subjectType,subjectId,interval,'subscription',offerAccepted);
+export const createBusinessPromotionPayment=(subjectType:BusinessSubjectType,subjectId:string,offerAccepted=false)=>
+  createBusinessCheckout(subjectType,subjectId,'','promotion',offerAccepted);
+
+export async function saveBusinessLegalProfile(profile:Omit<BusinessLegalProfile,'ready'|'errors'>):Promise<BusinessLegalProfile>{
+  const token=await idToken();
+  const response=await apiFetch('/api/business-legal-profile',{
+    method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},
+    body:JSON.stringify({operation:'save',profile})
+  });
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok)throw new Error(data.error||'Не удалось сохранить реквизиты.');
+  return data.profile as BusinessLegalProfile;
+}
+
+export async function downloadBusinessContract(contractId:string,contractNumber:string):Promise<void>{
+  const token=await idToken();
+  const response=await apiFetch('/api/business-contract-download',{
+    method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},
+    body:JSON.stringify({contractId})
+  });
+  if(!response.ok){
+    const data=await response.json().catch(()=>({}));
+    throw new Error(data.error||'Не удалось скачать договор.');
+  }
+  const blob=await response.blob();
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=`SportBuddy78-contract-${(contractNumber||contractId).replace(/[^a-zA-Z0-9_-]/g,'_')}.rtf`;
+  document.body.appendChild(a);a.click();a.remove();
+  window.setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
 
 export async function loadBusinessDashboard():Promise<BusinessDashboardState>{
   const token=await idToken();

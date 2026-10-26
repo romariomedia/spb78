@@ -10,12 +10,14 @@ type LegalView = 'safety' | 'documents';
 interface LegalSectionProps {
   onReport?: () => void;
   onAdminTrigger?: () => void;
+  initialView?: LegalView;
+  initialDocumentId?: string;
 }
 
-export const LegalSection: React.FC<LegalSectionProps> = ({ onReport, onAdminTrigger }) => {
-  const [openId, setOpenId] = useState<string | null>(null);
+export const LegalSection: React.FC<LegalSectionProps> = ({ onReport, onAdminTrigger, initialView = 'safety', initialDocumentId }) => {
+  const [openId, setOpenId] = useState<string | null>(initialDocumentId || null);
   // Safety rules open first — they are the most important for users
-  const [view, setView] = useState<LegalView>('safety');
+  const [view, setView] = useState<LegalView>(initialView);
 
   return (
     <div className="space-y-4">
@@ -119,6 +121,7 @@ export const LegalSection: React.FC<LegalSectionProps> = ({ onReport, onAdminTri
         <div className="space-y-1">
           <p className="text-[11px] font-bold text-white">{APP_LEGAL_INFO.operator}</p>
           <p className="text-[10px] text-slate-400 font-mono">{APP_LEGAL_INFO.inn}</p>
+          <p className="text-[10px] text-slate-400 font-mono">{APP_LEGAL_INFO.ogrnip}</p>
           <p className="text-[10px] text-slate-400">{APP_LEGAL_INFO.region}</p>
         </div>
 
@@ -161,8 +164,8 @@ export const LegalSection: React.FC<LegalSectionProps> = ({ onReport, onAdminTri
       </div>
 
       <p className="text-[10px] text-slate-600 leading-relaxed text-center">
-        Продолжая использовать приложение, вы подтверждаете согласие на обработку персональных данных
-        в соответствии с 152-ФЗ.
+        Согласия на обработку и на распространение персональных данных, когда они требуются законом,
+        оформляются отдельными действиями. Само продолжение использования SportBuddy78 не заменяет такое согласие.
       </p>
     </div>
       )}
