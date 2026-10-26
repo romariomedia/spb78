@@ -4,7 +4,7 @@ import {adminPost} from './adminRequest';
 
 export type BusinessSubjectType='trainer'|'venue'|'massage';
 export type BusinessBillingInterval='monthly'|'yearly';
-export type BusinessEntityType='ip'|'self_employed'|'legal_entity'|'individual_professional';
+export type BusinessEntityType='ip'|'self_employed'|'legal_entity';
 export const BUSINESS_OFFER_VERSION='SB78-B2B-2026-10-26';
 
 export interface BusinessPlan {
