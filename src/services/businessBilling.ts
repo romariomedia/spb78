@@ -141,7 +141,7 @@ export async function loadBusinessDashboard():Promise<BusinessDashboardState>{
   if(!response.ok)throw new Error(data.error||'Не удалось загрузить кабинет партнёра.');
   return data as BusinessDashboardState;
 }
-export async function trackBusinessEvent(subjectType:BusinessSubjectType,subjectId:string,eventType:'view'|'click',target:'card'|'profile'|'website'|'phone'|'booking'|'training'|'directions'){
+export async function trackBusinessEvent(subjectType:BusinessSubjectType,subjectId:string,eventType:'view'|'click'|'lead',target:'card'|'profile'|'website'|'phone'|'booking'|'training'|'directions'){
   const user=auth.currentUser;if(!user)return;
   try{
     const token=await user.getIdToken();
