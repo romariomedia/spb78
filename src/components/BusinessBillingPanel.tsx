@@ -15,7 +15,7 @@ const formatDate=(value:string)=>{
 };
 const typeLabel=(item:BusinessDashboardSubject)=>item.subjectType==='trainer'?'Персональный тренер':item.subjectType==='venue'?'Площадка / студия':'Массаж / wellness';
 const money=(value:number)=>Number(value||0).toLocaleString('ru-RU')+' ₽';
-const eventLabel=(value:string)=>value==='payment'?'Оплата размещения':value==='promotion_payment'?'Продвижение':value==='admin_grant'?'Бесплатное продление':value==='owner_assigned'?'Привязка владельца':value==='owner_unlinked'?'Отвязка владельца':value;
+const eventLabel=(value:string)=>value==='payment'?'Оплата размещения':value==='promotion_payment'?'Продвижение':value==='admin_promotion'?'Бесплатное продвижение':value==='admin_grant'?'Бесплатное продление':value==='admin_paused'?'Размещение приостановлено':value==='admin_resumed'?'Размещение возобновлено':value==='owner_assigned'?'Привязка владельца':value==='owner_unlinked'?'Отвязка владельца':value;
 
 function Metric({label,value,sub,icon}:{label:string;value:string|number;sub:string;icon:ReactNode}){
   return <div className="rounded-2xl border border-slate-800 bg-slate-950 p-3">
@@ -95,6 +95,7 @@ export function BusinessBillingPanel(){
       const interval=intervals[id]||'monthly';
       const price=interval==='monthly'?plan.monthlyRub:plan.yearlyRub;
       const active=item.status==='active';
+      const paused=item.status==='paused';
       return <article key={id} className="rounded-3xl border border-slate-800 bg-slate-900/70 p-4 space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
@@ -103,7 +104,7 @@ export function BusinessBillingPanel(){
           </div>
           <div className="flex flex-wrap gap-2">
             {item.isPromoted&&<span className="rounded-full border border-fuchsia-400/30 bg-fuchsia-400/10 px-2 py-1 text-[10px] font-black text-fuchsia-200">🚀 ПРОДВИГАЕТСЯ</span>}
-            <span className={`rounded-full px-2 py-1 text-[10px] font-black ${active?'bg-emerald-500/15 text-emerald-300':'bg-slate-800 text-slate-400'}`}>{active?'РАЗМЕЩЕНИЕ АКТИВНО':'БЕСПЛАТНЫЙ РЕЖИМ'}</span>
+            <span className={`rounded-full px-2 py-1 text-[10px] font-black ${paused?'bg-rose-500/15 text-rose-300':active?'bg-emerald-500/15 text-emerald-300':'bg-slate-800 text-slate-400'}`}>{paused?'РАЗМЕЩЕНИЕ ПРИОСТАНОВЛЕНО':active?'РАЗМЕЩЕНИЕ АКТИВНО':'БЕСПЛАТНЫЙ РЕЖИМ'}</span>
           </div>
         </div>
 
@@ -116,6 +117,7 @@ export function BusinessBillingPanel(){
         <MiniChart item={item}/>
 
         {item.foundingCoachFreeUntil&&<div className="flex items-center gap-2 rounded-xl border border-lime-300/20 bg-lime-300/5 p-2.5 text-xs text-lime-200"><Crown size={15}/>Founding Coach · бесплатное размещение до {formatDate(item.foundingCoachFreeUntil)}</div>}
+        {paused&&<div className="rounded-xl border border-rose-500/30 bg-rose-950/20 p-2.5 text-xs text-rose-200">Размещение временно приостановлено администратором.{item.adminPausedReason?' Причина: '+item.adminPausedReason:''}</div>}
         {active&&<div className="flex items-center gap-2 text-xs text-slate-300"><CalendarClock size={15} className="text-emerald-400"/>Размещение активно до <b className="text-white">{formatDate(item.activeUntil)}</b></div>}
         {item.isPromoted&&<div className="flex items-center gap-2 text-xs text-fuchsia-200"><Rocket size={15}/>Приоритетное размещение до <b>{formatDate(item.promotedUntil)}</b></div>}
 
@@ -127,8 +129,8 @@ export function BusinessBillingPanel(){
         </div>
 
         <div className="grid gap-2 sm:grid-cols-2">
-          <button disabled={!state.config.billingOpen||paying==='subscription:'+id||price<=0} onClick={()=>void pay(item)} className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-cyan-400 px-3 py-3 text-sm font-black text-slate-950 disabled:bg-slate-800 disabled:text-slate-500">
-            <BadgeRussianRuble size={17}/>{paying==='subscription:'+id?'Переход к ЮKassa…':!state.config.billingOpen?'Оплата откроется в 2027':active?'Продлить размещение':'Оформить размещение'}
+          <button disabled={!state.config.billingOpen||paused||paying==='subscription:'+id||price<=0} onClick={()=>void pay(item)} className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-cyan-400 px-3 py-3 text-sm font-black text-slate-950 disabled:bg-slate-800 disabled:text-slate-500">
+            <BadgeRussianRuble size={17}/>{paused?'Размещение приостановлено':paying==='subscription:'+id?'Переход к ЮKassa…':!state.config.billingOpen?'Оплата откроется в 2027':active?'Продлить размещение':'Оформить размещение'}
           </button>
           <button disabled={!state.config.billingOpen||!active||paying==='promotion:'+id||promo.priceRub<=0} onClick={()=>void promote(item)} className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-fuchsia-400/30 bg-fuchsia-400/10 px-3 py-3 text-sm font-black text-fuchsia-200 disabled:border-slate-800 disabled:bg-slate-950 disabled:text-slate-600">
             <Rocket size={17}/>{paying==='promotion:'+id?'Переход к ЮKassa…':`Продвинуть на 7 дней · ${promo.priceRub.toLocaleString('ru-RU')} ₽`}

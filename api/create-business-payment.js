@@ -50,13 +50,15 @@ export default async function handler(req,res){
     const requestRef=db.collection('businessPaymentRequests').doc(key);
     const intent=await db.runTransaction(async tx=>{
       const [previous,subscriptionSnap]=await Promise.all([tx.get(requestRef),tx.get(subscriptionRef)]);
+      const subscription=subscriptionSnap.exists?subscriptionSnap.data()||{}:{};
+      if(subscription.adminPaused===true)
+        throw Object.assign(new Error('Размещение приостановлено администратором. Оплата временно недоступна.'),{status:409});
       if(previous.exists){
         const value=previous.data();
         if(value.ownerUserId!==uid||value.subjectType!==subjectType||value.subjectId!==subjectId||value.purpose!==purpose||String(value.interval||'')!==String(interval||'')||Date.now()-Date.parse(value.createdAt)>=23*3600000)
           throw Object.assign(new Error('Начните оплату заново'),{status:409});
         return value;
       }
-      const subscription=subscriptionSnap.exists?subscriptionSnap.data()||{}:{};
       const ownerUserId=subjectType==='trainer'?uid:clean(subscription.ownerUserId,180);
       if(subjectType==='trainer'&&subjectId!==uid)throw Object.assign(new Error('Можно оплачивать только собственный профиль тренера.'),{status:403});
       if(subjectType!=='trainer'&&ownerUserId!==uid)throw Object.assign(new Error('Эта организация не привязана к вашему аккаунту.'),{status:403});

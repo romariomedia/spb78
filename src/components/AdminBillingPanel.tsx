@@ -1,4 +1,5 @@
 import {useEffect,useState} from 'react';
+import {AdminBusinessCrm} from './AdminBusinessCrm';
 import {BadgeRussianRuble,Link2,RefreshCw,Save,ShieldCheck,Unlink,WalletCards} from 'lucide-react';
 import {
   AdminBillingState,BusinessSubjectType,assignBusinessOwner,grantBusinessAccess,
@@ -54,6 +55,8 @@ export function AdminBillingPanel(){
     {notice&&<div className="rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-3 text-sm text-emerald-200">{notice}</div>}
 
     {state&&<>
+      <AdminBusinessCrm state={state} onReload={load}/>
+
       <div className="rounded-2xl border border-lime-300/20 bg-lime-300/5 p-4">
         <div className="flex items-center gap-2"><ShieldCheck size={17} className="text-lime-300"/><p className="text-sm font-black text-white">Защита запуска 2027</p></div>
         <p className="mt-2 text-xs leading-relaxed text-slate-400">Даже если включить переключатель сейчас, создание B2B-платежей заблокировано сервером до 01.01.2027. Это позволяет заранее настроить тарифы и проверить интерфейс.</p>
@@ -98,17 +101,6 @@ export function AdminBillingPanel(){
           <button disabled={Boolean(busy)} onClick={()=>void unlink()} className="flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-900 py-2.5 text-xs font-black text-slate-300 disabled:opacity-50"><Unlink size={15}/>Отвязать владельца</button>
         </div>
         <p className="text-[11px] leading-relaxed text-slate-500">Начните вводить ID — браузер предложит найденных подтверждённых тренеров, площадки и массажные карточки. Для тренера ID объекта — его Firebase UID. После привязки владелец увидит услугу в своём профиле и сможет оплачивать/продлевать её самостоятельно после запуска 2027.</p>
-      </div>
-
-      <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4">
-        <div className="mb-3 flex items-center justify-between"><p className="text-sm font-black text-white">Коммерческие карточки</p><span className="text-xs text-slate-500">{state.items.length}</span></div>
-        <div className="space-y-2 max-h-[520px] overflow-y-auto">
-          {state.items.length===0&&<p className="rounded-xl border border-dashed border-slate-800 p-4 text-center text-xs text-slate-500">Пока нет привязанных коммерческих услуг.</p>}
-          {state.items.map(item=><article key={item.id||item.subjectType+item.subjectId} className="rounded-xl border border-slate-800 bg-slate-900 p-3">
-            <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="truncate text-xs font-black text-white">{item.subjectLabel||item.subjectId}</p><p className="mt-1 text-[10px] text-slate-500">{item.subjectType} · {item.subjectId}</p></div><span className={`rounded-full px-2 py-1 text-[10px] font-black ${item.status==='active'?'bg-emerald-500/15 text-emerald-300':'bg-slate-800 text-slate-500'}`}>{item.status==='active'?'ACTIVE':'INACTIVE'}</span></div>
-            <div className="mt-2 grid gap-1 text-[11px] text-slate-400 sm:grid-cols-2"><p>Владелец: <b className="text-slate-200">{item.ownerUserId||'не привязан'}</b></p><p>Активно до: <b className="text-slate-200">{formatDate(item.activeUntil)}</b></p><p>Оплачено до: {formatDate(item.paidUntil)}</p><p>Бесплатно до: {formatDate(item.complimentaryUntil)}</p></div>
-          </article>)}
-        </div>
       </div>
 
       <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4">

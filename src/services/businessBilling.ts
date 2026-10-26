@@ -34,7 +34,10 @@ export interface BusinessSubscription {
   foundingCoachFreeUntil?:string;
   promotedUntil:string;
   isPromoted:boolean;
-  status:'active'|'inactive';
+  adminPaused:boolean;
+  adminPausedAt:string;
+  adminPausedReason:string;
+  status:'active'|'inactive'|'paused';
   lastPaymentAt:string;
   lastGrantedAt:string;
   lastPromotionPaymentAt:string;
@@ -66,9 +69,13 @@ export interface BusinessDashboardState {
   ledger:BusinessLedgerRow[];
   finance:{paidRub:number;promotionRub:number};
 }
+export interface AdminBusinessCRMItem extends BusinessSubscription {
+  metrics:BusinessMetricSummary;
+  finance:{paidRub:number;promotionRub:number};
+}
 export interface AdminBillingState {
   config:Omit<BusinessBillingConfig,'billingOpen'>;
-  items:BusinessSubscription[];
+  items:AdminBusinessCRMItem[];
   catalog:Record<BusinessSubjectType,Array<{id:string;name:string}>>;
   ledger:BusinessLedgerRow[];
 }
@@ -168,4 +175,10 @@ export async function unlinkBusinessOwner(subjectType:BusinessSubjectType,subjec
 }
 export async function grantBusinessAccess(subjectType:BusinessSubjectType,subjectId:string,days:number,note:string){
   return adminPost<{item:BusinessSubscription}>('/api/admin-billing',{operation:'grant',subjectType,subjectId,days,note});
+}
+export async function grantBusinessPromotion(subjectType:BusinessSubjectType,subjectId:string,days=7,note='Бесплатное продвижение / решение команды SportBuddy78'){
+  return adminPost<{item:BusinessSubscription}>('/api/admin-billing',{operation:'grantPromotion',subjectType,subjectId,days,note});
+}
+export async function setBusinessPaused(subjectType:BusinessSubjectType,subjectId:string,paused:boolean,note=''){
+  return adminPost<{item:BusinessSubscription}>('/api/admin-billing',{operation:'setPaused',subjectType,subjectId,paused,note});
 }
