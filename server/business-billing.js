@@ -141,21 +141,36 @@ export async function foundingCoachUntil(db,subjectType,subjectId){
   if(!snap.exists||snap.data()?.foundingCoach!==true)return '';
   return iso(snap.data()?.foundingCoachFreeUntil);
 }
-export async function hasBusinessAccess(db,subjectType,subjectId,config=null,now=Date.now()){
+export async function businessListingStates(db,subjectType,subjectIds,config=null,now=Date.now()){
   const effectiveConfig=config||await getBillingConfig(db);
-  if(!billingIsOpen(effectiveConfig,now))return true;
-  const id=businessSubscriptionId(subjectType,subjectId);
-  const [subscriptionSnap,freeUntil]=await Promise.all([
-    db.collection('businessSubscriptions').doc(id).get(),
-    foundingCoachUntil(db,subjectType,subjectId)
-  ]);
-  if(!subscriptionSnap.exists){
-    // Existing editorial venue/massage catalog remains public until a business owner claims it.
-    return subjectType!=='trainer' || Boolean(freeUntil);
+  const ids=[...new Set((subjectIds||[]).filter(validBusinessSubjectId))];
+  const result=new Map();
+  if(!billingIsOpen(effectiveConfig,now)){
+    for(const id of ids)result.set(id,{allowed:true,isPromoted:false,promotedUntil:''});
+    return result;
   }
-  const subscription=subscriptionSnap.data()||{};
-  if(subjectType!=='trainer'&&!clean(subscription.ownerUserId,180))return true;
-  return effectiveBusinessUntil(subscription,freeUntil)>now;
+  const subscriptions=await db.collection('businessSubscriptions').where('subjectType','==',subjectType).limit(1000).get();
+  const byId=new Map(subscriptions.docs.map(doc=>[String(doc.data()?.subjectId||''),doc.data()||{}]));
+  const founding=new Map();
+  if(subjectType==='trainer'){
+    const admins=await db.collection('userAdmin').where('foundingCoach','==',true).limit(1000).get();
+    for(const doc of admins.docs)founding.set(doc.id,iso(doc.data()?.foundingCoachFreeUntil));
+  }
+  for(const id of ids){
+    const subscription=byId.get(id);
+    const freeUntil=founding.get(id)||'';
+    let allowed;
+    if(!subscription)allowed=subjectType!=='trainer'||millis(freeUntil)>now;
+    else if(subjectType!=='trainer'&&!clean(subscription.ownerUserId,180))allowed=true;
+    else allowed=effectiveBusinessUntil(subscription,freeUntil)>now;
+    const promotedUntil=subscription?iso(subscription.promotedUntil):'';
+    result.set(id,{allowed,isPromoted:allowed&&millis(promotedUntil)>now,promotedUntil});
+  }
+  return result;
+}
+export async function hasBusinessAccess(db,subjectType,subjectId,config=null,now=Date.now()){
+  const states=await businessListingStates(db,subjectType,[subjectId],config,now);
+  return states.get(subjectId)?.allowed===true;
 }
 export function businessPaymentMatches(remote,expected,paymentId){
   return remote?.id===paymentId && remote?.status==='succeeded' && remote?.paid===true
