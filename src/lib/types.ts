@@ -39,6 +39,16 @@ export interface SportPassportProfile {
   updatedAt?: string;
 }
 
+export type PublicConsentGroup='identity'|'profile'|'portfolio'|'location'|'presence'|'reputation'|'trainer';
+
+export interface PublicDisseminationState {
+  active:boolean;
+  version:string;
+  groups:PublicConsentGroup[];
+  grantedAt?:string;
+  revokedAt?:string;
+}
+
 export interface UserProfile {
   personalTrainer?: {enabled:boolean; sports:string[]; status:string; verifiedAt?:string;trainerLevel?:'start'|'pro'|''|null;hourlyRate?:number|null;serviceDescription?:string;isPromoted?:boolean};
   id: string;
@@ -87,6 +97,7 @@ export interface UserProfile {
   photoPortfolio?: string[];     // up to 5 sport photos
   hasRealPhoto?: boolean;        // avatar uploaded → account is not deleted
   legalAcceptedAt?: string;      // consent to personal data processing
+  publicDissemination?: PublicDisseminationState;
   phone?: string;
   hidePhone?: boolean;
   // Friends system (Premium only):

@@ -33,6 +33,7 @@ import { AdminOfficialTrainingsPanel } from './AdminOfficialTrainingsPanel';
 import { AdminModerationPanel } from './AdminModerationPanel';
 import { AdminAnalyticsPanel } from './AdminAnalyticsPanel';
 import { AdminBillingPanel } from './AdminBillingPanel';
+import { AdminLegalCompliancePanel } from './AdminLegalCompliancePanel';
 import { AdminSportIdVerificationPanel } from './AdminSportIdVerificationPanel';
 import { AdminCompetitionResultsPanel } from './AdminCompetitionResultsPanel';
 import { CitySportsEventsAdminPanel } from './CitySportsEventsAdminPanel';
@@ -52,7 +53,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 }) => {
   const admin = authorized;
 
-  const [adminView, setAdminView] = useState<'overview'|'analytics'|'manage'|'billing'|'verification'|'moderation'|'push'|'announcements'|'partners'|'officialTrainings'|'venues'|'leisure'|'massage'|'events'|'audit'>('overview');
+  const [adminView, setAdminView] = useState<'overview'|'analytics'|'manage'|'billing'|'legal'|'verification'|'moderation'|'push'|'announcements'|'partners'|'officialTrainings'|'venues'|'leisure'|'massage'|'events'|'audit'>('overview');
   const savingRef = useRef(false);
   const [saving,setSaving] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -231,6 +232,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               ['analytics','Аналитика'],
               ['manage','Управление'],
               ['billing','Экономика'],
+              ['legal','Юр. готовность'],
               ['verification','Верификация'],
               ['moderation','Модерация'],
               ['push','Push'],
@@ -258,6 +260,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           {adminView === 'analytics' && <AdminAnalyticsPanel />}
           {adminView === 'manage' && <AdminManagementPanel />}
           {adminView === 'billing' && <AdminBillingPanel />}
+          {adminView === 'legal' && <AdminLegalCompliancePanel />}
           {adminView === 'verification' && <AdminSportIdVerificationPanel />}
           {adminView === 'moderation' && <AdminModerationPanel />}
           {adminView === 'push' && <AdminPushPanel />}

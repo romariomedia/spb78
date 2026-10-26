@@ -31,7 +31,7 @@ for(const file of Object.keys(handlers))test(`${file}: no access without valid a
 });
 const training={title:'Тестовая тренировка',sport:'Бег',dateKey:'2099-01-10',time:'18:00',lat:59.95,lng:30.28,participantsMax:12,officialStatus:'published'};
 const cases=[
- ['admin-partners.js','partners',{name:'Партнёр',offerTitle:'Акция',description:'Описание',isActive:true},'partner','id'],
+ ['admin-partners.js','partners',{name:'Партнёр',offerTitle:'Акция',description:'Описание',isActive:true,isAdvertising:false,adExemptionReason:'Информационная карточка без продвижения объекта рекламы'},'partner','id'],
  ['admin-announcements.js','announcements',{title:'Объявление',text:'Тестовый текст'},'announcement','id'],
  ['admin-mutate-venue.js','venues',{name:'Площадка',sports:['Футбол'],address:'Петербург'},'venue','venueId'],
  ['admin-mutate-leisure.js','leisureDestinations',LEISURE_CATALOG[0],'destination','destinationId'],

@@ -301,6 +301,7 @@ export default function App(): JSX.Element {
   const [postSportTag, setPostSportTag] = useState('Общее');
   const [editingFeedPhoto, setEditingFeedPhoto] = useState<File | null>(null);
   const [postMediaUrl, setPostMediaUrl] = useState('');
+  const [postPublicConsent, setPostPublicConsent] = useState(false);
   const [activeCommentPostId, setActiveCommentPostId] = useState<string | null>(null);
   const [newCommentText, setNewCommentText] = useState('');
 
@@ -1520,6 +1521,10 @@ export default function App(): JSX.Element {
   const handleCreatePost = async () => {
     if (!postContent.trim() || !currentUser) return;
     if (!requirePublishingVerification()) return;
+    if (!postPublicConsent) {
+      notify('Перед публикацией отдельно подтвердите распространение содержания записи и данных автора.', 'err');
+      return;
+    }
 
     let media = postMediaUrl.trim() || undefined;
     if (media) {
@@ -1538,11 +1543,12 @@ export default function App(): JSX.Element {
       }
     }
 
-    const post = await createPost(postContent, postSportTag, media, 'image', currentUser);
+    const post = await createPost(postContent, postSportTag, media, 'image', currentUser, postPublicConsent);
     if (post) {
       setFeedPosts(prev => [post, ...prev]);
       setPostContent('');
       setPostMediaUrl('');
+      setPostPublicConsent(false);
       setIsCreatePostOpen(false);
       triggerHapticNotification('success');
     } else {
@@ -1765,6 +1771,7 @@ export default function App(): JSX.Element {
 
   /** Готовит выбранный файл и открывает модалку подписи. */
   const openCaptionDialog = useCallback((file: File, isVideo?: boolean) => {
+    setPostPublicConsent(false);
     setPendingMedia({ file, isVideo: isVideo ?? file.type.startsWith('video') });
     setPendingCaption(
       (isVideo ?? file.type.startsWith('video'))
@@ -1801,6 +1808,10 @@ export default function App(): JSX.Element {
   /** Публикация подготовленного медиа в ленту. */
   const publishPendingMedia = async () => {
     if (!pendingMedia || !currentUser || uploadProgress !== null) return;
+    if (!postPublicConsent) {
+      notify('Перед публикацией отдельно подтвердите распространение содержания записи и данных автора.', 'err');
+      return;
+    }
     const { file, isVideo } = pendingMedia;
 
     uploadAbortRef.current?.abort();
@@ -1823,7 +1834,8 @@ export default function App(): JSX.Element {
         currentUser.sports[0] || 'Общее',
         secureUrl,
         isVideo ? 'video' : 'image',
-        currentUser
+        currentUser,
+        postPublicConsent
       );
       if (!post) {
         notify('Публикация недоступна: проверьте Premium и верификацию.', 'err');
@@ -1832,6 +1844,7 @@ export default function App(): JSX.Element {
       setFeedPosts(prev => [post, ...prev]);
       setPendingMedia(null);
       setPendingCaption('');
+      setPostPublicConsent(false);
       notify('Публикация добавлена в ленту');
     } catch (error) {
       if (!ctrl.signal.aborted) {
@@ -4476,6 +4489,15 @@ export default function App(): JSX.Element {
             />
           </div>
 
+          <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-800 bg-slate-950 p-3">
+            <input type="checkbox" checked={postPublicConsent} onChange={e=>setPostPublicConsent(e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-400"/>
+            <span className="text-[10px] leading-relaxed text-slate-300">
+              Я отдельно разрешаю распространение <b className="text-white">содержания этой публикации, моего имени и аватара</b>
+              среди пользователей SportBuddy78.
+            </span>
+          </label>
+
           <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
             <button
               onClick={() => setIsCreatePostOpen(false)}
@@ -4485,7 +4507,8 @@ export default function App(): JSX.Element {
             </button>
             <button
               onClick={handleCreatePost}
-              className="px-6 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl transition shadow-[0_0_20px_rgba(16,185,129,0.5)] active:scale-95"
+              disabled={!postPublicConsent}
+              className="px-6 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl transition shadow-[0_0_20px_rgba(16,185,129,0.5)] active:scale-95 disabled:opacity-50"
             >
               Опубликовать в ленту
             </button>
@@ -4574,7 +4597,7 @@ export default function App(): JSX.Element {
             </button>
             <button
               onClick={publishPendingMedia}
-              disabled={uploadProgress !== null}
+              disabled={uploadProgress !== null || !postPublicConsent}
               className="flex-1 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-2xl text-xs transition shadow-[0_0_20px_rgba(16,185,129,0.45)] active:scale-95 disabled:opacity-60"
             >
               {uploadProgress !== null ? `Загрузка ${uploadProgress}%` : 'Опубликовать'}
@@ -4610,6 +4633,13 @@ export default function App(): JSX.Element {
               placeholder="Подпись к публикации..."
               className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
             />
+            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-800 bg-slate-950 p-3">
+              <input type="checkbox" checked={postPublicConsent} onChange={e=>setPostPublicConsent(e.target.checked)}
+                className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-400"/>
+              <span className="text-[10px] leading-relaxed text-slate-300">
+                Я отдельно разрешаю распространение этой фотографии/видео, подписи, моего имени и аватара в Ленте SportBuddy78.
+              </span>
+            </label>
             {uploadProgress !== null && (
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-800">
                 <div

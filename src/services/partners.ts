@@ -5,6 +5,7 @@ export interface FeedPartner{
   id:string;name:string;partnerLabel:string;offerTitle:string;description:string;promoCode:string;
   ctaLabel:string;ctaUrl:string;logoUrl:string;coverUrl:string;mediaUrl:string;
   mediaType:'none'|'image'|'video';startAt:string;endAt:string;priority:number;
+  isAdvertising:boolean;advertiserName:string;advertiserInn:string;erid:string;ordName:string;
 }
 
 export async function loadFeedPartners():Promise<{visible:boolean;partners:FeedPartner[]}>{

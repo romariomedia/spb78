@@ -3,7 +3,7 @@ import {saveTrainerServices, mutateTrainerBooking, listTrainerBookings} from '..
 import { randomUUID } from 'node:crypto';
 import { mutateTrainer, publicTrainer } from '../server/personal-trainer.js';
 import { FieldPath } from 'firebase-admin/firestore';
-import { publicProfile } from '../server/public-profile.js';
+import { publicProfile,publicDiscoveryProfile } from '../server/public-profile.js';
 import { initializeApp,getApps,cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
@@ -61,7 +61,8 @@ export default async function handler(req,res){
         if(!publicTrainer(d.data()))return null;
         const state=states.get(d.id);
         if(afterLaunch&&state?.allowed!==true)return null;
-        const profile=publicProfile(d.id,d.data());
+        const profile=publicDiscoveryProfile(d.id,d.data());
+        if(!profile||!profile.personalTrainer)return null;
         return state?.isPromoted&&profile.personalTrainer
           ? {...profile,personalTrainer:{...profile.personalTrainer,isPromoted:true}}
           : profile;

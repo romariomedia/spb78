@@ -10,7 +10,8 @@ const field='w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 
 const empty=():PartnerDraft=>({
   name:'',partnerLabel:'Партнёр SportBuddy78',offerTitle:'',description:'',promoCode:'',
   ctaLabel:'Подробнее',ctaUrl:'',logoUrl:'',coverUrl:'',mediaUrl:'',mediaType:'none',
-  startAt:'',endAt:'',priority:50,isActive:true
+  startAt:'',endAt:'',priority:50,isActive:false,
+  isAdvertising:true,advertiserName:'',advertiserInn:'',erid:'',ordName:'',adContractNumber:'',adContractDate:'',adExemptionReason:''
 });
 function localDate(value:string){if(!value)return '';const d=new Date(value);if(!Number.isFinite(d.getTime()))return '';const p=(n:number)=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;}
 function iso(value:string){if(!value)return '';const d=new Date(value);return Number.isFinite(d.getTime())?d.toISOString():'';}
@@ -47,13 +48,15 @@ export function AdminPartnersPanel(){
     setEditingId(item.id);setDraft({
       name:item.name,partnerLabel:item.partnerLabel,offerTitle:item.offerTitle,description:item.description,promoCode:item.promoCode,
       ctaLabel:item.ctaLabel,ctaUrl:item.ctaUrl,logoUrl:item.logoUrl,coverUrl:item.coverUrl,mediaUrl:item.mediaUrl,mediaType:item.mediaType,
-      startAt:localDate(item.startAt),endAt:localDate(item.endAt),priority:item.priority,isActive:item.isActive
+      startAt:localDate(item.startAt),endAt:localDate(item.endAt),priority:item.priority,isActive:item.isActive,
+      isAdvertising:item.isAdvertising!==false,advertiserName:item.advertiserName||'',advertiserInn:item.advertiserInn||'',
+      erid:item.erid||'',ordName:item.ordName||'',adContractNumber:item.adContractNumber||'',adContractDate:localDate(item.adContractDate||''),adExemptionReason:item.adExemptionReason||''
     });setError('');setNotice('');
   };
   const save=async()=>{
     if(!draft||busy||uploading)return;
     setBusy(true);setError('');setNotice('');
-    const payload={...draft,startAt:iso(draft.startAt),endAt:iso(draft.endAt)};
+    const payload={...draft,startAt:iso(draft.startAt),endAt:iso(draft.endAt),adContractDate:iso(draft.adContractDate)};
     try{
       if(editingId)await updateAdminPartner(editingId,payload);else await createAdminPartner(payload);
       setDraft(null);setEditingId('');setNotice('Партнёр сохранён.');await refresh();
@@ -122,7 +125,28 @@ export function AdminPartnersPanel(){
             <label className="text-[10px] text-slate-400">Ссылка партнёра HTTPS<input className={`${field} mt-1`} value={draft.ctaUrl} onChange={e=>setDraft({...draft,ctaUrl:e.target.value})} placeholder="https://partner.ru/action"/></label>
             <label className="text-[10px] text-slate-400">Начало<input type="datetime-local" className={`${field} mt-1`} value={draft.startAt} onChange={e=>setDraft({...draft,startAt:e.target.value})}/></label>
             <label className="text-[10px] text-slate-400">Окончание<input type="datetime-local" className={`${field} mt-1`} value={draft.endAt} onChange={e=>setDraft({...draft,endAt:e.target.value})}/></label>
-            <label className="md:col-span-2 flex items-center justify-between rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-[10px] text-slate-300">Публикация активна<input type="checkbox" checked={draft.isActive} onChange={e=>setDraft({...draft,isActive:e.target.checked})} className="accent-emerald-500"/></label>
+            <label className="md:col-span-2 flex items-center justify-between rounded-xl border border-amber-500/30 bg-amber-500/[0.06] px-3 py-2.5 text-[10px] text-amber-100">
+              Карточка является интернет-рекламой
+              <input type="checkbox" checked={draft.isAdvertising} onChange={e=>setDraft({...draft,isAdvertising:e.target.checked})} className="accent-amber-400"/>
+            </label>
+            {!draft.isAdvertising&&<label className="md:col-span-2 text-[10px] text-amber-100">
+              Обоснование отсутствия признаков рекламы
+              <textarea rows={3} maxLength={600} className={`${field} mt-1 resize-none`} value={draft.adExemptionReason}
+                onChange={e=>setDraft({...draft,adExemptionReason:e.target.value})}
+                placeholder="Не менее 20 символов. Укажите, почему материал носит исключительно информационный характер и не направлен на продвижение объекта рекламирования."/>
+            </label>}
+            {draft.isAdvertising&&<>
+              <label className="text-[10px] text-slate-400">Рекламодатель<input maxLength={180} className={`${field} mt-1`} value={draft.advertiserName} onChange={e=>setDraft({...draft,advertiserName:e.target.value})} placeholder="ООО / ИП / самозанятый"/></label>
+              <label className="text-[10px] text-slate-400">ИНН рекламодателя<input maxLength={12} inputMode="numeric" className={`${field} mt-1`} value={draft.advertiserInn} onChange={e=>setDraft({...draft,advertiserInn:e.target.value})} placeholder="10 или 12 цифр"/></label>
+              <label className="text-[10px] text-slate-400">ERID<input maxLength={180} className={`${field} mt-1`} value={draft.erid} onChange={e=>setDraft({...draft,erid:e.target.value})} placeholder="Идентификатор рекламы от ОРД"/></label>
+              <label className="text-[10px] text-slate-400">ОРД<input maxLength={120} className={`${field} mt-1`} value={draft.ordName} onChange={e=>setDraft({...draft,ordName:e.target.value})} placeholder="Название оператора рекламных данных"/></label>
+              <label className="text-[10px] text-slate-400">№ договора / основания<input maxLength={120} className={`${field} mt-1`} value={draft.adContractNumber} onChange={e=>setDraft({...draft,adContractNumber:e.target.value})}/></label>
+              <label className="text-[10px] text-slate-400">Дата договора<input type="datetime-local" className={`${field} mt-1`} value={draft.adContractDate} onChange={e=>setDraft({...draft,adContractDate:e.target.value})}/></label>
+              <p className="md:col-span-2 rounded-xl border border-amber-500/20 bg-amber-500/[0.05] p-3 text-[10px] leading-relaxed text-amber-100">
+                Активная рекламная карточка не сохранится без рекламодателя, ИНН, ERID и ОРД. Получение ERID и отчётность в ОРД выполняются вне этой формы до включения публикации.
+              </p>
+            </>}
+                        <label className="md:col-span-2 flex items-center justify-between rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-[10px] text-slate-300">Публикация активна<input type="checkbox" checked={draft.isActive} onChange={e=>setDraft({...draft,isActive:e.target.checked})} className="accent-emerald-500"/></label>
           </div>
 
           <div className="mt-4 grid gap-3 md:grid-cols-3">
@@ -151,7 +175,11 @@ export function AdminPartnersPanel(){
               {item.logoUrl?<img src={item.logoUrl} alt="" className="h-12 w-12 shrink-0 rounded-xl object-cover"/>:<div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-slate-900"><Handshake className="h-5 w-5 text-emerald-400"/></div>}
               <div className="min-w-0 flex-1"><p className="truncate text-[11px] font-black text-white">{item.name}</p><p className="mt-1 line-clamp-2 text-[9px] leading-relaxed text-slate-400">{item.offerTitle}</p></div>
             </div>
-            <div className="mt-2 flex gap-1 text-[9px]"><span className={`rounded-full px-2 py-1 ${item.isActive?'bg-emerald-500/15 text-emerald-300':'bg-slate-800 text-slate-400'}`}>{item.isActive?'Активен':'Черновик'}</span>{item.promoCode&&<span className="rounded-full bg-amber-500/10 px-2 py-1 text-amber-300">Промокод</span>}</div>
+            <div className="mt-2 flex flex-wrap gap-1 text-[9px]">
+              <span className={`rounded-full px-2 py-1 ${item.isActive?'bg-emerald-500/15 text-emerald-300':'bg-slate-800 text-slate-400'}`}>{item.isActive?'Активен':'Черновик'}</span>
+              {item.isAdvertising&&<span className={`rounded-full px-2 py-1 ${item.erid?'bg-amber-500/10 text-amber-300':'bg-rose-500/10 text-rose-300'}`}>{item.erid?'Реклама · ERID':'Нет ERID'}</span>}
+              {item.promoCode&&<span className="rounded-full bg-amber-500/10 px-2 py-1 text-amber-300">Промокод</span>}
+            </div>
             <div className="mt-3 grid grid-cols-2 gap-2"><button disabled={busy||uploading!==null} onClick={()=>edit(item)} className="flex items-center justify-center gap-1 rounded-xl border border-slate-700 bg-slate-900 py-2 text-[10px] font-bold text-slate-200"><Pencil className="h-3.5 w-3.5"/>Изменить</button><button disabled={busy||uploading!==null} onClick={()=>void remove(item)} className="flex items-center justify-center gap-1 rounded-xl border border-rose-500/30 bg-rose-500/10 py-2 text-[10px] font-bold text-rose-300"><Trash2 className="h-3.5 w-3.5"/>Удалить</button></div>
           </article>)}
         </div>
@@ -165,7 +193,12 @@ export function AdminPartnersPanel(){
               {(draft.mediaUrl||draft.coverUrl)&&<img src={draft.mediaType==='video'?videoPoster(draft.mediaUrl,720):(draft.mediaUrl||draft.coverUrl)} alt="" className="h-full w-full object-cover"/>}
               {draft.logoUrl&&<img src={draft.logoUrl} alt="" className="absolute left-3 top-3 h-12 w-12 rounded-2xl border border-white/10 bg-slate-950 object-cover"/>}
             </div>
-            <div className="p-4"><p className="text-[10px] font-black uppercase tracking-[.12em] text-emerald-400">{draft.partnerLabel||'Партнёр SportBuddy78'}</p><p className="mt-1 text-sm font-black text-white">{draft.name||'Название партнёра'}</p><p className="mt-2 text-sm font-black text-white">{draft.offerTitle||'Название акции'}</p><p className="mt-1 text-xs leading-relaxed text-slate-400">{draft.description||'Описание партнёрского предложения.'}</p>{draft.promoCode&&<p className="mt-3 rounded-xl bg-amber-500/10 p-2 text-[10px] text-amber-200">Промокод: <b>{draft.promoCode}</b></p>}<span className="mt-3 inline-flex rounded-xl bg-emerald-500 px-3 py-2 text-xs font-black text-slate-950">{draft.ctaLabel||'Подробнее'}</span></div>
+            <div className="p-4">
+              {draft.isAdvertising&&<div className="mb-2 rounded-lg border border-amber-500/25 bg-amber-500/10 px-2.5 py-2 text-[9px] leading-relaxed text-amber-100">
+                <b>Реклама</b>{draft.advertiserName?` · ${draft.advertiserName}`:''}{draft.advertiserInn?` · ИНН ${draft.advertiserInn}`:''}
+                {draft.erid&&<span className="block mt-0.5 font-mono">erid: {draft.erid}</span>}
+              </div>}
+              <p className="text-[10px] font-black uppercase tracking-[.12em] text-emerald-400">{draft.partnerLabel||'Партнёр SportBuddy78'}</p><p className="mt-1 text-sm font-black text-white">{draft.name||'Название партнёра'}</p><p className="mt-2 text-sm font-black text-white">{draft.offerTitle||'Название акции'}</p><p className="mt-1 text-xs leading-relaxed text-slate-400">{draft.description||'Описание партнёрского предложения.'}</p>{draft.promoCode&&<p className="mt-3 rounded-xl bg-amber-500/10 p-2 text-[10px] text-amber-200">Промокод: <b>{draft.promoCode}</b></p>}<span className="mt-3 inline-flex rounded-xl bg-emerald-500 px-3 py-2 text-xs font-black text-slate-950">{draft.ctaLabel||'Подробнее'}</span></div>
           </div>:<div className="rounded-2xl border border-dashed border-slate-800 p-8 text-center text-[10px] text-slate-500">Создайте или выберите партнёра.</div>}
         </div>
       </aside>

@@ -7,6 +7,7 @@ import { applyVerifiedClaims } from '../server/sport-id-verification.js';
 if(!getApps().length)initializeApp({credential:cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY||'{}'))});
 
 const clean=(value,max=300)=>typeof value==='string'?value.trim().slice(0,max):'';
+const PUBLIC_SPORT_ID_CONSENT_VERSION='SB78-SPORT-ID-PUBLIC-2026-10-26';
 
 export default async function handler(req,res){
   if(req.method!=='GET')return res.status(405).json({error:'Method not allowed'});
@@ -17,7 +18,10 @@ export default async function handler(req,res){
     const snap=await db.collection('users').where('sportPassport.publicSlug','==',slug).limit(1).get();
     if(snap.empty)return res.status(404).json({error:'SportBuddy78 ID не найден.'});
     const doc=snap.docs[0],user=doc.data()||{};
-    if(user.isSuspended===true||user.sportPassport?.publicEnabled!==true)return res.status(404).json({error:'SportBuddy78 ID не найден.'});
+    if(user.isSuspended===true||user.sportPassport?.publicEnabled!==true
+      ||user.sportPassport?.publicConsent?.active!==true
+      ||user.sportPassport?.publicConsent?.version!==PUBLIC_SPORT_ID_CONSENT_VERSION)
+      return res.status(404).json({error:'SportBuddy78 ID не найден.'});
 
     const [resultSnap,claimsSnap]=await Promise.all([
       db.collection('sportPassportResults').where('userId','==',doc.id).get().catch(()=>null),

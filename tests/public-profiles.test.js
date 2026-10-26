@@ -1,7 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {build} from 'esbuild';
-import {publicProfile} from '../server/public-profile.js';
+import {publicProfile,publicDiscoveryProfile} from '../server/public-profile.js';
+import {PUBLIC_DISSEMINATION_VERSION} from '../server/public-consent.js';
+
+const consent=(groups=['identity','profile','reputation'])=>({
+  publicDissemination:{active:true,version:PUBLIC_DISSEMINATION_VERSION,groups,grantedAt:'2026-10-26T09:00:00.000Z'}
+});
+const visible=(data={},groups=['identity','profile','reputation'])=>({...data,...consent(groups)});
 const bundled=await build({entryPoints:['api/public-profiles.js'],bundle:true,platform:'node',format:'esm',write:false,plugins:[{name:'fake-admin',setup(b){
  b.onResolve({filter:/^firebase-admin\//},a=>({path:a.path,namespace:'fake'}));
  b.onLoad({filter:/.*/,namespace:'fake'},a=>({contents:{
@@ -21,8 +27,10 @@ function fixture(users){
  return async (body={},token='valid',method='POST')=>{const r={status(n){this.code=n;return this},json(v){this.body=v;return this},setHeader(k,v){this[k]=v}};await handler({method,body,headers:{authorization:token?'Bearer '+token:''}},r);return r;};
 }
 test('public projection excludes social graph, rewards, contacts and unpublished Sport ID',()=>{
- const profile=publicProfile('a',{name:'Athlete',avatar:'https://example.com/a.jpg',age:30,friendIds:['b'],matchIds:['b'],likedUserIds:['c'],blockedUserIds:['d'],matchHistory:[{}],email:'secret@example.com',phone:'123',deviceId:'secret',birthDate:'1990-01-01',rewardItems:[{code:'SECRET'}],redeemedPromoCodes:['SECRET'],sportPassport:{publicEnabled:false,rankTitle:'Draft'},futureSecret:'secret'});
+ const profile=publicProfile('a',visible({name:'Athlete',avatar:'https://example.com/a.jpg',age:30,friendIds:['b'],matchIds:['b'],likedUserIds:['c'],blockedUserIds:['d'],matchHistory:[{}],email:'secret@example.com',phone:'123',deviceId:'secret',birthDate:'1990-01-01',rewardItems:[{code:'SECRET'}],redeemedPromoCodes:['SECRET'],sportPassport:{publicEnabled:false,rankTitle:'Draft'},futureSecret:'secret'},['identity']));
  assert.deepEqual(profile,{id:'a',name:'Athlete',avatar:'https://example.com/a.jpg',age:30});
+ const discovery=publicDiscoveryProfile('a',visible({name:'Athlete',avatar:'https://example.com/a.jpg',age:30,email:'secret@example.com'},['identity']));
+ assert.deepEqual(discovery,{id:'a',publicConsentVersion:PUBLIC_DISSEMINATION_VERSION,name:'Athlete',avatar:'https://example.com/a.jpg',age:30});
 });
 test('public profiles require valid non-revoked authentication and reject suspended callers',async()=>{
  let request=fixture({me:{isSuspended:true}});
@@ -34,7 +42,7 @@ test('public profiles require valid non-revoked authentication and reject suspen
  assert.equal((await request()).code,200); // bootstrap can load its first page
 });
 test('pagination advances over hidden profiles without exposing private fields',async()=>{
- const users=Object.fromEntries(Array.from({length:201},(_,i)=>['u'+String(i).padStart(3,'0'),{name:'Athlete',email:'secret',isSuspended:i===0,isDemo:i===1}]));
+ const users=Object.fromEntries(Array.from({length:201},(_,i)=>['u'+String(i).padStart(3,'0'),visible({name:'Athlete',email:'secret',isSuspended:i===0,isDemo:i===1},['identity'])]));
  const request=fixture(users),first=await request();
  assert.equal(first.code,200);assert.equal(first['Cache-Control'],'private, no-store');
  assert.equal(first.body.profiles.length,198);assert.equal(first.body.nextCursor,'u199');
@@ -42,7 +50,7 @@ test('pagination advances over hidden profiles without exposing private fields',
  const second=await request({cursor:first.body.nextCursor});assert.equal(second.body.profiles.length,1);assert.equal(second.body.nextCursor,null);
 });
 test('cached public page never bypasses caller authentication or suspension',async()=>{
- const users={me:{name:'Me'},other:{name:'Other',email:'private@example.com'}};
+ const users={me:visible({name:'Me'},['identity']),other:visible({name:'Other',email:'private@example.com'},['identity'])};
  const request=fixture(users);
  assert.equal((await request()).code,200);
  assert.equal((await request({},'invalid')).code,401);
@@ -51,7 +59,7 @@ test('cached public page never bypasses caller authentication or suspension',asy
 });
 
 test('bounded pages have independent cache keys and old clients retain 200-item default',async()=>{
- const users=Object.fromEntries(Array.from({length:205},(_,i)=>['u'+String(i).padStart(3,'0'),{name:'Athlete'}]));
+ const users=Object.fromEntries(Array.from({length:205},(_,i)=>['u'+String(i).padStart(3,'0'),visible({name:'Athlete'},['identity'])]));
  const request=fixture(users);
  const small=await request({pageSize:40});
  assert.equal(small.body.profiles.length,40);assert.equal(small.body.nextCursor,'u039');
@@ -64,10 +72,10 @@ test('bounded pages have independent cache keys and old clients retain 200-item 
 });
 
 test('targeted identity lookup is bounded, deduplicated and projects only public visible users',async()=>{
- const users={me:{name:'Me'},alice:{name:'Alice',email:'secret'},hidden:{isSuspended:true},demo:{isDemo:true}};
+ const users={me:visible({name:'Me'},['identity']),alice:visible({name:'Alice',email:'secret'},['identity']),hidden:visible({isSuspended:true},['identity']),demo:visible({isDemo:true},['identity'])};
  const request=fixture(users);
  const response=await request({ids:['alice','alice','hidden','demo','missing']});
- assert.equal(response.code,200);assert.deepEqual(response.body,{profiles:[{id:'alice',name:'Alice'}],nextCursor:null});
+ assert.equal(response.code,200);assert.deepEqual(response.body,{profiles:[{id:'alice',publicConsentVersion:PUBLIC_DISSEMINATION_VERSION,name:'Alice'}],nextCursor:null});
  for(const ids of ['alice',[null],['a/b'],Array(51).fill('alice')])assert.equal((await request({ids})).code,400);
  assert.equal((await request({ids:['alice'],cursor:'a'})).code,400);
  assert.equal((await request({ids:['alice']},'invalid')).code,401);
@@ -77,8 +85,8 @@ test('targeted identity lookup is bounded, deduplicated and projects only public
 
 
 test('server ranking returns bounded pages, full totals and own rank outside first page',async()=>{
- const users=Object.fromEntries(Array.from({length:45},(_,i)=>['u'+String(i).padStart(3,'0'),{name:'User',totalWorkouts:100-i,totalDailyMedals:2,dailyMedalStreak:3,claimedBoxTiers:[7],email:'SECRET',rewardItems:[{code:'SECRET'}]}]));
- users.me={name:'Me',totalWorkouts:1};users.hidden={isSuspended:true,totalWorkouts:999};users.demo={isDemo:true,totalWorkouts:999};
+ const users=Object.fromEntries(Array.from({length:45},(_,i)=>['u'+String(i).padStart(3,'0'),visible({name:'User',totalWorkouts:100-i,totalDailyMedals:2,dailyMedalStreak:3,claimedBoxTiers:[7],email:'SECRET',rewardItems:[{code:'SECRET'}]})]));
+ users.me=visible({name:'Me',totalWorkouts:1});users.hidden=visible({isSuspended:true,totalWorkouts:999});users.demo=visible({isDemo:true,totalWorkouts:999});
  const request=fixture(users);
  const first=await request({action:'leaderboard',metric:'workouts'});
  assert.equal(first.code,200);assert.equal(first.body.entries.length,20);
@@ -94,8 +102,31 @@ test('server ranking returns bounded pages, full totals and own rank outside fir
 });
 
 test('cold ranking scans more than 500 docs and rejects malformed pagination',async()=>{
- const request=fixture(Object.fromEntries(Array.from({length:505},(_,i)=>['u'+String(i).padStart(3,'0'),{totalWorkouts:1}])));
+ const request=fixture(Object.fromEntries(Array.from({length:505},(_,i)=>['u'+String(i).padStart(3,'0'),visible({totalWorkouts:1})])));
  assert.equal((await request({action:'leaderboard'})).body.stats.athletes,505);
  for(const body of [{metric:'email'},{offset:-1},{offset:1},{offset:1.2},{offset:'20'}])
    assert.equal((await request({action:'leaderboard',...body})).code,400);
+});
+
+
+test('profiles without separate dissemination consent are not exposed',async()=>{
+ const users={
+   me:{name:'Me'},
+   noConsent:{name:'Hidden',avatar:'https://example.com/hidden.jpg'},
+   revoked:{name:'Revoked',publicDissemination:{active:false,version:PUBLIC_DISSEMINATION_VERSION,groups:['identity']}},
+   allowed:visible({name:'Allowed',avatar:'https://example.com/a.jpg'},['identity'])
+ };
+ const request=fixture(users);
+ const response=await request({ids:['noConsent','revoked','allowed']});
+ assert.deepEqual(response.body.profiles,[{id:'allowed',publicConsentVersion:PUBLIC_DISSEMINATION_VERSION,name:'Allowed',avatar:'https://example.com/a.jpg'}]);
+});
+
+test('location consent exposes only coarse coordinates',()=>{
+ const profile=publicDiscoveryProfile('a',visible({
+   name:'Athlete',locationName:'Санкт-Петербург',lat:59.9386123,lng:30.3141456,hasUsedGeolocation:true,lastGeoAt:123
+ },['identity','location']));
+ assert.equal(profile.lat,59.94);
+ assert.equal(profile.lng,30.31);
+ assert.notEqual(profile.lat,59.9386123);
+ assert.notEqual(profile.lng,30.3141456);
 });

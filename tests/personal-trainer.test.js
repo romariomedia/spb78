@@ -6,6 +6,8 @@ import {claimFingerprint,claimFromPassport,verificationRequestId,verificationCla
 import {publicProfile} from '../server/public-profile.js';
 import {rankingRow} from '../server/leaderboard.js';
 import {affectsPublicProfiles} from '../server/public-profile-cache.js';
+import {PUBLIC_DISSEMINATION_VERSION} from '../server/public-consent.js';
+const publicConsent={active:true,version:PUBLIC_DISSEMINATION_VERSION,groups:['identity','profile','reputation','trainer']};
 const claim={claimType:'trainer',claimId:'trainer'},rid=verificationRequestId('u',claim),cid=verificationClaimId('u',claim);
 const evidence={evidenceUrls:['https://res.cloudinary.com/test/image/upload/certificate.jpg'],note:'Курс тренера по бегу, Спортивная академия, 2025'};
 async function load(file){
@@ -16,7 +18,7 @@ async function load(file){
 }
 const admin=await load('api/admin-sport-id-verification.js'),athlete=await load('api/sport-id-verification.js');
 function fixture(){
- const rows=new Map([['users/u',{name:'Тренер',sports:['Бег'],totalDailyMedals:14,totalWorkouts:7}],['adminSessions/live',{email:'admin',expiresAt:{toMillis:()=>Date.now()+60000}}]]);
+ const rows=new Map([['users/u',{name:'Тренер',sports:['Бег'],totalDailyMedals:14,totalWorkouts:7,publicDissemination:publicConsent}],['adminSessions/live',{email:'admin',expiresAt:{toMillis:()=>Date.now()+60000}}]]);
  const faults={audit:false,before:null};
  const snap=path=>({id:path.split('/').at(-1),exists:rows.has(path),data:()=>structuredClone(rows.get(path))});
  const ref=path=>({id:path.split('/').at(-1),path,get:async()=>path.startsWith('adminSessions')?{exists:true,data:()=>rows.get(path)}:snap(path)});
@@ -75,7 +77,7 @@ test('trainer fingerprint includes every discipline; public projection excludes 
 });
 
 test('trainer directory is paginated, excludes applicants and suspended accounts, and exposes no evidence',async()=>{
- const f=fixture();for(let i=0;i<26;i++)f.rows.set('users/t'+String(i).padStart(2,'0'),{name:'Trainer',personalTrainer:{enabled:true,status:'verified',sports:['Бег'],evidenceUrls:['secret']},isSuspended:i===0});
+ const f=fixture();for(let i=0;i<26;i++)f.rows.set('users/t'+String(i).padStart(2,'0'),{name:'Trainer',personalTrainer:{enabled:true,status:'verified',sports:['Бег'],evidenceUrls:['secret']},isSuspended:i===0,publicDissemination:publicConsent});
  f.rows.set('users/applicant',{personalTrainer:{enabled:true,status:'pending',sports:['Бег']}});
  const first=await f.athlete({action:'trainers'});assert.equal(first.code,200);assert.equal(first.body.trainers.length,23);assert.equal(first.body.nextCursor,'t23');assert.equal(JSON.stringify(first.body).includes('secret'),false);
  const next=await f.athlete({action:'trainers',cursor:first.body.nextCursor});assert.equal(next.body.trainers.length,2);assert.equal(next.body.nextCursor,null);
@@ -141,9 +143,9 @@ test('level review remains atomic on audit failure and requires current active v
 });
 
 test('trainer catalog level filter is applied before pagination and excludes invalid/suspended entries',async()=>{
- const f=fixture();for(let i=0;i<26;i++)f.rows.set('users/p'+String(i).padStart(2,'0'),{name:'Pro trainer',personalTrainer:{enabled:true,status:'verified',sports:['Бег'],trainerLevel:'pro'},isSuspended:i===0});
- f.rows.set('users/start',{personalTrainer:{enabled:true,status:'verified',sports:['Бег'],trainerLevel:'start'}});
- f.rows.set('users/legacy',{personalTrainer:{enabled:true,status:'verified',sports:['Бег']}});
+ const f=fixture();for(let i=0;i<26;i++)f.rows.set('users/p'+String(i).padStart(2,'0'),{name:'Pro trainer',personalTrainer:{enabled:true,status:'verified',sports:['Бег'],trainerLevel:'pro'},isSuspended:i===0,publicDissemination:publicConsent});
+ f.rows.set('users/start',{personalTrainer:{enabled:true,status:'verified',sports:['Бег'],trainerLevel:'start'},publicDissemination:publicConsent});
+ f.rows.set('users/legacy',{personalTrainer:{enabled:true,status:'verified',sports:['Бег']},publicDissemination:publicConsent});
  const first=await f.athlete({action:'trainers',trainerLevel:'pro'});assert.equal(first.code,200);assert.equal(first.body.trainers.length,23);assert.equal(first.body.nextCursor,'p23');assert.ok(first.body.trainers.every(u=>u.personalTrainer.trainerLevel==='pro'));
  assert.equal((await f.athlete({action:'trainers',trainerLevel:'pro',cursor:first.body.nextCursor})).body.trainers.length,2);
  assert.deepEqual((await f.athlete({action:'trainers',trainerLevel:'start'})).body.trainers.map(x=>x.id),['start']);
