@@ -3,7 +3,7 @@ import {getAuth} from 'firebase-admin/auth';
 import {getFirestore} from 'firebase-admin/firestore';
 import {requireActiveUser} from '../server/user-status.js';
 import {
-  businessSubscriptionId,foundingCoachUntil,getBillingConfig,
+  billingIsOpen,businessSubscriptionId,foundingCoachUntil,getBillingConfig,
   publicBusinessSubscription,resolveBusinessSubject
 } from '../server/business-billing.js';
 import {loadBusinessMetricSeries,summarizeBusinessMetrics} from '../server/business-insights.js';
@@ -69,7 +69,7 @@ export default async function handler(req,res){
     return res.json({
       generatedAt:new Date().toISOString(),
       config:{
-        enabled:config.enabled,commercialLaunchAt:config.commercialLaunchAt,
+        enabled:config.enabled,commercialLaunchAt:config.commercialLaunchAt,billingOpen:billingIsOpen(config),
         plans:config.plans,promotions:config.promotions||{}
       },
       subjects,ledger,finance
