@@ -94,3 +94,30 @@ test('admin saves valid Android update policy and rejects invalid or incomplete 
   assert.equal(f.rows.get('appConfig/main').product.minimumAndroidVersion,'12');
  }
 });
+
+
+test('Founding Coach is private admin metadata with a three-month free-listing window',async()=>{
+ const f=fixture();
+ f.rows.set('users/u',{name:'Coach',personalTrainer:{enabled:true}});
+ const before=f.rows.get('users/u');
+ const saved=await f.request(usersAdmin,{operation:'setFoundingCoach',userId:'u',enabled:true,requestId:'founder-1'});
+ assert.equal(saved.code,200);
+ assert.equal(f.rows.get('users/u').foundingCoach,undefined);
+ assert.deepEqual(f.rows.get('users/u'),before);
+ const admin=f.rows.get('userAdmin/u');
+ assert.equal(admin.foundingCoach,true);
+ assert.ok(admin.foundingCoachSince);
+ assert.ok(admin.foundingCoachFreeUntil);
+ assert.equal(saved.body.user.foundingCoach,true);
+ assert.equal(saved.body.user.isPersonalTrainer,true);
+ const from=Date.parse(saved.body.user.foundingCoachSince);
+ const until=Date.parse(saved.body.user.foundingCoachFreeUntil);
+ assert.ok(Number.isFinite(from)&&Number.isFinite(until)&&until>from+80*86400000);
+ assert.equal([...f.rows.keys()].filter(k=>k.startsWith('adminAuditLogs/')).length,1);
+
+ const removed=await f.request(usersAdmin,{operation:'setFoundingCoach',userId:'u',enabled:false,requestId:'founder-2'});
+ assert.equal(removed.code,200);
+ assert.equal(removed.body.user.foundingCoach,false);
+ assert.equal(f.rows.get('users/u').foundingCoach,undefined);
+ assert.equal([...f.rows.keys()].filter(k=>k.startsWith('adminAuditLogs/')).length,2);
+});
