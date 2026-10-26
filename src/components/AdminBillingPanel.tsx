@@ -67,10 +67,12 @@ export function AdminBillingPanel(){
         <div className="mb-3 flex items-center gap-2"><BadgeRussianRuble size={17} className="text-lime-300"/><p className="text-sm font-black text-white">Тарифы</p></div>
         <div className="space-y-3">{(['trainer','venue','massage'] as const).map(key=>{
           const plan=state.config.plans[key];
-          return <div key={key} className="grid grid-cols-[1fr_110px_110px] items-center gap-2 rounded-xl bg-slate-900 p-3">
+          const promotion=state.config.promotions[key];
+          return <div key={key} className="grid grid-cols-[1fr_100px_100px_100px] items-center gap-2 rounded-xl bg-slate-900 p-3">
             <div><p className="text-xs font-black text-white">{plan.label}</p><p className="text-[10px] text-slate-500">{key}</p></div>
             <label className="text-[10px] text-slate-500">Месяц, ₽<input type="number" min="0" max="1000000" value={plan.monthlyRub} onChange={e=>setState({...state,config:{...state.config,plans:{...state.config.plans,[key]:{...plan,monthlyRub:Number(e.target.value)}}}})} className={input}/></label>
             <label className="text-[10px] text-slate-500">Год, ₽<input type="number" min="0" max="10000000" value={plan.yearlyRub} onChange={e=>setState({...state,config:{...state.config,plans:{...state.config.plans,[key]:{...plan,yearlyRub:Number(e.target.value)}}}})} className={input}/></label>
+            <label className="text-[10px] text-slate-500">Продвижение 7 дн., ₽<input type="number" min="0" max="1000000" value={promotion.priceRub} onChange={e=>setState({...state,config:{...state.config,promotions:{...state.config.promotions,[key]:{...promotion,priceRub:Number(e.target.value)}}}})} className={input}/></label>
           </div>;
         })}</div>
         <button disabled={busy==='config'} onClick={()=>void saveConfig()} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-lime-300 py-3 text-sm font-black text-slate-950 disabled:opacity-50"><Save size={16}/>Сохранить тарифы и режим</button>
