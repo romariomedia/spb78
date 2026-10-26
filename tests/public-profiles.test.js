@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {build} from 'esbuild';
-import {publicProfile} from '../server/public-profile.js';
+import {publicProfile,publicDiscoveryProfile} from '../server/public-profile.js';
 import {PUBLIC_DISSEMINATION_VERSION} from '../server/public-consent.js';
 
 const consent=(groups=['identity','profile','reputation'])=>({
@@ -27,8 +27,10 @@ function fixture(users){
  return async (body={},token='valid',method='POST')=>{const r={status(n){this.code=n;return this},json(v){this.body=v;return this},setHeader(k,v){this[k]=v}};await handler({method,body,headers:{authorization:token?'Bearer '+token:''}},r);return r;};
 }
 test('public projection excludes social graph, rewards, contacts and unpublished Sport ID',()=>{
- const profile=publicProfile('a',visible({name:'Athlete',avatar:'https://example.com/a.jpg',age:30,friendIds:['b'],matchIds:['b'],likedUserIds:['c'],blockedUserIds:['d'],matchHistory:[{}],email:'secret@example.com',phone:'123',deviceId:'secret',birthDate:'1990-01-01',rewardItems:[{code:'SECRET'}],redeemedPromoCodes:['SECRET'],sportPassport:{publicEnabled:false,rankTitle:'Draft'},futureSecret:'secret'},['identity']));
- assert.deepEqual(profile,{id:'a',publicConsentVersion:PUBLIC_DISSEMINATION_VERSION,name:'Athlete',avatar:'https://example.com/a.jpg',age:30});
+ const profile=publicDiscoveryProfile('a',visible({name:'Athlete',avatar:'https://example.com/a.jpg',age:30,friendIds:['b'],matchIds:['b'],likedUserIds:['c'],blockedUserIds:['d'],matchHistory:[{}],email:'secret@example.com',phone:'123',deviceId:'secret',birthDate:'1990-01-01',rewardItems:[{code:'SECRET'}],redeemedPromoCodes:['SECRET'],sportPassport:{publicEnabled:false,rankTitle:'Draft'},futureSecret:'secret'},['identity']));
+ assert.deepEqual(profile,{id:'a',name:'Athlete',avatar:'https://example.com/a.jpg',age:30});
+ const discovery=publicDiscoveryProfile('a',visible({name:'Athlete',avatar:'https://example.com/a.jpg',age:30,email:'secret@example.com'},['identity']));
+ assert.deepEqual(discovery,{id:'a',publicConsentVersion:PUBLIC_DISSEMINATION_VERSION,name:'Athlete',avatar:'https://example.com/a.jpg',age:30});
 });
 test('public profiles require valid non-revoked authentication and reject suspended callers',async()=>{
  let request=fixture({me:{isSuspended:true}});
