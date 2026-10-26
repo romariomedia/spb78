@@ -5,7 +5,7 @@ export interface MassageListing {
  id:string;providerType:'salon'|'private';name:string;description:string;services:string;priceText:string;
  address:string;district:string;hours:string;phone:string;bookingUrl:string;
  research?:{rating:number;reviewCount:number;checkedAt:string;reviewUrl:string;officialUrl:string;photoSourceUrl:string}|null;
- media:{type:'image'|'video';url:string}[];isPublished:boolean;
+ media:{type:'image'|'video';url:string}[];isPublished:boolean;isPromoted?:boolean;
 }
 export async function loadMassage(signal?:AbortSignal):Promise<MassageListing[]>{
  const token=await auth.currentUser?.getIdToken();if(!token)throw new Error('Войдите в аккаунт');
