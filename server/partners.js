@@ -43,6 +43,7 @@ export function sanitizePartner(input={},existing={}){
   const endAt=dateValue(input.endAt??existing.endAt);
   if(startAt&&endAt&&Date.parse(endAt)<=Date.parse(startAt))throw Object.assign(new Error('Дата окончания должна быть позже даты начала.'),{status:400});
 
+  const isActive=input.isActive===undefined?existing.isActive!==false:input.isActive===true;
   const isAdvertising=input.isAdvertising===undefined?(existing.isAdvertising!==false):input.isAdvertising===true;
   const advertiserName=clean(input.advertiserName??existing.advertiserName,180);
   const advertiserInn=digits(input.advertiserInn??existing.advertiserInn,12);
