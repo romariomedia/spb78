@@ -143,7 +143,7 @@ function fixture(){
   };
   process.env.YOOKASSA_SHOP_ID='shop';process.env.YOOKASSA_SECRET_KEY='secret';delete process.env.YOOKASSA_ALLOW_TEST_PAYMENTS;
   process.env.YOOKASSA_RECEIPT_MODE='yookassa';process.env.YOOKASSA_VAT_CODE='1';delete process.env.YOOKASSA_TAX_SYSTEM_CODE;
-  process.env.SB_AD_MARKING_READY='true';
+  process.env.SB_LEGAL_COMPLIANCE_READY='true';process.env.SB_AD_MARKING_READY='true';
   globalThis.fetch=async(url)=>{
     if(providerMode==='create')return {ok:true,json:async()=>({id:'business-payment-1',status:'pending',confirmation:{confirmation_url:'https://yookassa.ru/checkout'}})};
     return {ok:true,json:async()=>structuredClone(remoteValue)};
@@ -262,7 +262,7 @@ test('business checkout fails closed when fiscalization is not configured',async
   assert.equal(response.body.code,'FISCALIZATION_NOT_CONFIGURED');
 });
 
-test('paid promotion fails closed until ad marking is enabled',async t=>{
+test('all paid business placements fail closed until ad marking is enabled',async t=>{
   t.mock.timers.enable({apis:['Date'],now:Date.parse('2027-02-01T12:00:00Z')});
   const f=fixture();
   f.data.set('businessSubscriptions/trainer:athlete',{
@@ -271,7 +271,7 @@ test('paid promotion fails closed until ad marking is enabled',async t=>{
   });
   delete process.env.SB_AD_MARKING_READY;
   const response=await f.request(createPayment,{
-    subjectType:'trainer',subjectId:'athlete',purpose:'promotion',interval:'',requestId:'no-ad-marking-123456',
+    subjectType:'trainer',subjectId:'athlete',interval:'monthly',requestId:'no-ad-marking-123456',
     offerAccepted:true,offerVersion:BUSINESS_OFFER_VERSION
   });
   assert.equal(response.statusCode,503);
@@ -305,4 +305,17 @@ test('legal profile validation and generated contract preserve immutable payment
   const rtf=renderBusinessContractRtf(contract);
   assert.match(rtf,/SB78-/);
   assert.match(rtf,/40802810300010024999/);
+});
+
+
+test('all paid business services fail closed until legal compliance gate is enabled',async t=>{
+  t.mock.timers.enable({apis:['Date'],now:Date.parse('2027-02-01T12:00:00Z')});
+  const f=fixture();
+  delete process.env.SB_LEGAL_COMPLIANCE_READY;
+  const response=await f.request(createPayment,{
+    subjectType:'trainer',subjectId:'athlete',interval:'monthly',requestId:'legal-gate-123456',
+    offerAccepted:true,offerVersion:BUSINESS_OFFER_VERSION
+  });
+  assert.equal(response.statusCode,503);
+  assert.equal(response.body.code,'LEGAL_COMPLIANCE_NOT_READY');
 });
