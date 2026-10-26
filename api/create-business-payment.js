@@ -42,6 +42,11 @@ export default async function handler(req,res){
       error:'Коммерческие подписки SportBuddy78 откроются не ранее 1 января 2027 года и после включения администратором.'
     });
 
+    if(process.env.SB_LEGAL_COMPLIANCE_READY!=='true')
+      return res.status(503).json({code:'LEGAL_COMPLIANCE_NOT_READY',error:'Коммерческие платежи временно закрыты до завершения юридической и инфраструктурной готовности SportBuddy78.'});
+    if(process.env.SB_AD_MARKING_READY!=='true')
+      return res.status(503).json({code:'AD_MARKING_NOT_CONFIGURED',error:'Коммерческие размещения временно закрыты до подключения обязательного контура маркировки интернет-рекламы.'});
+
     if(req.body?.offerAccepted!==true||clean(req.body?.offerVersion,80)!==BUSINESS_OFFER_VERSION)
       return res.status(409).json({code:'OFFER_ACCEPTANCE_REQUIRED',error:'Перед оплатой примите актуальную оферту SportBuddy78 Business.'});
     const legalSnap=await db.collection('businessLegalProfiles').doc(uid).get();
@@ -57,8 +62,6 @@ export default async function handler(req,res){
     if(taxSystemCode!==0&&(!Number.isInteger(taxSystemCode)||taxSystemCode<1||taxSystemCode>6))
       return res.status(503).json({code:'FISCALIZATION_NOT_CONFIGURED',error:'Некорректная система налогообложения для кассового чека.'});
 
-    if(purpose==='promotion'&&process.env.SB_AD_MARKING_READY!=='true')
-      return res.status(503).json({code:'AD_MARKING_NOT_CONFIGURED',error:'Платное продвижение временно закрыто до подключения обязательной маркировки интернет-рекламы.'});
     const plan=purpose==='promotion'?promotionFor(config,subjectType):planFor(config,subjectType,interval);
     if(!plan)return res.status(400).json({error:purpose==='promotion'?'Продвижение недоступно.':'Некорректный тариф'});
     if(purpose==='promotion'&&!await hasBusinessAccess(db,subjectType,subjectId,config))
