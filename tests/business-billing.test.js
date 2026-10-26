@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {build} from 'esbuild';
 import {
   COMMERCIAL_LAUNCH_AT,DEFAULT_BILLING_CONFIG,addCalendarMonths,billingIsOpen,
-  businessPaymentMatches,businessPromotionPaymentMatches,sanitizeBillingConfig
+  businessListingStates,businessPaymentMatches,businessPromotionPaymentMatches,publicBusinessSubscription,sanitizeBillingConfig
 } from '../server/business-billing.js';
 
 test('business billing stays closed before 2027 even when admin switch is on',()=>{
@@ -31,6 +31,35 @@ test('business billing config keeps editable ruble prices within safe limits',()
 test('calendar subscription renewal preserves end-of-month semantics',()=>{
   assert.equal(addCalendarMonths(new Date('2027-01-31T12:00:00Z'),1).toISOString(),'2027-02-28T12:00:00.000Z');
   assert.equal(addCalendarMonths(new Date('2028-01-31T12:00:00Z'),1).toISOString(),'2028-02-29T12:00:00.000Z');
+});
+
+
+test('admin pause keeps entitlement dates but hides promotion and marks subscription paused',()=>{
+  const view=publicBusinessSubscription({
+    subjectType:'venue',subjectId:'venue-1',subjectLabel:'Venue',ownerUserId:'owner',
+    activeUntil:'2027-04-01T12:00:00.000Z',promotedUntil:'2027-03-01T12:00:00.000Z',
+    adminPaused:true,adminPausedAt:'2027-02-01T12:00:00.000Z',adminPausedReason:'moderation'
+  },'',Date.parse('2027-02-10T12:00:00.000Z'));
+  assert.equal(view.status,'paused');
+  assert.equal(view.activeUntil,'2027-04-01T12:00:00.000Z');
+  assert.equal(view.isPromoted,false);
+  assert.equal(view.adminPausedReason,'moderation');
+});
+
+test('admin pause hides a business listing during the free beta period',async()=>{
+  const docs=[
+    {data:()=>({subjectType:'venue',subjectId:'paused',adminPaused:true,promotedUntil:'2026-12-01T00:00:00Z'})},
+    {data:()=>({subjectType:'venue',subjectId:'visible',adminPaused:false})}
+  ];
+  const db={collection(name){
+    assert.equal(name,'businessSubscriptions');
+    return {where(){return this;},limit(){return this;},get:async()=>({docs})};
+  }};
+  const config=sanitizeBillingConfig({enabled:false,plans:DEFAULT_BILLING_CONFIG.plans,promotions:DEFAULT_BILLING_CONFIG.promotions});
+  const states=await businessListingStates(db,'venue',['paused','visible'],config,Date.parse('2026-10-26T12:00:00Z'));
+  assert.equal(states.get('paused').allowed,false);
+  assert.equal(states.get('paused').isPromoted,false);
+  assert.equal(states.get('visible').allowed,true);
 });
 
 test('business payment verification binds owner, subject, interval and amount',()=>{
