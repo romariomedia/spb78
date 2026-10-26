@@ -80,7 +80,10 @@ export function AdminBillingPanel(){
         <div className="flex items-center gap-2"><WalletCards size={17} className="text-cyan-300"/><p className="text-sm font-black text-white">Ручное управление услугой</p></div>
         <div className="grid gap-2 sm:grid-cols-3">
           <select value={type} onChange={e=>setType(e.target.value as BusinessSubjectType)} className={input}><option value="trainer">Персональный тренер</option><option value="venue">Площадка / студия</option><option value="massage">Массаж / wellness</option></select>
-          <input value={subjectId} onChange={e=>setSubjectId(e.target.value)} placeholder={type==='trainer'?'UID тренера':'ID карточки'} className={input}/>
+          <div>
+            <input list="billing-subjects" value={subjectId} onChange={e=>setSubjectId(e.target.value)} placeholder={type==='trainer'?'UID тренера':'ID карточки'} className={input}/>
+            <datalist id="billing-subjects">{(state.catalog?.[type]||[]).map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</datalist>
+          </div>
           <input value={ownerUserId} onChange={e=>setOwnerUserId(e.target.value)} placeholder="UID владельца" className={input}/>
         </div>
         <div className="grid gap-2 sm:grid-cols-[130px_1fr]">
@@ -92,7 +95,7 @@ export function AdminBillingPanel(){
           <button disabled={Boolean(busy)} onClick={()=>void grant()} className="flex items-center justify-center gap-2 rounded-xl bg-emerald-500 py-2.5 text-xs font-black text-slate-950 disabled:opacity-50"><BadgeRussianRuble size={15}/>Продлить бесплатно</button>
           <button disabled={Boolean(busy)} onClick={()=>void unlink()} className="flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-900 py-2.5 text-xs font-black text-slate-300 disabled:opacity-50"><Unlink size={15}/>Отвязать владельца</button>
         </div>
-        <p className="text-[11px] leading-relaxed text-slate-500">Для тренера ID объекта — его Firebase UID. Для площадки и массажа используйте ID карточки из соответствующего раздела админки. После привязки владелец увидит услугу в своём профиле и сможет оплачивать/продлевать её самостоятельно после запуска 2027.</p>
+        <p className="text-[11px] leading-relaxed text-slate-500">Начните вводить ID — браузер предложит найденных подтверждённых тренеров, площадки и массажные карточки. Для тренера ID объекта — его Firebase UID. После привязки владелец увидит услугу в своём профиле и сможет оплачивать/продлевать её самостоятельно после запуска 2027.</p>
       </div>
 
       <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4">
