@@ -1,12 +1,12 @@
 import {AdminUserAccessEditor} from './AdminUserAccessEditor';
 import { useEffect,useRef,useState } from 'react';
 import {
-  Ban, Check, RefreshCw, RotateCcw, Save, Search, Settings2,
+  Ban, Check, Crown, RefreshCw, RotateCcw, Save, Search, Settings2,
   ShieldAlert, ShieldCheck, SlidersHorizontal, Trash2, UserRoundSearch, Users, X
 } from 'lucide-react';
 import {
   AdminUserDetails,AdminUserRow,AppConfig,UserDeletionPreview,executeAdminUserDeletion,loadAdminUser,loadAdminUsers,loadAppConfig,
-  previewAdminUserDeletion,saveFeatureFlags,saveProductSettings,setAdminUserAnalyticsExcluded,setAdminUserSuspension
+  previewAdminUserDeletion,saveFeatureFlags,saveProductSettings,setAdminUserAnalyticsExcluded,setAdminUserFoundingCoach,setAdminUserSuspension
 } from '../services/adminManagement';
 
 type View='users'|'flags'|'settings';
@@ -106,6 +106,14 @@ export function AdminManagementPanel(){
     });
   };
 
+  const changeFoundingCoach=async(enabled:boolean)=>{
+    if(!selectedUser)return;
+    await mutate(`founding-coach:${selectedUser.id}`,async()=>{
+      const updated=await setAdminUserFoundingCoach(selectedUser.id,enabled);
+      setSelectedUser(updated);
+    });
+  };
+
   const saveFlags=async()=>{
     if(!config)return;
     setSaving('flags');setError('');setNotice('');
@@ -182,6 +190,32 @@ export function AdminManagementPanel(){
           <p className="text-sm font-black text-white">Спортивный профиль</p>
           <p className="mt-1 text-sm text-slate-400">{selectedUser.sports.length?selectedUser.sports.join(' · '):'Виды спорта не указаны'}</p>
           {selectedUser.bio&&<p className="mt-2 text-sm leading-relaxed text-slate-300">{selectedUser.bio}</p>}
+        </div>
+
+        <div className={`mt-3 rounded-xl border p-3 ${selectedUser.foundingCoach?'border-lime-400/40 bg-lime-950/15':'border-slate-800 bg-slate-900'}`}>
+          <div className="flex items-start gap-2">
+            <Crown className={`mt-0.5 h-4 w-4 shrink-0 ${selectedUser.foundingCoach?'text-lime-300':'text-slate-400'}`}/>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm font-black text-white">Первый тренер SportBuddy78</p>
+                {selectedUser.foundingCoach&&<span className="rounded-full border border-lime-400/30 bg-lime-400/10 px-2 py-0.5 text-[10px] font-black text-lime-300">FOUNDING COACH</span>}
+                {selectedUser.isPersonalTrainer&&<span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-2 py-0.5 text-[10px] font-black text-cyan-300">ТРЕНЕР</span>}
+              </div>
+              <p className="mt-1 text-sm leading-relaxed text-slate-500">Закрытая служебная пометка для первых персональных тренеров проекта. Обычные пользователи её пока не видят.</p>
+              {selectedUser.foundingCoach&&<div className="mt-2 grid gap-1 text-sm text-slate-300 sm:grid-cols-2">
+                <p>Статус с: <b className="text-white">{formatDate(selectedUser.foundingCoachSince)}</b></p>
+                <p>Бесплатное размещение до: <b className="text-lime-300">{formatDate(selectedUser.foundingCoachFreeUntil)}</b></p>
+              </div>}
+              {selectedUser.foundingCoach&&<p className="mt-2 text-sm text-slate-500">Основа привилегий: 3 месяца бесплатного размещения, сохранение раннего статуса и возможность позже привязать приоритет каталога / ранний доступ к этому серверному признаку.</p>}
+            </div>
+          </div>
+          <button
+            disabled={saving===`founding-coach:${selectedUser.id}`}
+            onClick={()=>void changeFoundingCoach(!selectedUser.foundingCoach)}
+            className={`mt-3 flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-black disabled:opacity-50 ${selectedUser.foundingCoach?'border border-slate-700 bg-slate-950 text-slate-300':'bg-lime-300 text-slate-950'}`}
+          >
+            <Crown className="h-3.5 w-3.5"/>{selectedUser.foundingCoach?'Снять статус (ошибочное назначение)':'Назначить Founding Coach + 3 месяца бесплатно'}
+          </button>
         </div>
 
         <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-900 p-3">
@@ -268,6 +302,8 @@ export function AdminManagementPanel(){
             </div>
             <div className="flex flex-col items-end gap-1">
               <span className={`rounded-full px-2 py-1 text-sm font-black ${user.isVerified?'bg-emerald-500/15 text-emerald-300':'bg-amber-500/15 text-amber-300'}`}>{user.isVerified?'verified':'pending'}</span>
+              {user.foundingCoach&&<span className="rounded-full border border-lime-400/30 bg-lime-400/10 px-2 py-1 text-[10px] font-black text-lime-300">FOUNDING COACH</span>}
+              {user.isPersonalTrainer&&<span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-2 py-1 text-[10px] font-black text-cyan-300">ТРЕНЕР</span>}
               {user.isSuspended&&<span className="rounded-full bg-rose-500/15 px-2 py-1 text-sm font-black text-rose-300">suspended</span>}
             </div>
           </div>
