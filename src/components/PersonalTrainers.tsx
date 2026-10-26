@@ -7,12 +7,13 @@ import { UserProfile } from '../lib/types';
 import { loadPersonalTrainers } from '../services/sportIdVerification';
 import { AvatarImage } from './AvatarImage';
 import { districtLabel } from '../../shared/districts.js';
+import {trackBusinessEvent} from '../services/businessBilling';
 export function PersonalTrainers({onSelectUser,refreshKey,userId,onBooked}:{userId:string;onBooked:()=>void;onSelectUser:(user:UserProfile)=>Promise<void>;refreshKey?:number}){
   const [open,setOpen]=useState(false),[items,setItems]=useState<UserProfile[]>([]),[cursor,setCursor]=useState<string|null>(null);
   const [level,setLevel]=useState<'all'|'start'|'pro'>('all');
   const [booking,setBooking]=useState<UserProfile|null>(null);
   const [selecting,setSelecting]=useState(false);
-  const select=async(user:UserProfile)=>{setSelecting(true);setError('');try{await onSelectUser(user);}catch(e){setError(e instanceof Error?e.message:'Анкета недоступна');}finally{setSelecting(false);}};
+  const select=async(user:UserProfile)=>{void trackBusinessEvent('trainer',user.id,'view','profile');setSelecting(true);setError('');try{await onSelectUser(user);}catch(e){setError(e instanceof Error?e.message:'Анкета недоступна');}finally{setSelecting(false);}};
   const [busy,setBusy]=useState(false),[error,setError]=useState('');
   const generation=useRef(0),requestBusy=useRef(false);
   useEffect(()=>{
@@ -50,7 +51,7 @@ export function PersonalTrainers({onSelectUser,refreshKey,userId,onBooked}:{user
         <button disabled={selecting} onClick={()=>void select(user)} className="flex w-full items-start gap-3 text-left"><AvatarImage src={user.avatar} alt={user.name} width={56} height={56} className="h-14 w-14 shrink-0 rounded-xl object-cover"/><span className="min-w-0"><span className="block break-words font-semibold text-white">{user.name}</span><span className="mt-2 block"><TrainerLevelBadge level={user.personalTrainer?.trainerLevel}/></span><span className="mt-2 block text-sm text-slate-200">{user.personalTrainer?.sports.join(' · ')}</span><span className="mt-1 block text-xs text-slate-400">{districtLabel(user.districtId)||user.locationName}</span><span className="mt-2 block text-xs text-lime-300">Посмотреть профиль →</span></span></button>
         <p className="text-xl font-bold text-lime-300">{user.personalTrainer?.hourlyRate?`${user.personalTrainer.hourlyRate.toLocaleString('ru-RU')} ₽ / 60 мин`:'Стоимость ещё не указана'}</p>
         {user.personalTrainer?.serviceDescription&&<p className="line-clamp-3 break-words text-sm text-slate-300">{user.personalTrainer.serviceDescription}</p>}
-        {user.id!==userId&&<button disabled={!user.personalTrainer?.hourlyRate} onClick={()=>setBooking(user)} className="min-h-12 w-full rounded-xl bg-lime-300 p-3 font-bold text-slate-950 disabled:opacity-40">Записаться к тренеру</button>}
+        {user.id!==userId&&<button disabled={!user.personalTrainer?.hourlyRate} onClick={()=>{void trackBusinessEvent('trainer',user.id,'click','booking');setBooking(user);}} className="min-h-12 w-full rounded-xl bg-lime-300 p-3 font-bold text-slate-950 disabled:opacity-40">Записаться к тренеру</button>}
       </article>)}</div>
       {booking&&createPortal(<TrainerBookingModal key={booking.id} trainer={booking} onClose={()=>setBooking(null)} onCreated={onBooked}/>,document.body)}
       {cursor&&<button disabled={busy} onClick={()=>void load(true)} className="w-full rounded-xl border border-slate-700 p-3 text-sm text-lime-300">Загрузить ещё</button>}
