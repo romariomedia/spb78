@@ -37,6 +37,7 @@ export interface BusinessBillingState {
 export interface AdminBillingState {
   config:Omit<BusinessBillingConfig,'billingOpen'>;
   items:BusinessSubscription[];
+  catalog:Record<BusinessSubjectType,Array<{id:string;name:string}>>;
 }
 
 const REQUEST_TIMEOUT_MS=20_000;
