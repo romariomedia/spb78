@@ -182,7 +182,7 @@ test('admin-paused business listing cannot create a YooKassa payment',async t=>{
   const created=await f.request(createPayment,{subjectType:'trainer',subjectId:'athlete',interval:'monthly',requestId:'paused-payment-123456'});
   assert.equal(created.statusCode,409);
   assert.match(created.body.error,/приостановлено/i);
-  assert.equal(f.data.has('businessPaymentRequests/'+createHashForTest),false);
+  assert.equal([...f.data.keys()].some(key=>key.startsWith('businessPaymentRequests/')),false);
 });
 
 test('paid promotion activates for seven days exactly once',async t=>{
