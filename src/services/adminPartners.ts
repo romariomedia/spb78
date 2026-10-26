@@ -6,7 +6,7 @@ export interface AdminPartner{
   ctaLabel:string;ctaUrl:string;logoUrl:string;coverUrl:string;mediaUrl:string;mediaType:PartnerMediaType;
   startAt:string;endAt:string;priority:number;isActive:boolean;
   isAdvertising:boolean;advertiserName:string;advertiserInn:string;erid:string;ordName:string;
-  adContractNumber:string;adContractDate:string;
+  adContractNumber:string;adContractDate:string;adExemptionReason:string;
   createdAt?:string;updatedAt?:string;
 }
 export type PartnerDraft=Omit<AdminPartner,'id'|'createdAt'|'updatedAt'>;
