@@ -58,7 +58,8 @@ export default async function handler(req,res){
         enabled:config.enabled,
         commercialLaunchAt:config.commercialLaunchAt,
         billingOpen:billingIsOpen(config),
-        plans:config.plans
+        plans:config.plans,
+        promotions:config.promotions
       },
       subjects
     });
