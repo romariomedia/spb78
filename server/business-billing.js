@@ -126,8 +126,13 @@ export async function hasBusinessAccess(db,subjectType,subjectId,config=null,now
     db.collection('businessSubscriptions').doc(id).get(),
     foundingCoachUntil(db,subjectType,subjectId)
   ]);
-  if(!subscriptionSnap.exists&&!freeUntil)return false;
-  return effectiveBusinessUntil(subscriptionSnap.exists?subscriptionSnap.data()||{}:{},freeUntil)>now;
+  if(!subscriptionSnap.exists){
+    // Existing editorial venue/massage catalog remains public until a business owner claims it.
+    return subjectType!=='trainer' || Boolean(freeUntil);
+  }
+  const subscription=subscriptionSnap.data()||{};
+  if(subjectType!=='trainer'&&!clean(subscription.ownerUserId,180))return true;
+  return effectiveBusinessUntil(subscription,freeUntil)>now;
 }
 export function businessPaymentMatches(remote,expected,paymentId){
   return remote?.id===paymentId && remote?.status==='succeeded' && remote?.paid===true
