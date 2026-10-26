@@ -16,6 +16,7 @@ export function SportPassportView({user,onBack,onUserUpdate}:Props){
   const [data,setData]=useState<SportPassportSnapshot|null>(null);
   const [loading,setLoading]=useState(false),[saving,setSaving]=useState(false),[editing,setEditing]=useState(false);
   const [error,setError]=useState(''),[notice,setNotice]=useState('');
+  const [publicConsentConfirmed,setPublicConsentConfirmed]=useState(false);
   const [mainSport,setMainSport]=useState(user.sportPassport?.mainSport||user.sports?.[0]||'');
   const [level,setLevel]=useState<SportPassportLevel>(user.sportPassport?.level||'beginner');
   const [rankTitle,setRankTitle]=useState(user.sportPassport?.rankTitle||'');
@@ -42,7 +43,17 @@ export function SportPassportView({user,onBack,onUserUpdate}:Props){
     onUserUpdate({...user,sportPassport:{mainSport:next.profile.mainSport,level:next.profile.level,rankTitle:next.profile.rankTitle,yearsExperience:next.profile.yearsExperience,declaredAchievements:(next.profile.declaredAchievements||[]).map(item=>({...item,verification:'declared' as const})),publicEnabled:next.public.enabled,publicSlug:next.public.slug,updatedAt:new Date().toISOString()}});
   }catch(e){setError(e instanceof Error?e.message:'Не удалось сохранить Спортивный ID');}finally{setSaving(false);}};
 
-  const togglePublic=async()=>{setSaving(true);setError('');try{const next=await setSportIdPublic(!(data?.public.enabled));apply(next);setNotice(next.public.enabled?'Публичный Спортивный ID включён. QR-код готов.':'Публичный доступ к Спортивному ID выключен.');}catch(e){setError(e instanceof Error?e.message:'Не удалось изменить публичность');}finally{setSaving(false);}};
+  const togglePublic=async()=>{
+    const enabling=!(data?.public.enabled);
+    if(enabling&&!publicConsentConfirmed){setError('Перед включением отдельно подтвердите публикацию данных Sport ID в сети Интернет.');return;}
+    setSaving(true);setError('');
+    try{
+      const next=await setSportIdPublic(enabling,publicConsentConfirmed);
+      apply(next);setPublicConsentConfirmed(false);
+      setNotice(next.public.enabled?'Публичный Спортивный ID включён. QR-код готов.':'Публичный доступ к Спортивному ID выключен.');
+    }catch(e){setError(e instanceof Error?e.message:'Не удалось изменить публичность');}
+    finally{setSaving(false);}
+  };
   const share=async()=>{if(!data?.public.slug)return;const url=publicSportIdUrl(data.public.slug);try{if(navigator.share)await navigator.share({title:'Спортивный ID SportBuddy78',text:user.name,url});else{await navigator.clipboard.writeText(url);setNotice('Ссылка скопирована.');}}catch{}};
 
   const official=data?.officialResults||[],history=data?.history||[],stats=data?.stats;
@@ -97,7 +108,11 @@ export function SportPassportView({user,onBack,onUserUpdate}:Props){
     </div>
 
     <div className="rounded-3xl border border-lime-500/25 bg-slate-950 p-4">
-      <div className="flex items-start justify-between gap-3"><div><div className="flex items-center gap-2"><QrCode className="h-4 w-4 text-lime-300"/><p className="text-xs font-black text-white">Публичный Спортивный ID</p></div><p className="mt-1 text-[9px] leading-relaxed text-slate-500">QR открывает проверяемую read-only карточку без телефона, e-mail и других закрытых данных.</p></div><button onClick={()=>void togglePublic()} disabled={saving} className={'rounded-xl px-3 py-2 text-[9px] font-black '+(data?.public.enabled?'bg-lime-400 text-slate-950':'border border-slate-700 text-slate-300')}>{data?.public.enabled?'Опубликован':'Включить'}</button></div>
+      <div className="flex items-start justify-between gap-3"><div><div className="flex items-center gap-2"><QrCode className="h-4 w-4 text-lime-300"/><p className="text-xs font-black text-white">Публичный Спортивный ID</p></div><p className="mt-1 text-[9px] leading-relaxed text-slate-500">QR открывает внешнюю read-only страницу без авторизации. Телефон и e-mail не публикуются, но имя, аватар, район, спортивная биография, достижения и статистика становятся доступны любому получателю ссылки.</p></div><button onClick={()=>void togglePublic()} disabled={saving||(!data?.public.enabled&&!publicConsentConfirmed)} className={'rounded-xl px-3 py-2 text-[9px] font-black disabled:opacity-40 '+(data?.public.enabled?'bg-lime-400 text-slate-950':'border border-slate-700 text-slate-300')}>{data?.public.enabled?'Выключить':'Включить'}</button></div>
+      {!data?.public.enabled&&<label className="mt-3 flex cursor-pointer items-start gap-3 rounded-xl border border-lime-500/20 bg-lime-500/[0.04] p-3">
+        <input type="checkbox" checked={publicConsentConfirmed} onChange={e=>setPublicConsentConfirmed(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-lime-400"/>
+        <span className="text-[9px] leading-relaxed text-slate-300">Я отдельно разрешаю публикацию в сети Интернет данных, отображаемых в моём SportBuddy78 ID: имени, аватара, района/локации, спортивной биографии, рейтинга, статистики, достижений, результатов SportBuddy78 и проверенных публичных сведений тренера. Понимаю, что ссылка/QR может быть передана третьим лицам и доступ можно отозвать.</span>
+      </label>}
       {data?.public.enabled&&data.public.slug&&<div className="mt-4 grid gap-4 sm:grid-cols-[180px_1fr] sm:items-center"><div className="rounded-2xl bg-white p-2"><img src={publicSportIdQrUrl(data.public.slug)} alt="QR-код Спортивного ID SportBuddy78" className="aspect-square w-full"/></div><div><img src="/sportbuddy78-logo.png" alt="SportBuddy78" className="h-14 w-14 object-contain"/><p className="mt-2 text-[10px] font-black text-white">Проверяемая цифровая спортивная репутация</p><p className="mt-1 break-all text-[9px] text-slate-500">{publicUrl}</p><div className="mt-3 flex gap-2"><button onClick={()=>void share()} className="flex items-center gap-1.5 rounded-xl bg-lime-400 px-3 py-2 text-[9px] font-black text-slate-950"><Share2 className="h-3.5 w-3.5"/>Поделиться</button><button onClick={()=>void navigator.clipboard.writeText(publicUrl).then(()=>setNotice('Ссылка скопирована.'))} className="flex items-center gap-1.5 rounded-xl border border-slate-700 px-3 py-2 text-[9px] font-black text-slate-300"><Copy className="h-3.5 w-3.5"/>Копировать</button></div></div></div>}
     </div>
 
