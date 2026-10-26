@@ -78,7 +78,7 @@ export function PublicProfileConsentPanel({user}:{user:UserProfile}){
       <div className="min-w-0 flex-1">
         <p className="text-sm font-black text-white">Публичность профиля</p>
         <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
-          Профиль показывается другим пользователям только после отдельного согласия на распространение персональных данных.
+          Профиль показывается другим авторизованным пользователям SportBuddy78 только после отдельного согласия на распространение персональных данных. Это согласие не включает внешние публичные страницы и поисковую индексацию.
         </p>
       </div>
       <button type="button" onClick={()=>void load()} disabled={busy} className="rounded-xl p-2 text-slate-400 disabled:opacity-40" aria-label="Обновить">
