@@ -26,13 +26,21 @@ export default async function handler(req,res){
     const configRef=db.collection('billingConfig').doc('main');
 
     if(operation==='get'){
-      const [config,snap]=await Promise.all([
+      const [config,snap,trainerSnap,venueSnap,massageSnap]=await Promise.all([
         getBillingConfig(db),
-        db.collection('businessSubscriptions').limit(200).get()
+        db.collection('businessSubscriptions').limit(200).get(),
+        db.collection('users').where('personalTrainer.status','==','verified').limit(150).get(),
+        db.collection('venues').limit(300).get(),
+        db.collection('massageServices').limit(300).get()
       ]);
       const items=snap.docs.map(doc=>({id:doc.id,...publicBusinessSubscription(doc.data())}))
         .sort((a,b)=>(a.subjectLabel||a.subjectId).localeCompare(b.subjectLabel||b.subjectId,'ru'));
-      return res.json({config,items});
+      const catalog={
+        trainer:trainerSnap.docs.map(doc=>({id:doc.id,name:clean(doc.data()?.name,160)||'Тренер'})),
+        venue:venueSnap.docs.filter(doc=>doc.data()?.archived!==true).map(doc=>({id:doc.id,name:clean(doc.data()?.name,160)||'Площадка'})),
+        massage:massageSnap.docs.map(doc=>({id:doc.id,name:clean(doc.data()?.name,160)||'Массаж / wellness'}))
+      };
+      return res.json({config,items,catalog});
     }
 
     if(operation==='saveConfig'){
