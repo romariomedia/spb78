@@ -27,7 +27,7 @@ function fixture(users){
  return async (body={},token='valid',method='POST')=>{const r={status(n){this.code=n;return this},json(v){this.body=v;return this},setHeader(k,v){this[k]=v}};await handler({method,body,headers:{authorization:token?'Bearer '+token:''}},r);return r;};
 }
 test('public projection excludes social graph, rewards, contacts and unpublished Sport ID',()=>{
- const profile=publicDiscoveryProfile('a',visible({name:'Athlete',avatar:'https://example.com/a.jpg',age:30,friendIds:['b'],matchIds:['b'],likedUserIds:['c'],blockedUserIds:['d'],matchHistory:[{}],email:'secret@example.com',phone:'123',deviceId:'secret',birthDate:'1990-01-01',rewardItems:[{code:'SECRET'}],redeemedPromoCodes:['SECRET'],sportPassport:{publicEnabled:false,rankTitle:'Draft'},futureSecret:'secret'},['identity']));
+ const profile=publicProfile('a',visible({name:'Athlete',avatar:'https://example.com/a.jpg',age:30,friendIds:['b'],matchIds:['b'],likedUserIds:['c'],blockedUserIds:['d'],matchHistory:[{}],email:'secret@example.com',phone:'123',deviceId:'secret',birthDate:'1990-01-01',rewardItems:[{code:'SECRET'}],redeemedPromoCodes:['SECRET'],sportPassport:{publicEnabled:false,rankTitle:'Draft'},futureSecret:'secret'},['identity']));
  assert.deepEqual(profile,{id:'a',name:'Athlete',avatar:'https://example.com/a.jpg',age:30});
  const discovery=publicDiscoveryProfile('a',visible({name:'Athlete',avatar:'https://example.com/a.jpg',age:30,email:'secret@example.com'},['identity']));
  assert.deepEqual(discovery,{id:'a',publicConsentVersion:PUBLIC_DISSEMINATION_VERSION,name:'Athlete',avatar:'https://example.com/a.jpg',age:30});
@@ -122,7 +122,7 @@ test('profiles without separate dissemination consent are not exposed',async()=>
 });
 
 test('location consent exposes only coarse coordinates',()=>{
- const profile=publicProfile('a',visible({
+ const profile=publicDiscoveryProfile('a',visible({
    name:'Athlete',locationName:'Санкт-Петербург',lat:59.9386123,lng:30.3141456,hasUsedGeolocation:true,lastGeoAt:123
  },['identity','location']));
  assert.equal(profile.lat,59.94);
