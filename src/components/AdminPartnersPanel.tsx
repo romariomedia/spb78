@@ -11,7 +11,7 @@ const empty=():PartnerDraft=>({
   name:'',partnerLabel:'Партнёр SportBuddy78',offerTitle:'',description:'',promoCode:'',
   ctaLabel:'Подробнее',ctaUrl:'',logoUrl:'',coverUrl:'',mediaUrl:'',mediaType:'none',
   startAt:'',endAt:'',priority:50,isActive:false,
-  isAdvertising:true,advertiserName:'',advertiserInn:'',erid:'',ordName:'',adContractNumber:'',adContractDate:''
+  isAdvertising:true,advertiserName:'',advertiserInn:'',erid:'',ordName:'',adContractNumber:'',adContractDate:'',adExemptionReason:''
 });
 function localDate(value:string){if(!value)return '';const d=new Date(value);if(!Number.isFinite(d.getTime()))return '';const p=(n:number)=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;}
 function iso(value:string){if(!value)return '';const d=new Date(value);return Number.isFinite(d.getTime())?d.toISOString():'';}
@@ -50,7 +50,7 @@ export function AdminPartnersPanel(){
       ctaLabel:item.ctaLabel,ctaUrl:item.ctaUrl,logoUrl:item.logoUrl,coverUrl:item.coverUrl,mediaUrl:item.mediaUrl,mediaType:item.mediaType,
       startAt:localDate(item.startAt),endAt:localDate(item.endAt),priority:item.priority,isActive:item.isActive,
       isAdvertising:item.isAdvertising!==false,advertiserName:item.advertiserName||'',advertiserInn:item.advertiserInn||'',
-      erid:item.erid||'',ordName:item.ordName||'',adContractNumber:item.adContractNumber||'',adContractDate:localDate(item.adContractDate||'')
+      erid:item.erid||'',ordName:item.ordName||'',adContractNumber:item.adContractNumber||'',adContractDate:localDate(item.adContractDate||''),adExemptionReason:item.adExemptionReason||''
     });setError('');setNotice('');
   };
   const save=async()=>{
@@ -129,6 +129,12 @@ export function AdminPartnersPanel(){
               Карточка является интернет-рекламой
               <input type="checkbox" checked={draft.isAdvertising} onChange={e=>setDraft({...draft,isAdvertising:e.target.checked})} className="accent-amber-400"/>
             </label>
+            {!draft.isAdvertising&&<label className="md:col-span-2 text-[10px] text-amber-100">
+              Обоснование отсутствия признаков рекламы
+              <textarea rows={3} maxLength={600} className={`${field} mt-1 resize-none`} value={draft.adExemptionReason}
+                onChange={e=>setDraft({...draft,adExemptionReason:e.target.value})}
+                placeholder="Не менее 20 символов. Укажите, почему материал носит исключительно информационный характер и не направлен на продвижение объекта рекламирования."/>
+            </label>}
             {draft.isAdvertising&&<>
               <label className="text-[10px] text-slate-400">Рекламодатель<input maxLength={180} className={`${field} mt-1`} value={draft.advertiserName} onChange={e=>setDraft({...draft,advertiserName:e.target.value})} placeholder="ООО / ИП / самозанятый"/></label>
               <label className="text-[10px] text-slate-400">ИНН рекламодателя<input maxLength={12} inputMode="numeric" className={`${field} mt-1`} value={draft.advertiserInn} onChange={e=>setDraft({...draft,advertiserInn:e.target.value})} placeholder="10 или 12 цифр"/></label>
