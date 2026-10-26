@@ -19,6 +19,7 @@ import { syncVerification, getVerificationState } from '../services/verification
 import { uploadToCloudinary, photoUrl } from '../services/cloudinary';
 import { ProgressBar } from './ProgressBar';
 import { PublicProfileConsentPanel } from './PublicProfileConsentPanel';
+import { PrivacyRightsPanel } from './PrivacyRightsPanel';
 
 import { SPORTS as SPORT_OPTIONS } from '../lib/types';
 
@@ -243,6 +244,7 @@ export const ProfileEditor: React.FC<ProfileEditorProps> = ({ user, onUpdateUser
       </div>
 
       <PublicProfileConsentPanel user={user}/>
+      <PrivacyRightsPanel/>
 
       {/* ---------- About me ---------- */}
       <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 space-y-4 shadow-xl">
