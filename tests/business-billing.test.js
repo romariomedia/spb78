@@ -171,6 +171,20 @@ test('trainer can buy a business month after launch and webhook activates exactl
 });
 
 
+test('admin-paused business listing cannot create a YooKassa payment',async t=>{
+  t.mock.timers.enable({apis:['Date'],now:Date.parse('2027-02-01T12:00:00Z')});
+  const f=fixture();
+  f.data.set('businessSubscriptions/trainer:athlete',{
+    subjectType:'trainer',subjectId:'athlete',subjectLabel:'Coach',ownerUserId:'athlete',
+    activeUntil:'2027-04-01T12:00:00.000Z',paidUntil:'2027-04-01T12:00:00.000Z',
+    adminPaused:true,adminPausedReason:'moderation'
+  });
+  const created=await f.request(createPayment,{subjectType:'trainer',subjectId:'athlete',interval:'monthly',requestId:'paused-payment-123456'});
+  assert.equal(created.statusCode,409);
+  assert.match(created.body.error,/приостановлено/i);
+  assert.equal(f.data.has('businessPaymentRequests/'+createHashForTest),false);
+});
+
 test('paid promotion activates for seven days exactly once',async t=>{
   t.mock.timers.enable({apis:['Date'],now:Date.parse('2027-02-01T12:00:00Z')});
   const f=fixture();
