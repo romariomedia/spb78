@@ -4,7 +4,7 @@ import {getAuth} from 'firebase-admin/auth';
 import {getFirestore} from 'firebase-admin/firestore';
 import {requireActiveUser} from '../server/user-status.js';
 import {
-  billingIsOpen,businessSubscriptionId,getBillingConfig,planFor,resolveBusinessSubject
+  billingIsOpen,businessSubscriptionId,getBillingConfig,hasBusinessAccess,planFor,promotionFor,resolveBusinessSubject
 } from '../server/business-billing.js';
 import {validPaymentId} from '../server/payment-config.js';
 
@@ -30,6 +30,7 @@ export default async function handler(req,res){
     await requireActiveUser(db,uid);
 
     const subjectType=clean(req.body?.subjectType,30),subjectId=clean(req.body?.subjectId,180),interval=clean(req.body?.interval,20);
+    const purpose=clean(req.body?.purpose,30)||'subscription';
     const subject=await resolveBusinessSubject(db,subjectType,subjectId);
     if(subjectType==='trainer'&&subject.eligibleForPaidListing!==true)return res.status(409).json({error:'Сначала завершите проверку квалификации персонального тренера.'});
     const config=await getBillingConfig(db);
@@ -37,19 +38,21 @@ export default async function handler(req,res){
       code:'COMMERCIAL_NOT_LAUNCHED',
       error:'Коммерческие подписки SportBuddy78 откроются не ранее 1 января 2027 года и после включения администратором.'
     });
-    const plan=planFor(config,subjectType,interval);
-    if(!plan)return res.status(400).json({error:'Некорректный тариф'});
+    const plan=purpose==='promotion'?promotionFor(config,subjectType):planFor(config,subjectType,interval);
+    if(!plan)return res.status(400).json({error:purpose==='promotion'?'Продвижение недоступно.':'Некорректный тариф'});
+    if(purpose==='promotion'&&!await hasBusinessAccess(db,subjectType,subjectId,config))
+      return res.status(409).json({error:'Сначала активируйте размещение, затем включайте продвижение.'});
     if(!Number.isInteger(plan.amountRub)||plan.amountRub<=0)return res.status(409).json({code:'PLAN_DISABLED',error:'Этот тариф пока недоступен для оплаты.'});
 
     const subscriptionId=businessSubscriptionId(subjectType,subjectId);
     const subscriptionRef=db.collection('businessSubscriptions').doc(subscriptionId);
-    const key=createHash('sha256').update(`${uid}:${subjectType}:${subjectId}:${interval}:${requestId}`).digest('hex');
+    const key=createHash('sha256').update(`${uid}:${subjectType}:${subjectId}:${purpose}:${interval}:${requestId}`).digest('hex');
     const requestRef=db.collection('businessPaymentRequests').doc(key);
     const intent=await db.runTransaction(async tx=>{
       const [previous,subscriptionSnap]=await Promise.all([tx.get(requestRef),tx.get(subscriptionRef)]);
       if(previous.exists){
         const value=previous.data();
-        if(value.ownerUserId!==uid||value.subjectType!==subjectType||value.subjectId!==subjectId||value.interval!==interval||Date.now()-Date.parse(value.createdAt)>=23*3600000)
+        if(value.ownerUserId!==uid||value.subjectType!==subjectType||value.subjectId!==subjectId||value.purpose!==purpose||String(value.interval||'')!==String(interval||'')||Date.now()-Date.parse(value.createdAt)>=23*3600000)
           throw Object.assign(new Error('Начните оплату заново'),{status:409});
         return value;
       }
@@ -58,10 +61,15 @@ export default async function handler(req,res){
       if(subjectType==='trainer'&&subjectId!==uid)throw Object.assign(new Error('Можно оплачивать только собственный профиль тренера.'),{status:403});
       if(subjectType!=='trainer'&&ownerUserId!==uid)throw Object.assign(new Error('Эта организация не привязана к вашему аккаунту.'),{status:403});
       const amount=`${plan.amountRub.toFixed(2)}`;
-      const value={
-        product:'business_subscription',ownerUserId:uid,subjectType,subjectId,subjectLabel:subject.label,
-        interval,months:plan.months,amount,currency:'RUB',createdAt:new Date().toISOString()
-      };
+      const value=purpose==='promotion'
+        ? {
+            purpose:'promotion',product:'business_promotion',ownerUserId:uid,subjectType,subjectId,subjectLabel:subject.label,
+            interval:'',days:plan.days,amount,currency:'RUB',createdAt:new Date().toISOString()
+          }
+        : {
+            purpose:'subscription',product:'business_subscription',ownerUserId:uid,subjectType,subjectId,subjectLabel:subject.label,
+            interval,months:plan.months,amount,currency:'RUB',createdAt:new Date().toISOString()
+          };
       if(!subscriptionSnap.exists){
         tx.create(subscriptionRef,{subjectType,subjectId,subjectLabel:subject.label,ownerUserId:uid,activeUntil:'',paidUntil:'',complimentaryUntil:'',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
       }else if(subscription.subjectLabel!==subject.label){
@@ -78,13 +86,20 @@ export default async function handler(req,res){
       headers:{'Content-Type':'application/json',Authorization:`Basic ${Buffer.from(`${shopId}:${secret}`).toString('base64')}`,'Idempotence-Key':key},
       body:JSON.stringify({
         amount:{value:intent.amount,currency:'RUB'},capture:true,
-        confirmation:{type:'redirect',return_url:'https://sportbuddy78.pro/success?product=business_subscription'},
-        description:`${intent.subjectLabel} · SportBuddy78 · ${interval==='yearly'?'12 месяцев':'1 месяц'}`.slice(0,128),
-        metadata:{
-          product:'sportbuddy78_business_subscription',userId:uid,
-          subjectType:intent.subjectType,subjectId:intent.subjectId,
-          interval:intent.interval,months:String(intent.months)
-        }
+        confirmation:{type:'redirect',return_url:`https://sportbuddy78.pro/success?product=${intent.product}`},
+        description:(intent.product==='business_promotion'
+          ? `${intent.subjectLabel} · продвижение SportBuddy78 · 7 дней`
+          : `${intent.subjectLabel} · SportBuddy78 · ${interval==='yearly'?'12 месяцев':'1 месяц'}`).slice(0,128),
+        metadata:intent.product==='business_promotion'
+          ? {
+              product:'sportbuddy78_business_promotion',userId:uid,
+              subjectType:intent.subjectType,subjectId:intent.subjectId,days:String(intent.days)
+            }
+          : {
+              product:'sportbuddy78_business_subscription',userId:uid,
+              subjectType:intent.subjectType,subjectId:intent.subjectId,
+              interval:intent.interval,months:String(intent.months)
+            }
       })
     });
     const payment=await response.json();
@@ -95,8 +110,8 @@ export default async function handler(req,res){
       const paymentRef=db.collection('payments').doc(payment.id);
       const saved=await tx.get(paymentRef);
       if(!saved.exists)tx.create(paymentRef,{
-        product:'business_subscription',ownerUserId:uid,subjectType:intent.subjectType,subjectId:intent.subjectId,subjectLabel:intent.subjectLabel,
-        interval:intent.interval,months:intent.months,amount:intent.amount,currency:'RUB',
+        product:intent.product,ownerUserId:uid,subjectType:intent.subjectType,subjectId:intent.subjectId,subjectLabel:intent.subjectLabel,
+        interval:intent.interval||'',months:intent.months||0,days:intent.days||0,amount:intent.amount,currency:'RUB',
         status:payment.status||'pending',processed:false,idempotenceKey:key,createdAt:intent.createdAt
       });
       tx.update(requestRef,{paymentId:payment.id,confirmationUrl});

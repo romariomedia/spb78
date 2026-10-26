@@ -9,7 +9,8 @@ interface SuccessScreenProps {
 /** Return page after YooKassa redirect. Premium is activated only by webhook. */
 export function SuccessScreen({ onContinue }: SuccessScreenProps) {
   const [seconds, setSeconds] = useState(5);
-  const isBusiness = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('product') === 'business_subscription';
+  const businessProduct = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('product') : '';
+  const isBusiness = businessProduct === 'business_subscription' || businessProduct === 'business_promotion';
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -38,7 +39,9 @@ export function SuccessScreen({ onContinue }: SuccessScreenProps) {
         <h1 className="text-2xl font-black tracking-tight">Возвращение из ЮKassa</h1>
         <p className="mt-2 text-sm leading-relaxed text-slate-400">
           {isBusiness
-            ? 'После подтверждения оплаты ЮKassa срок коммерческого размещения обновится в профиле. Само возвращение на эту страницу не подтверждает оплату.'
+            ? businessProduct === 'business_promotion'
+              ? 'После подтверждения оплаты ЮKassa продвижение коммерческой карточки активируется автоматически. Само возвращение на эту страницу не подтверждает оплату.'
+              : 'После подтверждения оплаты ЮKassa срок коммерческого размещения обновится в профиле. Само возвращение на эту страницу не подтверждает оплату.'
             : 'После подтверждения оплаты ЮKassa срок Premium обновится в профиле. Само возвращение на эту страницу не подтверждает оплату.'}
         </p>
         <div className="mt-5 flex items-center justify-center gap-2 rounded-2xl border border-slate-800 bg-slate-950/70 px-3 py-2.5 text-xs text-slate-400">

@@ -25,6 +25,7 @@ function normalizeVenue(raw: Partial<SportVenue> & { id: string }): SportVenue {
     note: raw.note ? String(raw.note) : undefined,
     photos: Array.isArray(raw.photos) ? raw.photos.map(String).filter(Boolean).slice(0, 8) : [],
     isVerified: raw.isVerified === true,
+    isPromoted: raw.isPromoted === true,
     isPublished: raw.isPublished !== false,
     contactName: raw.contactName ? String(raw.contactName) : undefined,
     amenities: Array.isArray(raw.amenities) ? raw.amenities.map(String).filter(Boolean).slice(0, 20) : [],

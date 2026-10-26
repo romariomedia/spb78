@@ -1,7 +1,7 @@
 import { cert, getApps, initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { paymentMatches, validPaymentId } from '../server/payment-config.js';
-import {addCalendarMonths,businessPaymentMatches,businessSubscriptionId} from '../server/business-billing.js';
+import {addCalendarMonths,businessPaymentMatches,businessPromotionPaymentMatches,businessSubscriptionId} from '../server/business-billing.js';
 function init() {
   if (getApps().length) return;
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
@@ -27,8 +27,11 @@ export default async function handler(req, res) {
     if (!response.ok) return res.status(503).json({ error: 'Не удалось проверить платёж' });
     const remote = await response.json();
     const initial = local.data();
-    const isBusiness = initial.product === 'business_subscription';
-    const matches = isBusiness ? businessPaymentMatches(remote, initial, id) : paymentMatches(remote, initial, id);
+    const matches = initial.product === 'business_subscription'
+      ? businessPaymentMatches(remote, initial, id)
+      : initial.product === 'business_promotion'
+      ? businessPromotionPaymentMatches(remote, initial, id)
+      : paymentMatches(remote, initial, id);
     if (!matches) return res.status(400).json({ error: 'Платёж не прошёл серверную проверку' });
     await db.runTransaction(async tx => {
       const fresh = await tx.get(ref);
@@ -37,6 +40,8 @@ export default async function handler(req, res) {
       if (expected.processed) return;
       const valid = expected.product === 'business_subscription'
         ? businessPaymentMatches(remote, expected, id)
+        : expected.product === 'business_promotion'
+        ? businessPromotionPaymentMatches(remote, expected, id)
         : paymentMatches(remote, expected, id);
       if (!valid) throw new Error('Payment changed');
       const now = Date.now();
@@ -67,6 +72,27 @@ export default async function handler(req, res) {
           subjectType:expected.subjectType,subjectId:expected.subjectId,subjectLabel:expected.subjectLabel,
           ownerUserId:expected.ownerUserId,interval:expected.interval,months:expected.months,
           amountRub:Number(expected.amount),currency:'RUB',createdAt:new Date(now).toISOString(),activeUntil
+        });
+      } else if (expected.product === 'business_promotion') {
+        const subscriptionId = businessSubscriptionId(expected.subjectType, expected.subjectId);
+        const subscriptionRef = db.collection('businessSubscriptions').doc(subscriptionId);
+        const subscriptionSnap = await tx.get(subscriptionRef);
+        if (!subscriptionSnap.exists) throw new Error('Business subscription missing');
+        const subscription = subscriptionSnap.data() || {};
+        if (subscription.ownerUserId !== expected.ownerUserId) throw new Error('Business owner changed');
+        const currentRaw = subscription.promotedUntil;
+        const currentExpiry = currentRaw?.toDate ? currentRaw.toDate().getTime() : Date.parse(String(currentRaw || ''));
+        const base = Number.isFinite(currentExpiry) && currentExpiry > now ? currentExpiry : now;
+        const promotedUntil = new Date(base + expected.days * 86400000).toISOString();
+        tx.update(subscriptionRef,{
+          promotedUntil,updatedAt:new Date(now).toISOString(),
+          lastPromotionPaymentAt:new Date(now).toISOString(),lastPromotionPaymentId:id
+        });
+        tx.create(db.collection('billingLedger').doc(`yookassa:${id}`),{
+          eventType:'promotion_payment',provider:'yookassa',paymentId:id,
+          subjectType:expected.subjectType,subjectId:expected.subjectId,subjectLabel:expected.subjectLabel,
+          ownerUserId:expected.ownerUserId,days:expected.days,
+          amountRub:Number(expected.amount),currency:'RUB',createdAt:new Date(now).toISOString(),promotedUntil
         });
       } else {
         const userRef = db.collection('users').doc(expected.userId), user = await tx.get(userRef);

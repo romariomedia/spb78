@@ -8,6 +8,11 @@ export const DEFAULT_BILLING_CONFIG = Object.freeze({
     trainer: { label:'Персональный тренер', monthlyRub:500, yearlyRub:5000 },
     venue: { label:'Спортивная площадка / студия', monthlyRub:1000, yearlyRub:10000 },
     massage: { label:'Массаж / wellness', monthlyRub:1500, yearlyRub:15000 }
+  },
+  promotions: {
+    trainer: { label:'Продвижение тренера', days:7, priceRub:299 },
+    venue: { label:'Продвижение площадки', days:7, priceRub:599 },
+    massage: { label:'Продвижение wellness', days:7, priceRub:799 }
   }
 });
 
@@ -37,7 +42,8 @@ export function businessSubscriptionId(subjectType,subjectId){
 }
 export function sanitizeBillingConfig(input={},previous=DEFAULT_BILLING_CONFIG){
   const sourcePlans=input.plans||{};
-  const nextPlans={};
+  const sourcePromotions=input.promotions||{};
+  const nextPlans={},nextPromotions={};
   for(const type of BUSINESS_SUBJECT_TYPES){
     const base=previous.plans?.[type]||DEFAULT_BILLING_CONFIG.plans[type];
     const source=sourcePlans[type]||{};
@@ -46,12 +52,20 @@ export function sanitizeBillingConfig(input={},previous=DEFAULT_BILLING_CONFIG){
       monthlyRub:integer(source.monthlyRub,0,1_000_000,base.monthlyRub),
       yearlyRub:integer(source.yearlyRub,0,10_000_000,base.yearlyRub)
     };
+    const promotionBase=previous.promotions?.[type]||DEFAULT_BILLING_CONFIG.promotions[type];
+    const promotionSource=sourcePromotions[type]||{};
+    nextPromotions[type]={
+      label:DEFAULT_BILLING_CONFIG.promotions[type].label,
+      days:7,
+      priceRub:integer(promotionSource.priceRub,0,1_000_000,promotionBase.priceRub)
+    };
   }
   return {
     enabled:input.enabled===true,
     // Commercial charging is intentionally pinned to the 2027 launch.
     commercialLaunchAt:COMMERCIAL_LAUNCH_AT,
-    plans:nextPlans
+    plans:nextPlans,
+    promotions:nextPromotions
   };
 }
 export async function getBillingConfig(db){
@@ -68,6 +82,12 @@ export function planFor(config,subjectType,interval){
   if(interval==='monthly')return {interval,months:1,amountRub:plan.monthlyRub,label:plan.label};
   if(interval==='yearly')return {interval,months:12,amountRub:plan.yearlyRub,label:plan.label};
   return null;
+}
+export function promotionFor(config,subjectType){
+  if(!validBusinessSubjectType(subjectType))return null;
+  const promotion=config?.promotions?.[subjectType];
+  if(!promotion)return null;
+  return {days:7,amountRub:promotion.priceRub,label:promotion.label};
 }
 export function addCalendarMonths(value,months){
   const date=new Date(value);
@@ -91,9 +111,12 @@ export function publicBusinessSubscription(subscription={},extraUntil='',now=Dat
     activeUntil:effective?new Date(effective).toISOString():'',
     paidUntil:iso(subscription.paidUntil),
     complimentaryUntil:iso(subscription.complimentaryUntil),
+    promotedUntil:iso(subscription.promotedUntil),
+    isPromoted:millis(subscription.promotedUntil)>now,
     status:effective>now?'active':'inactive',
     lastPaymentAt:iso(subscription.lastPaymentAt),
-    lastGrantedAt:iso(subscription.lastGrantedAt)
+    lastGrantedAt:iso(subscription.lastGrantedAt),
+    lastPromotionPaymentAt:iso(subscription.lastPromotionPaymentAt)
   };
 }
 export async function resolveBusinessSubject(db,subjectType,subjectId){
@@ -118,21 +141,36 @@ export async function foundingCoachUntil(db,subjectType,subjectId){
   if(!snap.exists||snap.data()?.foundingCoach!==true)return '';
   return iso(snap.data()?.foundingCoachFreeUntil);
 }
-export async function hasBusinessAccess(db,subjectType,subjectId,config=null,now=Date.now()){
+export async function businessListingStates(db,subjectType,subjectIds,config=null,now=Date.now()){
   const effectiveConfig=config||await getBillingConfig(db);
-  if(!billingIsOpen(effectiveConfig,now))return true;
-  const id=businessSubscriptionId(subjectType,subjectId);
-  const [subscriptionSnap,freeUntil]=await Promise.all([
-    db.collection('businessSubscriptions').doc(id).get(),
-    foundingCoachUntil(db,subjectType,subjectId)
-  ]);
-  if(!subscriptionSnap.exists){
-    // Existing editorial venue/massage catalog remains public until a business owner claims it.
-    return subjectType!=='trainer' || Boolean(freeUntil);
+  const ids=[...new Set((subjectIds||[]).filter(validBusinessSubjectId))];
+  const result=new Map();
+  if(!billingIsOpen(effectiveConfig,now)){
+    for(const id of ids)result.set(id,{allowed:true,isPromoted:false,promotedUntil:''});
+    return result;
   }
-  const subscription=subscriptionSnap.data()||{};
-  if(subjectType!=='trainer'&&!clean(subscription.ownerUserId,180))return true;
-  return effectiveBusinessUntil(subscription,freeUntil)>now;
+  const subscriptions=await db.collection('businessSubscriptions').where('subjectType','==',subjectType).limit(1000).get();
+  const byId=new Map(subscriptions.docs.map(doc=>[String(doc.data()?.subjectId||''),doc.data()||{}]));
+  const founding=new Map();
+  if(subjectType==='trainer'){
+    const admins=await db.collection('userAdmin').where('foundingCoach','==',true).limit(1000).get();
+    for(const doc of admins.docs)founding.set(doc.id,iso(doc.data()?.foundingCoachFreeUntil));
+  }
+  for(const id of ids){
+    const subscription=byId.get(id);
+    const freeUntil=founding.get(id)||'';
+    let allowed;
+    if(!subscription)allowed=subjectType!=='trainer'||millis(freeUntil)>now;
+    else if(subjectType!=='trainer'&&!clean(subscription.ownerUserId,180))allowed=true;
+    else allowed=effectiveBusinessUntil(subscription,freeUntil)>now;
+    const promotedUntil=subscription?iso(subscription.promotedUntil):'';
+    result.set(id,{allowed,isPromoted:allowed&&millis(promotedUntil)>now,promotedUntil});
+  }
+  return result;
+}
+export async function hasBusinessAccess(db,subjectType,subjectId,config=null,now=Date.now()){
+  const states=await businessListingStates(db,subjectType,[subjectId],config,now);
+  return states.get(subjectId)?.allowed===true;
 }
 export function businessPaymentMatches(remote,expected,paymentId){
   return remote?.id===paymentId && remote?.status==='succeeded' && remote?.paid===true
@@ -145,6 +183,21 @@ export function businessPaymentMatches(remote,expected,paymentId){
     && remote?.metadata?.interval===expected.interval
     && String(remote?.metadata?.months)===String(expected.months)
     && Number.isInteger(expected.months) && expected.months>0 && expected.months<=12
+    && String(remote?.amount?.value)===String(expected.amount)
+    && remote?.amount?.currency==='RUB' && expected.currency==='RUB';
+}
+
+
+export function businessPromotionPaymentMatches(remote,expected,paymentId){
+  return remote?.id===paymentId && remote?.status==='succeeded' && remote?.paid===true
+    && (remote?.test!==true || process.env.YOOKASSA_ALLOW_TEST_PAYMENTS==='true')
+    && expected?.product==='business_promotion'
+    && remote?.metadata?.product==='sportbuddy78_business_promotion'
+    && remote?.metadata?.userId===expected.ownerUserId
+    && remote?.metadata?.subjectType===expected.subjectType
+    && remote?.metadata?.subjectId===expected.subjectId
+    && String(remote?.metadata?.days)===String(expected.days)
+    && Number.isInteger(expected.days) && expected.days===7
     && String(remote?.amount?.value)===String(expected.amount)
     && remote?.amount?.currency==='RUB' && expected.currency==='RUB';
 }
