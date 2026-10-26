@@ -12,6 +12,7 @@ import { refreshVenues, getCachedVenues } from '../services/venues';
 import { venueCover } from '../lib/venueCovers';
 import { venuePrice } from '../lib/venuePricing';
 import { triggerHapticImpact } from '../services/native';
+import {trackBusinessEvent} from '../services/businessBilling';
 
 const VenuesMap = lazy(() => import('./VenuesMap'));
 
@@ -183,6 +184,7 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, o
   const [sport, setSport] = useState<string>('Все');
   const [sort, setSort] = useState<SortMode>('recommended');
   const [selected, setSelected] = useState<SportVenue | null>(null);
+  const openVenue = (venue: SportVenue) => { void trackBusinessEvent('venue',venue.id,'view','profile'); setSelected(venue); };
   const scrollRoot = useRef<HTMLDivElement>(null);
   const [network, setNetwork] = useState<string | null>(null);
   useEffect(() => { scrollRoot.current?.scrollTo({top:0}); }, [selected?.id, network]);
@@ -343,6 +345,7 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, o
                 {selected.phone ? (
                   <a
                     href={`tel:${selected.phone.replace(/[^+\d]/g, '')}`}
+                    onClick={()=>void trackBusinessEvent('venue',selected.id,'click','phone')}
                     className="min-h-12 rounded-2xl bg-emerald-500 text-slate-950 font-black text-xs py-3 flex items-center justify-center gap-1.5 active:scale-95"
                   >
                     <Phone className="w-4 h-4" /> Позвонить
@@ -352,6 +355,7 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, o
                 )}
                 <a
                   href={venueMapUrl(selected)}
+                  onClick={()=>void trackBusinessEvent('venue',selected.id,'click','directions')}
                   target="_blank"
                   rel="noreferrer"
                   className="min-h-12 rounded-2xl bg-slate-800 border border-slate-700 text-white font-black text-xs py-3 flex items-center justify-center gap-1.5 active:scale-95"
@@ -362,6 +366,7 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, o
               {selected.website && (
                 <a
                   href={selected.website}
+                  onClick={()=>void trackBusinessEvent('venue',selected.id,'click','website')}
                   target="_blank"
                   rel="noreferrer"
                   className="w-full rounded-2xl bg-slate-950 border border-slate-800 text-slate-300 font-bold text-xs py-3 flex items-center justify-center gap-1.5"
@@ -393,6 +398,8 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, o
                 disabled={selected.status === 'restricted'}
                 onClick={() => {
                   triggerHapticImpact('medium');
+                  void trackBusinessEvent('venue',selected.id,'click','training');
+                  void trackBusinessEvent('venue',selected.id,'lead','training');
                   onCreateTraining(selected);
                 }}
                 className="w-full min-h-14 rounded-2xl bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-black text-sm px-4 flex items-center justify-center gap-2 active:scale-[0.99] shadow-[0_0_24px_rgba(16,185,129,0.25)]"
@@ -476,7 +483,7 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, o
             </button>)}
           </div>
           {view === 'map' && <Suspense fallback={<p role="status" className="p-8 text-center text-sm text-slate-400">Загружаем карту…</p>}>
-            <VenuesMap venues={venues} onSelect={setSelected} />
+            <VenuesMap venues={venues} onSelect={openVenue} />
           </Suspense>}
           <div className="space-y-3">
             {catalogLoading && (
@@ -499,7 +506,7 @@ export const PlacesSection: React.FC<PlacesSectionProps> = ({ isOpen, onClose, o
               <button
                 key={venue.id}
                 type="button"
-                onClick={() => { triggerHapticImpact('light'); setSelected(venue); }}
+                onClick={() => { triggerHapticImpact('light'); openVenue(venue); }}
                 className="w-full overflow-hidden rounded-3xl border border-slate-800 bg-slate-900 text-left active:scale-[0.995] transition shadow-xl touch-manipulation"
               >
                 {!network && <VenueHero venue={venue} compact />}
