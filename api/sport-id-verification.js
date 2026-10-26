@@ -8,6 +8,7 @@ import { initializeApp,getApps,cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 import { requireActiveUser } from '../server/user-status.js';
+import {recordBusinessMetric} from '../server/business-insights.js';
 import {COMMERCIAL_LAUNCH_AT,getBillingConfig,hasBusinessAccess} from '../server/business-billing.js';
 import {
   claimFingerprint,claimFromPassport,sanitizeVerificationEvidence,verificationClaimId,verificationRequestId
@@ -31,7 +32,13 @@ export default async function handler(req,res){
 
     if(action==='trainerServices')return res.json(await saveTrainerServices(db,uid,req.body));
     if(action==='bookingList')return res.json(await listTrainerBookings(db,uid,req.body,FieldPath.documentId()));
-    if(['bookingCreate','bookingAccept','bookingReject','bookingCancel'].includes(action))return res.json(await mutateTrainerBooking(db,uid,action,req.body));
+    if(['bookingCreate','bookingAccept','bookingReject','bookingCancel'].includes(action)){
+      const result=await mutateTrainerBooking(db,uid,action,req.body);
+      if(action==='bookingCreate')await recordBusinessMetric(db,{
+        actorId:uid,subjectType:'trainer',subjectId:req.body?.trainerId,eventType:'lead',target:'booking',dedupKey:result.request?.id
+      }).catch(()=>undefined);
+      return res.json(result);
+    }
 
     if(action==='trainerRead'){
       const id=verificationRequestId(uid,{claimType:'trainer',claimId:'trainer'});
