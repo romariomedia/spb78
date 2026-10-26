@@ -23,7 +23,39 @@ git -C "$source_repo" archive "$commit" | tar -x -C "$release"
 install -m 600 "$env_file" "$release/.env"
 cd "$release"
 npm ci --include=dev
-npm audit --audit-level=high
+
+# A registry/network hiccup must not strand an otherwise reviewed release.
+# Real audit findings still fail the release; only recognized transport failures
+# are tolerated after retries because the same commit must pass CI first.
+audit_ok=0
+for attempt in 1 2 3; do
+  audit_log=$(mktemp)
+  if npm audit --audit-level=high >"$audit_log" 2>&1; then
+    cat "$audit_log"
+    rm -f "$audit_log"
+    audit_ok=1
+    break
+  fi
+
+  cat "$audit_log" >&2
+  if grep -Eqi 'audit endpoint returned an error|Client network socket disconnected|ECONNRESET|ECONNREFUSED|ENOTFOUND|EAI_AGAIN|ETIMEDOUT|TLS|socket hang up' "$audit_log"; then
+    rm -f "$audit_log"
+    if [[ $attempt -lt 3 ]]; then
+      echo "npm audit network failure; retrying ($attempt/3)..." >&2
+      sleep $((attempt * 2))
+      continue
+    fi
+    echo 'WARNING: npm audit unavailable after 3 network retries; relying on the required CI quality gate for this reviewed commit.' >&2
+    audit_ok=1
+    break
+  fi
+
+  rm -f "$audit_log"
+  echo 'npm audit reported a non-network failure; refusing release.' >&2
+  exit 1
+done
+[[ $audit_ok == 1 ]]
+
 npm test
 npm run build
 # Website-only download: never bundle the APK inside Android/iOS web assets.
