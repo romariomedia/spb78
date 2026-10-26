@@ -15,6 +15,7 @@ const ANDROID_APK = '/downloads/sportbuddy78-rustore-v28.apk';
 export function InstallApp({ autoPromptEnabled = true }: InstallAppProps) {
   const [open, setOpen] = useState(false);
   const [iosHelp, setIosHelp] = useState(false);
+  const [heroFailed, setHeroFailed] = useState(false);
   const [installed, setInstalled] = useState(false);
   const [dismissed, setDismissed] = useState(() => {
     try {
@@ -126,13 +127,30 @@ export function InstallApp({ autoPromptEnabled = true }: InstallAppProps) {
           maxWidth="xl"
         >
           <div className="space-y-4">
-            <div className="overflow-hidden rounded-2xl border border-lime-300/20 bg-slate-950 shadow-[0_16px_48px_rgba(0,0,0,.35)]">
-              <img
-                src={INSTALL_PROMO_HERO}
-                alt="SportBuddy78 — найди своих, двигайся вместе"
-                className="aspect-video w-full object-cover"
-                decoding="async"
-              />
+            <div className="relative aspect-video overflow-hidden rounded-2xl border border-lime-300/20 bg-slate-950 shadow-[0_16px_48px_rgba(0,0,0,.35)]">
+              {!heroFailed ? (
+                <img
+                  src={INSTALL_PROMO_HERO}
+                  alt="SportBuddy78 — найди своих, двигайся вместе"
+                  className="h-full w-full object-cover"
+                  decoding="async"
+                  loading="eager"
+                  onError={() => setHeroFailed(true)}
+                />
+              ) : (
+                <div className="flex h-full w-full flex-col justify-end bg-[radial-gradient(circle_at_75%_20%,rgba(190,242,100,.22),transparent_28%),linear-gradient(135deg,#101827,#020617_72%)] p-5 sm:p-7">
+                  <div className="mb-auto flex items-center gap-2 text-lime-300">
+                    <Smartphone className="h-5 w-5" />
+                    <span className="text-[10px] font-black uppercase tracking-[.22em]">SportBuddy78 App</span>
+                  </div>
+                  <p className="text-2xl font-black tracking-tight text-white sm:text-4xl">
+                    Найди своих. <span className="text-lime-300">Двигайся вместе.</span>
+                  </p>
+                  <p className="mt-2 max-w-xl text-xs leading-relaxed text-slate-300 sm:text-sm">
+                    Тренировки, люди, площадки, активный отдых и спортивные события Санкт-Петербурга.
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
