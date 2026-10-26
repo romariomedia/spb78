@@ -27,7 +27,7 @@ export default async function handler(req,res){
     const subjects=[];
     const seen=new Set();
 
-    if(user.personalTrainer?.enabled===true){
+    if(user.personalTrainer?.enabled===true&&user.personalTrainer?.status==='verified'){
       const subject=await resolveBusinessSubject(db,'trainer',uid);
       const id=businessSubscriptionId('trainer',uid);
       const [subSnap,freeUntil]=await Promise.all([
