@@ -51,6 +51,9 @@ export function sanitizePartner(input={},existing={}){
   const ordName=clean(input.ordName??existing.ordName,120);
   const adContractNumber=clean(input.adContractNumber??existing.adContractNumber,120);
   const adContractDate=dateValue(input.adContractDate??existing.adContractDate);
+  const adExemptionReason=clean(input.adExemptionReason??existing.adExemptionReason,600);
+  if(!isAdvertising&&isActive&&adExemptionReason.length<20)
+    throw Object.assign(new Error('Для активной карточки без маркировки рекламы укажите обоснование, почему материал не является рекламой.'),{status:400,code:'AD_CLASSIFICATION_REASON_REQUIRED'});
   if(isAdvertising&&isActive){
     if(advertiserName.length<2)throw Object.assign(new Error('Для рекламной карточки укажите рекламодателя.'),{status:400,code:'ADVERTISER_REQUIRED'});
     if(!/^\d{10}$|^\d{12}$/.test(advertiserInn))throw Object.assign(new Error('Для рекламной карточки укажите ИНН рекламодателя (10 или 12 цифр).'),{status:400,code:'ADVERTISER_INN_REQUIRED'});
@@ -80,12 +83,13 @@ export function sanitizePartner(input={},existing={}){
     erid,
     ordName,
     adContractNumber,
-    adContractDate
+    adContractDate,
+    adExemptionReason
   };
 }
 
 export function partnerAdComplianceReady(item={}){
-  if(item.isAdvertising===false)return true;
+  if(item.isAdvertising===false)return clean(item.adExemptionReason,600).length>=20;
   return clean(item.advertiserName,180).length>=2
     && /^\d{10}$|^\d{12}$/.test(digits(item.advertiserInn,12))
     && clean(item.erid,180).length>=5
