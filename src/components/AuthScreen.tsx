@@ -96,6 +96,7 @@ export function AuthScreen({ onAuthenticated, initialNotice = '', onBrowse }: Pr
   const oAuthContainerRef = useRef<HTMLDivElement>(null);
   const termsAcceptedRef = useRef(false);
   const personalDataAcceptedRef = useRef(false);
+  const registrationModeRef = useRef(true);
   const vkInFlight = useRef(false);
 
   // Shared tail of the VK ID flow: exchange code → profile → local account.
@@ -134,7 +135,7 @@ export function AuthScreen({ onAuthenticated, initialNotice = '', onBrowse }: Pr
         return;
       }
 
-      if (result.isNewAccount) {
+      if (result.isNewAccount || registrationModeRef.current) {
         if (!termsAcceptedRef.current || !personalDataAcceptedRef.current) {
           clearLocalAuthSession();
           setError('Для создания нового аккаунта сначала отдельно примите Пользовательское соглашение и Согласие на обработку персональных данных.');
@@ -507,7 +508,7 @@ export function AuthScreen({ onAuthenticated, initialNotice = '', onBrowse }: Pr
           <div className="mb-4 grid grid-cols-2 gap-1 rounded-2xl border border-slate-800 bg-slate-950/70 p-1">
             <button
               type="button"
-              onClick={() => { setIsRegister(true); setError(''); setRecoverySent(false); }}
+              onClick={() => { setIsRegister(true); registrationModeRef.current = true; setError(''); setRecoverySent(false); }}
               className={`rounded-xl px-3 py-2.5 text-[11px] font-black transition ${isRegister
                 ? 'bg-emerald-500 text-slate-950 shadow-[0_0_16px_rgba(16,185,129,0.32)]'
                 : 'text-slate-500 hover:text-slate-300'}`}
@@ -516,7 +517,7 @@ export function AuthScreen({ onAuthenticated, initialNotice = '', onBrowse }: Pr
             </button>
             <button
               type="button"
-              onClick={() => { setIsRegister(false); setError(''); setRecoverySent(false); }}
+              onClick={() => { setIsRegister(false); registrationModeRef.current = false; setError(''); setRecoverySent(false); }}
               className={`rounded-xl px-3 py-2.5 text-[11px] font-black transition ${!isRegister
                 ? 'bg-slate-800 text-white'
                 : 'text-slate-500 hover:text-slate-300'}`}
