@@ -1,4 +1,6 @@
 import {useEffect,useMemo,useState,type ReactNode} from 'react';
+import {Modal} from './Modal';
+import {LegalSection} from './LegalSection';
 import {
   BadgeRussianRuble,BarChart3,CalendarClock,Crown,Download,Eye,FileText,MousePointerClick,
   RefreshCw,Rocket,Save,ShieldCheck,TrendingUp,UserRoundCheck,WalletCards
@@ -46,6 +48,7 @@ export function BusinessBillingPanel(){
   const [legalDraft,setLegalDraft]=useState<Omit<BusinessLegalProfile,'ready'|'errors'>|null>(null);
   const [legalSaving,setLegalSaving]=useState(false);
   const [offerAccepted,setOfferAccepted]=useState(false);
+  const [offerOpen,setOfferOpen]=useState(false);
   const load=async()=>{setBusy(true);setError('');try{
     const next=await loadBusinessDashboard();setState(next);
     setLegalDraft({
@@ -143,10 +146,13 @@ export function BusinessBillingPanel(){
       <button type="button" disabled={legalSaving} onClick={()=>void saveLegal()} className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-cyan-400 px-4 text-sm font-black text-slate-950 disabled:opacity-50">
         <Save size={16}/>{legalSaving?'Сохраняем…':'Сохранить реквизиты'}
       </button>
-      <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-800 bg-slate-900 p-3">
-        <input type="checkbox" checked={offerAccepted} onChange={e=>setOfferAccepted(e.target.checked)} className="mt-0.5 h-4 w-4 accent-lime-300"/>
-        <span className="text-[11px] leading-relaxed text-slate-300"><b className="text-white">Принимаю договор-оферту SportBuddy78 Business</b> редакции {BUSINESS_OFFER_VERSION}. Понимаю, что акцепт фиксируется в авторизованном кабинете, а после оплаты формируется индивидуальный договор.</span>
-      </label>
+      <div className="rounded-xl border border-slate-800 bg-slate-900 p-3 space-y-2">
+        <label className="flex cursor-pointer items-start gap-3">
+          <input type="checkbox" checked={offerAccepted} onChange={e=>setOfferAccepted(e.target.checked)} className="mt-0.5 h-4 w-4 accent-lime-300"/>
+          <span className="text-[11px] leading-relaxed text-slate-300"><b className="text-white">Принимаю договор-оферту SportBuddy78 Business</b> редакции {BUSINESS_OFFER_VERSION}. Понимаю, что акцепт фиксируется в авторизованном кабинете, а после оплаты формируется индивидуальный договор.</span>
+        </label>
+        <button type="button" onClick={()=>setOfferOpen(true)} className="text-[10px] font-black text-cyan-300 underline underline-offset-2">Открыть оферту перед оплатой</button>
+      </div>
     </div>}
     {error&&<p role="alert" className="rounded-xl border border-rose-500/30 bg-rose-950/20 p-3 text-sm text-rose-200">{error}</p>}
     {busy&&!state&&<p role="status" className="text-sm text-slate-400">Загружаем кабинет…</p>}
@@ -231,5 +237,8 @@ export function BusinessBillingPanel(){
         <span className="shrink-0 text-xs font-black text-lime-300">{Number(row.amountRub||0)>0?money(Number(row.amountRub)):row.days?row.days+' дн.':'—'}</span>
       </div>)}</div>
     </div>}
+    <Modal isOpen={offerOpen} onClose={()=>setOfferOpen(false)} title="Оферта SportBuddy78 Business" subtitle={`Редакция ${BUSINESS_OFFER_VERSION}`} maxWidth="xl">
+      <LegalSection initialView="documents" initialDocumentId="business-offer"/>
+    </Modal>
   </section>;
 }
