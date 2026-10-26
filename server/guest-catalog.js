@@ -1,6 +1,6 @@
 import {districtLabel} from '../shared/districts.js';
 import {LEISURE_CATALOG} from '../shared/leisure-destinations.js';
-import {getBillingConfig,hasBusinessAccess} from './business-billing.js';
+import {COMMERCIAL_LAUNCH_AT,getBillingConfig,hasBusinessAccess} from './business-billing.js';
 const text=(v,n=300)=>typeof v==='string'?v.slice(0,n):'';
 const image=v=>{const s=text(v,1800);if(/^\/(?!\/)[a-zA-Z0-9_./-]+$/.test(s))return s;try{const u=new URL(s);return u.protocol==='https:'&&!u.username&&!u.password?s:'';}catch{return '';}};
 export const GUEST_SECTIONS=['trainings','events','leisure','massage','partners','venues'];
@@ -43,7 +43,7 @@ export async function readGuestCatalog(db,section,now=Date.now()){
  if(section==='partners')query=query.where('isActive','==',true);
  const snap=await query.limit(section==='venues'?400:200).get();
  let rows=snap.docs.map(doc=>({id:doc.id,value:doc.data()}));
- if(section==='massage'||section==='venues'){
+ if((section==='massage'||section==='venues')&&now>=Date.parse(COMMERCIAL_LAUNCH_AT)){
   const billingConfig=await getBillingConfig(db);
   const subjectType=section==='massage'?'massage':'venue';
   rows=(await Promise.all(rows.map(async row=>{
