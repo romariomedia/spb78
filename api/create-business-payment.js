@@ -58,6 +58,10 @@ export default async function handler(req,res){
     const vatCode=Number(process.env.YOOKASSA_VAT_CODE);
     if(!Number.isInteger(vatCode)||vatCode<1||vatCode>12)
       return res.status(503).json({code:'FISCALIZATION_NOT_CONFIGURED',error:'Коммерческие платежи временно закрыты: не настроена ставка НДС для кассового чека.'});
+    const paymentMode=clean(process.env.YOOKASSA_PAYMENT_MODE,40);
+    const allowedPaymentModes=new Set(['full_payment','full_prepayment','prepayment','advance','partial_payment','credit','credit_payment']);
+    if(!allowedPaymentModes.has(paymentMode))
+      return res.status(503).json({code:'FISCALIZATION_NOT_CONFIGURED',error:'Коммерческие платежи временно закрыты: не настроен признак способа расчета для кассового чека.'});
     const taxSystemCode=Number(process.env.YOOKASSA_TAX_SYSTEM_CODE||0);
     if(taxSystemCode!==0&&(!Number.isInteger(taxSystemCode)||taxSystemCode<1||taxSystemCode>6))
       return res.status(503).json({code:'FISCALIZATION_NOT_CONFIGURED',error:'Некорректная система налогообложения для кассового чека.'});
@@ -129,7 +133,7 @@ export default async function handler(req,res){
             quantity:'1.00',
             amount:{value:intent.amount,currency:'RUB'},
             vat_code:vatCode,
-            payment_mode:'full_prepayment',
+            payment_mode:paymentMode,
             payment_subject:'service'
           }],
           internet:'true',
