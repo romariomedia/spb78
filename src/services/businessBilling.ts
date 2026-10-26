@@ -61,7 +61,7 @@ export interface BusinessLedgerRow {
 }
 export interface BusinessDashboardState {
   generatedAt:string;
-  config:Omit<BusinessBillingConfig,'billingOpen'>;
+  config:BusinessBillingConfig;
   subjects:BusinessDashboardSubject[];
   ledger:BusinessLedgerRow[];
   finance:{paidRub:number;promotionRub:number};
