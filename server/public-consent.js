@@ -55,7 +55,7 @@ export function consentedPublicProfile(id,user={}){
   const result={id,publicConsentVersion:consent.version};
   for(const group of consent.groups){
     for(const key of PUBLIC_CONSENT_GROUPS[group]||[]){
-      if(key==='lat'||key==='lng')continue;
+      if(key==='lat'||key==='lng'||key==='personalTrainer')continue;
       copySafe(result,user,key);
     }
   }
