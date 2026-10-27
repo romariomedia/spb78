@@ -1,7 +1,7 @@
 import {eventStart} from '../shared/event-time.js';
 export const CITY_EVENT_SEED_ID='spb-sport-2026-10';
 const START=Date.parse('2026-10-22T00:00:00+03:00');
-const END=Date.parse('2026-11-21T00:00:00+03:00');
+const END=Date.parse('2026-11-27T00:00:00+03:00');
 const norm=value=>String(value||'').toLowerCase().replace(/ё/g,'е').replace(/[^\p{L}\p{N}]/gu,'');
 const team=value=>norm(value).replace(/санктпетербург|новосибирск|махачкала|москва/g,'').replace(/шанхайскиедраконы|шанхайдрагонс/g,'шанхайдрэгонс');
 export function sameCityFixture(a,b){
