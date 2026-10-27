@@ -5,16 +5,18 @@ import type { OfficialEvent } from './types';
 export const CLUB_EVENT_COVERS = {
   footballZenit: '/event-covers/rpl-zenit.webp',
   basketballZenit: '/event-covers/vtb-zenit.webp',
-  hockeySka: '/event-covers/khl-ska.webp'
+  hockeySka: '/event-covers/khl-ska.webp',
+  hockeyDragons: '/event-covers/khl-dragons.svg'
 } as const;
 
 export function presetEventCover(event:Pick<OfficialEvent,'league'|'sport'|'homeTeam'|'awayTeam'|'isMediaLeague'>):string{
   if(event.isMediaLeague)return '';
   const teams=[event.homeTeam||'',event.awayTeam||''].map(x=>x.trim().toLocaleLowerCase('ru-RU'));
   const has=(name:string)=>teams.includes(name);
-  if(event.league==='РПЛ' && has('зенит'))return CLUB_EVENT_COVERS.footballZenit;
-  if(event.league==='Единая лига ВТБ' && has('зенит'))return CLUB_EVENT_COVERS.basketballZenit;
+  if(['РПЛ','WINLINE Суперсерия'].includes(event.league||'') && has('зенит'))return CLUB_EVENT_COVERS.footballZenit;
+  if(['Единая лига ВТБ','WINLINE Basket Cup'].includes(event.league||'') && has('зенит'))return CLUB_EVENT_COVERS.basketballZenit;
   if(event.league==='КХЛ' && has('ска'))return CLUB_EVENT_COVERS.hockeySka;
+  if(event.league==='КХЛ' && has('шанхай дрэгонс'))return CLUB_EVENT_COVERS.hockeyDragons;
   return '';
 }
 export function effectiveEventCover(event:Pick<OfficialEvent,'league'|'sport'|'homeTeam'|'awayTeam'|'isMediaLeague'|'coverUrl'>):string{

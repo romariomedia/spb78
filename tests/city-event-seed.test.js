@@ -12,14 +12,26 @@ function mockDb(){
  for(const [k,v] of writes)docs.set(k,v);return result;
  }};
 }
-test('curated future fixtures have distinct real posters, sources and Moscow dates',()=>{
- validateCityEventCatalog(rows);assert.equal(rows.length,14);assert.equal(sources.length,14);
- const hashes=[];for(const r of rows){const p=new URL('../public'+new URL(r.coverUrl).pathname,import.meta.url);assert.ok(existsSync(p));hashes.push(createHash('sha256').update(readFileSync(p)).digest('hex'));assert.ok(sources.find(v=>v.id===r.id)?.posterUrl.startsWith('https://'));}
- assert.equal(new Set(hashes).size,14);
+test('curated future fixtures have local covers, official sources and Moscow dates',()=>{
+ validateCityEventCatalog(rows);assert.equal(rows.length,23);assert.equal(sources.length,23);
+ const eventPosterHashes=[];
+ for(const r of rows){
+  const source=sources.find(v=>v.id===r.id);
+  assert.ok(source?.scheduleSource?.startsWith('https://'));
+  const p=new URL('../public'+new URL(r.coverUrl).pathname,import.meta.url);
+  assert.ok(existsSync(p));
+  if(source.posterUrl){
+   assert.ok(source.posterUrl.startsWith('https://'));
+   eventPosterHashes.push(createHash('sha256').update(readFileSync(p)).digest('hex'));
+  }else{
+   assert.ok(['sportbuddy-preset','sportbuddy-generated'].includes(source.coverType));
+  }
+ }
+ assert.equal(new Set(eventPosterHashes).size,eventPosterHashes.length);
 });
 test('dry-run and repeated import preserve hidden edits and later deletions',async()=>{
  const db=mockDb();assert.ok((await seedCityEvents(db,rows,{now})).every(r=>r.status==='would-create'));assert.equal(db.docs.size,0);
- await seedCityEvents(db,rows,{now,apply:true});assert.equal(db.docs.size,28);
+ await seedCityEvents(db,rows,{now,apply:true});assert.equal(db.docs.size,46);
  const key='events/'+rows[0].id;db.docs.set(key,{...rows[0],status:'draft',participantIds:['real-user'],title:'Admin edit'});
  db.docs.delete('events/'+rows[1].id);await seedCityEvents(db,rows,{now,apply:true});
  assert.equal(db.docs.get(key).title,'Admin edit');assert.deepEqual(db.docs.get(key).participantIds,['real-user']);assert.ok(!db.docs.has('events/'+rows[1].id));

@@ -96,5 +96,77 @@
     "posterPage": "https://afisha.yandex.ru/saint-petersburg/sport/hockey-khl-shankhai-dregons-cska",
     "posterUrl": "https://avatars.mds.yandex.net/get-afishanew/14837015/aec99fd9e0923e400211a512dc94c42a/orig",
     "checkedAt": "2026-10-22"
+  },
+  {
+    "id": "evt-spb-2026-zenit-igokea",
+    "scheduleSource": "https://bc-zenit.com/tickets/games/1088203",
+    "posterPage": "https://bc-zenit.com/tickets/games/1088203",
+    "posterUrl": null,
+    "coverType": "sportbuddy-preset",
+    "checkedAt": "2026-10-27"
+  },
+  {
+    "id": "evt-spb-2026-zenit-rostov",
+    "scheduleSource": "https://fc-zenit.ru/zenit/calendar/",
+    "posterPage": "https://fc-zenit.ru/zenit/calendar/",
+    "posterUrl": null,
+    "coverType": "sportbuddy-preset",
+    "checkedAt": "2026-10-27"
+  },
+  {
+    "id": "evt-spb-2026-ska-spartak",
+    "scheduleSource": "https://cdn-tickets.ska.ru/",
+    "posterPage": "https://cdn-tickets.ska.ru/",
+    "posterUrl": null,
+    "coverType": "sportbuddy-preset",
+    "checkedAt": "2026-10-27"
+  },
+  {
+    "id": "evt-spb-2026-ska-dinamo-m",
+    "scheduleSource": "https://cdn-tickets.ska.ru/",
+    "posterPage": "https://cdn-tickets.ska.ru/",
+    "posterUrl": null,
+    "coverType": "sportbuddy-preset",
+    "checkedAt": "2026-10-27"
+  },
+  {
+    "id": "evt-spb-2026-ska-dinamo-mn",
+    "scheduleSource": "https://cdn-tickets.ska.ru/",
+    "posterPage": "https://cdn-tickets.ska.ru/",
+    "posterUrl": null,
+    "coverType": "sportbuddy-preset",
+    "checkedAt": "2026-10-27"
+  },
+  {
+    "id": "evt-spb-2026-zenit-trabzonspor",
+    "scheduleSource": "https://fc-zenit.ru/zenit/calendar/",
+    "posterPage": "https://fc-zenit.ru/zenit/calendar/",
+    "posterUrl": null,
+    "coverType": "sportbuddy-preset",
+    "checkedAt": "2026-10-27"
+  },
+  {
+    "id": "evt-spb-2026-ska-traktor",
+    "scheduleSource": "https://cdn-tickets.ska.ru/",
+    "posterPage": "https://cdn-tickets.ska.ru/",
+    "posterUrl": null,
+    "coverType": "sportbuddy-preset",
+    "checkedAt": "2026-10-27"
+  },
+  {
+    "id": "evt-spb-2026-dragons-lada",
+    "scheduleSource": "https://hc-dragons.com/schedule/",
+    "posterPage": "https://hc-dragons.com/news/noyabr-na-ska-arene/",
+    "posterUrl": null,
+    "coverType": "sportbuddy-generated",
+    "checkedAt": "2026-10-27"
+  },
+  {
+    "id": "evt-spb-2026-ska-lokomotiv",
+    "scheduleSource": "https://cdn-tickets.ska.ru/",
+    "posterPage": "https://cdn-tickets.ska.ru/",
+    "posterUrl": null,
+    "coverType": "sportbuddy-preset",
+    "checkedAt": "2026-10-27"
   }
 ]
