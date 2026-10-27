@@ -6,8 +6,11 @@ test('only the correct Saint Petersburg club receives its permanent cover',()=>{
  const sample={sport:'Хоккей',league:'КХЛ',isMediaLeague:false,homeTeam:'СКА',awayTeam:'Автомобилист',coverUrl:''};
  assert.equal(presetEventCover(sample),CLUB_EVENT_COVERS.hockeySka);
  assert.equal(presetEventCover({...sample,homeTeam:'Шанхайские Драконы'}),'');
+ assert.equal(presetEventCover({...sample,homeTeam:'Шанхай Дрэгонс'}),CLUB_EVENT_COVERS.hockeyDragons);
  assert.equal(presetEventCover({...sample,league:'РПЛ',homeTeam:'Зенит',sport:'Футбол'}),CLUB_EVENT_COVERS.footballZenit);
+ assert.equal(presetEventCover({...sample,league:'WINLINE Суперсерия',homeTeam:'Зенит',sport:'Футбол'}),CLUB_EVENT_COVERS.footballZenit);
  assert.equal(presetEventCover({...sample,league:'Единая лига ВТБ',homeTeam:'Зенит',sport:'Баскетбол'}),CLUB_EVENT_COVERS.basketballZenit);
+ assert.equal(presetEventCover({...sample,league:'WINLINE Basket Cup',homeTeam:'Зенит',sport:'Баскетбол'}),CLUB_EVENT_COVERS.basketballZenit);
  assert.equal(presetEventCover({...sample,isMediaLeague:true}),'');
 });
 test('individual cover always overrides the default',()=>{
