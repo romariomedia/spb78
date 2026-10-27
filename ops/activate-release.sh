@@ -74,3 +74,8 @@ switch_link "$release"
 pm2 save
 trap - ERR INT TERM
 printf 'Active: %s\nPrevious: %s\n' "$release" "$previous"
+
+# Cleanup is strictly post-success. Its failure must never roll back a healthy release.
+if ! python3 "$(dirname "$0")/prune-releases.py" --apply --deploy-lock-fd 9; then
+  echo 'Release is active; automatic cleanup skipped. Inspect retention with ops/prune-releases.py.' >&2
+fi

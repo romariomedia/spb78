@@ -167,3 +167,38 @@ Validation: 55 tests pass, including isolated activation/recovery simulations.
 An additional attempt to run real PM2 7.0.4 locally was blocked by Unix-socket
 permissions (EPERM), so this is not claimed as a successful live PM2 test.
 The first real activation must still be checked using public health and PM2 paths.
+
+## Automatic release retention (27 October 2026)
+
+After successful API health verification, symlink switch and `pm2 save`, activation invokes
+`python3 ops/prune-releases.py --apply`. Python 3 is required for cleanup only; cleanup failure
+prints a warning and never rolls back or restarts a healthy application.
+
+Retention preserves the current release, two previous releases and every release referenced
+by any PM2 process (including stopped processes). The immediate rollback path in
+`/opt/sportbuddy-deploy/previous-release` is always protected. Successful retention records
+history privately in `successful-releases.json`; on first adoption, recent ready builds fill
+missing history slots. This may keep additional builds used by workers.
+
+Only direct directories named as a full lowercase commit SHA with a matching RELEASE_ID
+and `.release-ready` marker are eligible. Incomplete builds, symlinks, directories containing
+mounts, original `/opt/sportbuddy-api`, backups and preview processes outside the releases
+root are untouched. Old ready releases are permanently deleted, including their bundled
+dependencies and release-local .env copy. Shared/live environment files are not touched.
+Do not store unique uploads or application state inside immutable release directories.
+
+Cleanup acquires both deployment and preparation locks. Invalid PM2 inventory, mismatch
+between API paths/current symlink, malformed history or failed/mismatched local health stops
+cleanup before any deletion. No cleanup occurs after failed activation/rollback. Do not run
+uncoordinated manual PM2 deployments concurrently with these scripts.
+
+Preview or retry manually, using the same Unix account as PM2:
+
+```bash
+cd /opt/sportbuddy-source
+python3 ops/prune-releases.py          # dry-run: lists candidates without deleting
+python3 ops/prune-releases.py --apply  # apply the same safety checks, then delete
+```
+
+No cron job, daemon, new dependencies or APK rebuild is required. Disk space does not grow
+with each normal successful release, while failed/incomplete builds remain for diagnosis.
