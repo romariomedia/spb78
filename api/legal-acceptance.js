@@ -7,7 +7,8 @@ if(!getApps().length){
   initializeApp(raw?{credential:cert(JSON.parse(raw))}:undefined);
 }
 
-export const USER_LEGAL_VERSION='2026-10-26';
+import {USER_LEGAL_VERSION} from '../shared/legal-version.js';
+export {USER_LEGAL_VERSION};
 const ALLOWED=Object.freeze(['terms','personal_data']);
 
 export default async function handler(req,res){
@@ -38,10 +39,10 @@ export default async function handler(req,res){
 
     const now=new Date().toISOString();
     await db.runTransaction(async tx=>{
-      for(const kind of kinds){
-        const id=`${uid}:${kind}:${USER_LEGAL_VERSION}`;
-        const ref=db.collection('legalAcceptances').doc(id);
-        const snap=await tx.get(ref);
+      const refs=kinds.map(kind=>db.collection('legalAcceptances').doc(`${uid}:${kind}:${USER_LEGAL_VERSION}`));
+      const snapshots=await Promise.all(refs.map(ref=>tx.get(ref)));
+      for(const [index,kind] of kinds.entries()){
+        const ref=refs[index],snap=snapshots[index];
         if(!snap.exists)tx.create(ref,{
           ownerUserId:uid,kind,version:USER_LEGAL_VERSION,
           acceptedAt:now,source:String(req.body?.source||'registration').slice(0,40),

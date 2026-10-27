@@ -1,3 +1,4 @@
+import {privacyRequestPage} from '../server/privacy-request-page.js';
 import {randomUUID} from 'node:crypto';
 import {cert,getApps,initializeApp} from 'firebase-admin/app';
 import {getAuth} from 'firebase-admin/auth';
@@ -24,15 +25,14 @@ export default async function handler(req,res){
     const operation=String(req.body?.operation||'list');
 
     if(operation==='list'){
-      const snap=await db.collection('privacyRequests').where('ownerUserId','==',uid).limit(50).get();
-      const requests=snap.docs.map(doc=>({id:doc.id,...doc.data()}))
-        .sort((a,b)=>Date.parse(String(b.createdAt||''))-Date.parse(String(a.createdAt||'')))
+      const page=await privacyRequestPage(db,{ownerUserId:uid,cursor:req.body?.cursor});
+      const requests=page.docs.map(doc=>({id:doc.id,...doc.data()}))
         .map(row=>({
           id:String(row.id),type:String(row.type||''),status:String(row.status||'received'),
           details:String(row.details||''),createdAt:String(row.createdAt||''),updatedAt:String(row.updatedAt||''),
           responseNote:String(row.responseNote||'')
         }));
-      return res.json({requests});
+      return res.json({requests,nextCursor:page.nextCursor});
     }
 
     if(operation==='create'){

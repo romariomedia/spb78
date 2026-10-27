@@ -1,3 +1,4 @@
+import {privacyRequestPage} from '../server/privacy-request-page.js';
 import {cert,getApps,initializeApp} from 'firebase-admin/app';
 import {getFirestore} from 'firebase-admin/firestore';
 import {requireAdminSession,writeAdminAudit} from '../server/admin-control.js';
@@ -15,16 +16,15 @@ export default async function handler(req,res){
     const session=await requireAdminSession(db,body.sessionId);
     const operation=String(body.operation||'list');
     if(operation==='list'){
-      const snap=await db.collection('privacyRequests').limit(200).get();
-      const requests=snap.docs.map(doc=>({id:doc.id,...doc.data()}))
-        .sort((a,b)=>Date.parse(String(b.createdAt||''))-Date.parse(String(a.createdAt||'')))
+      const page=await privacyRequestPage(db,{cursor:body.cursor});
+      const requests=page.docs.map(doc=>({id:doc.id,...doc.data()}))
         .map(row=>({
           id:String(row.id),ownerUserId:String(row.ownerUserId||''),contactEmail:String(row.contactEmail||''),
           type:String(row.type||''),details:String(row.details||''),status:String(row.status||'received'),
           createdAt:String(row.createdAt||''),updatedAt:String(row.updatedAt||''),responseNote:String(row.responseNote||''),
           reviewedBy:String(row.reviewedBy||'')
         }));
-      return res.json({requests});
+      return res.json({requests,nextCursor:page.nextCursor});
     }
     if(operation==='update'){
       const id=clean(body.id,120),status=String(body.status||''),responseNote=clean(body.responseNote,1600);

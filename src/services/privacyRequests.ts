@@ -17,7 +17,8 @@ async function call<T>(body:Record<string,unknown>):Promise<T>{
   return data as T;
 }
 
-export async function loadPrivacyRequests(){return (await call<{requests:PrivacyRequest[]}>({operation:'list'})).requests;}
+export interface PrivacyCursor{createdAt:string;id:string}
+export async function loadPrivacyRequests(cursor:PrivacyCursor|null=null){return call<{requests:PrivacyRequest[];nextCursor:PrivacyCursor|null}>({operation:'list',cursor});}
 export async function createPrivacyRequest(type:PrivacyRequestType,details:string){
   return (await call<{request:PrivacyRequest}>({operation:'create',type,details})).request;
 }

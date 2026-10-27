@@ -151,3 +151,14 @@ test('trainer catalog level filter is applied before pagination and excludes inv
  assert.deepEqual((await f.athlete({action:'trainers',trainerLevel:'start'})).body.trainers.map(x=>x.id),['start']);
  assert.equal((await f.athlete({action:'trainers',trainerLevel:'elite'})).code,400);
 });
+
+test('trainer directory applies pause and gifted promotion in beta before commercial launch',async()=>{
+ const f=fixture();await pending(f);await f.admin('approve');
+ const now=Date.now;Date.now=()=>Date.parse('2026-10-27T10:00:00Z');
+ try{
+  f.rows.set('businessSubscriptions/trainer_u',{subjectType:'trainer',subjectId:'u',adminPaused:true,promotedUntil:'2026-12-01T00:00:00Z'});
+  assert.deepEqual((await f.athlete({action:'trainers'})).body.trainers,[]);
+  f.rows.get('businessSubscriptions/trainer_u').adminPaused=false;
+  assert.equal((await f.athlete({action:'trainers'})).body.trainers[0].personalTrainer.isPromoted,true);
+ }finally{Date.now=now;}
+});

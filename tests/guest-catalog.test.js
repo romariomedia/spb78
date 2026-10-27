@@ -24,9 +24,9 @@ test('guest editorial cards respect publication and strip direct booking and int
 });
 test('guest catalog never reads users, chats or messages and hidden seed venues stay hidden',async()=>{
  const reads=[];
- const db={collection(name){reads.push(name);return {where(){return this;},limit(){return this;},get:async()=>({docs:[{id:'hidden',data:()=>({name:'Private name',isPublished:false,archived:true})}]})};}};
+ const db={collection(name){reads.push(name);return {doc(){return {get:async()=>({exists:false})};},where(){return this;},limit(){return this;},get:async()=>({docs:[{id:'hidden',data:()=>({name:'Private name',isPublished:false,archived:true})}]})};}};
  assert.deepEqual(await readGuestCatalog(db,'venues'),[{id:'hidden',isPublished:false}]);
- await assert.rejects(()=>readGuestCatalog(db,'users'),{status:400});assert.deepEqual(reads,['venues']);
+ await assert.rejects(()=>readGuestCatalog(db,'users'),{status:400});assert.deepEqual(reads,['venues','billingConfig','businessSubscriptions']);
 });
 test('anonymous catalog coalesces reads and never caches failures',async()=>{
  let calls=0,resolve;const read=createGuestReader(()=>{calls++;return new Promise(r=>resolve=r);});

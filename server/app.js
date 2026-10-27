@@ -12,7 +12,7 @@ export const API_ROUTES = Object.freeze([
   'admin-verify-otp', 'admin-session', 'admin-dashboard', 'admin-audit', 'admin-users', 'admin-user-lifecycle', 'admin-analytics', 'admin-sport-id-verification', 'admin-config', 'admin-push', 'admin-announcements', 'admin-partners', 'admin-official-trainings', 'admin-moderation', 'admin-legal-compliance', 'admin-privacy-requests', 'app-config', 'announcements', 'partners', 'report', 'admin-mutate-event', 'admin-event-results', 'admin-mutate-venue', 'admin-mutate-leisure', 'sportbuddy-mutation', 'sport-passport', 'sport-id-verification', 'public-sport-id', 'public-profiles', 'notifications', 'stories', 'guest-catalog', 'leisure', 'massage', 'admin-massage', 'venues'
 ]);
 
-export async function createApiApp({ apiDir, enforceOperations }) {
+export async function createApiApp({ apiDir, enforceOperations, enforceLegalAcceptance }) {
   // Import every required handler before making any health endpoint available.
   const handlers = [];
   for (const name of API_ROUTES) {
@@ -55,7 +55,7 @@ export async function createApiApp({ apiDir, enforceOperations }) {
           return json(body);
         };
       }
-      try { if(enforceOperations && await enforceOperations(name,req,res))return; await handler(req, res); } catch (error) { next(error); }
+      try { if(enforceOperations && await enforceOperations(name,req,res))return; if(enforceLegalAcceptance && await enforceLegalAcceptance(name,req,res))return; await handler(req, res); } catch (error) { next(error); }
     });
   }
   app.use((_req, res) => res.status(404).json({ error: 'Not found' }));

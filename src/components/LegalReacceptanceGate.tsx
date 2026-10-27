@@ -25,7 +25,7 @@ export function LegalReacceptanceGate({active}:{active:boolean}){
     }
   };
 
-  useEffect(()=>{void check();},[active]);
+  useEffect(()=>{void check();const refresh=()=>{void check();};window.addEventListener('sportbuddy:legal-required',refresh);return ()=>window.removeEventListener('sportbuddy:legal-required',refresh);},[active]);
 
   const accept=async()=>{
     if(!terms||!personalData)return;

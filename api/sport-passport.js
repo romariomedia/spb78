@@ -111,7 +111,7 @@ export default async function handler(req,res){
       const current=sanitizeSportPassportDraft(user.sportPassport||{},Array.isArray(user.sports)?user.sports:[]);
       const enabled=req.body?.enabled===true;
       if(enabled&&(req.body?.publicConsentConfirmed!==true||String(req.body?.publicConsentVersion||'')!==PUBLIC_SPORT_ID_CONSENT_VERSION))
-        return res.status(409).json({code:'SPORT_ID_PUBLIC_CONSENT_REQUIRED',error:'Перед публикацией QR Sport ID отдельно подтвердите распространение указанных в карточке персональных данных в сети Интернет.'});
+        return res.status(409).json({code:'SPORT_ID_PUBLIC_CONSENT_REQUIRED',error:'Перед публикацией QR Sport ID отдельно подтвердите распространение указанных в карточке персональных данных в сети Интернет. Если поля согласия нет, обновите приложение или выполните действие на sportbuddy78.pro.'});
       const publicSlug=current.publicSlug||randomBytes(12).toString('base64url');
       const now=new Date().toISOString();
       const consent=enabled?{

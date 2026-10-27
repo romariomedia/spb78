@@ -1,7 +1,8 @@
 import {apiFetch} from './apiEndpoint';
 import {auth} from './firebaseAuth';
 
-export const USER_LEGAL_VERSION='2026-10-26';
+import {USER_LEGAL_VERSION} from '../../shared/legal-version.js';
+export {USER_LEGAL_VERSION};
 
 export async function recordRegistrationLegalAcceptance(authProvider:'email'|'vk'):Promise<void>{
   const user=auth.currentUser;

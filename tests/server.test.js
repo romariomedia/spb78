@@ -78,3 +78,16 @@ test('assistant is registered and real handler rejects unauthenticated access',a
  assert.equal(response.status,401);
  assert.equal((await response.json()).error,'Требуется вход');
 });
+
+test('legal gate runs before product handler but does not block legal endpoint or health',async t=>{
+ const apiDir=await fixture(t);
+ const app=await createApiApp({apiDir,enforceLegalAcceptance:async(name,req,res)=>{
+  if(name!=='feed-create')return false;res.status(428).json({code:'LEGAL_ACCEPTANCE_REQUIRED'});return true;
+ }});
+ const server=app.listen(0,'127.0.0.1');await once(server,'listening');
+ t.after(()=>new Promise(resolve=>server.close(resolve)));
+ const base='http://127.0.0.1:'+server.address().port;
+ assert.equal((await fetch(base+'/api/feed-create',{method:'POST'})).status,428);
+ assert.equal((await fetch(base+'/api/legal-acceptance',{method:'POST'})).status,200);
+ assert.equal((await fetch(base+'/api/health')).status,200);
+});

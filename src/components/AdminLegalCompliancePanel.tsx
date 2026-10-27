@@ -1,3 +1,4 @@
+import type {PrivacyCursor} from '../services/privacyRequests';
 import {useEffect,useMemo,useState} from 'react';
 import {AlertTriangle,CheckCircle2,RefreshCw,Save,ShieldCheck,XCircle} from 'lucide-react';
 import {
@@ -37,18 +38,27 @@ export function AdminLegalCompliancePanel(){
   const [error,setError]=useState('');
   const [notice,setNotice]=useState('');
   const [privacyRequests,setPrivacyRequests]=useState<AdminPrivacyRequest[]>([]);
+  const [privacyCursor,setPrivacyCursor]=useState<PrivacyCursor|null>(null);
   const [privacyBusy,setPrivacyBusy]=useState(false);
 
   const load=async()=>{
     setBusy(true);setError('');
     try{
       const [legal,requests]=await Promise.all([loadAdminLegalCompliance(),loadAdminPrivacyRequests()]);
-      setData(legal);setPrivacyRequests(requests.requests);
+      setData(legal);setPrivacyRequests(requests.requests);setPrivacyCursor(requests.nextCursor);
     }
     catch(e){setError(e instanceof Error?e.message:'Не удалось загрузить юридическую готовность.');}
     finally{setBusy(false);}
   };
   useEffect(()=>{void load();},[]);
+
+  const loadMorePrivacy=async()=>{
+    if(privacyBusy||busy||!privacyCursor)return;
+    setPrivacyBusy(true);setError('');
+    try{const page=await loadAdminPrivacyRequests(privacyCursor);setPrivacyRequests(old=>[...old,...page.requests.filter(row=>!old.some(x=>x.id===row.id))]);setPrivacyCursor(page.nextCursor);}
+    catch(e){setError(e instanceof Error?e.message:'Не удалось загрузить обращения.');}
+    finally{setPrivacyBusy(false);}
+  };
 
   const completed=useMemo(()=>data?CHECKS.filter(item=>data.state.checks[item.key]).length:0,[data]);
 
@@ -183,10 +193,11 @@ export function AdminLegalCompliancePanel(){
       <div className="rounded-2xl border border-violet-400/20 bg-slate-950 p-4 space-y-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div><p className="text-sm font-black text-white">Запросы субъектов персональных данных</p><p className="mt-1 text-[10px] text-slate-500">Статус и ответ фиксируются в административном аудите. Завершайте запрос только после фактического исполнения.</p></div>
-          <span className="rounded-full bg-violet-500/15 px-2.5 py-1 text-[10px] font-black text-violet-200">{privacyRequests.filter(x=>!['completed','rejected'].includes(x.status)).length} открытых</span>
+          <span className="rounded-full bg-violet-500/15 px-2.5 py-1 text-[10px] font-black text-violet-200">{privacyRequests.filter(x=>!['completed','rejected'].includes(x.status)).length} открытых в загруженных</span>
         </div>
         {privacyRequests.length===0?<p className="rounded-xl border border-slate-800 bg-slate-900 p-4 text-xs text-slate-500">Запросов пока нет.</p>:
-          <div className="space-y-2">{privacyRequests.slice(0,50).map(item=><PrivacyAdminRow key={item.id} item={item} busy={privacyBusy} onSave={updatePrivacy}/>)}</div>}
+          <div className="space-y-2">{privacyRequests.map(item=><PrivacyAdminRow key={item.id} item={item} busy={privacyBusy||busy} onSave={updatePrivacy}/>)}</div>}
+        {privacyCursor&&<button type="button" disabled={privacyBusy||busy} onClick={()=>void loadMorePrivacy()} className="min-h-11 w-full rounded-xl border border-violet-400/30 text-sm text-violet-200 disabled:opacity-40">Показать ещё обращения</button>}
       </div>
     </>}
   </section>;

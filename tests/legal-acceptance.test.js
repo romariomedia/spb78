@@ -27,7 +27,7 @@ function fixture(){
     async runTransaction(fn){
       const writes=[];
       const tx={
-        get:async r=>snap(r.path),
+        get:async r=>{if(writes.length)throw new Error('Firestore transactions require all reads before writes');return snap(r.path);},
         create(r,v){writes.push(()=>{if(rows.has(r.path))throw new Error('exists');rows.set(r.path,structuredClone(v));});}
       };
       const value=await fn(tx);writes.forEach(write=>write());return value;

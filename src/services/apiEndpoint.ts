@@ -26,6 +26,10 @@ export async function apiFetch(path: string, init?: RequestInit): Promise<Respon
   if (!response.headers.get('content-type')?.toLowerCase().includes('application/json')) {
     throw new Error(`Сервер вернул некорректный ответ (HTTP ${response.status}). Повторите загрузку.`);
   }
+  if(response.status===428&&typeof window!=='undefined'){
+    const payload=await response.clone().json().catch(()=>null);
+    if(payload?.code==='LEGAL_ACCEPTANCE_REQUIRED')window.dispatchEvent(new Event('sportbuddy:legal-required'));
+  }
   return response;
 }
 

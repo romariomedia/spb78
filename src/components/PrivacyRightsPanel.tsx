@@ -1,6 +1,6 @@
 import {useEffect,useState} from 'react';
 import {FileSearch,RefreshCw,Send,Shield} from 'lucide-react';
-import {createPrivacyRequest,loadPrivacyRequests,PrivacyRequest,PrivacyRequestType} from '../services/privacyRequests';
+import {createPrivacyRequest,loadPrivacyRequests,PrivacyRequest,PrivacyRequestType,PrivacyCursor} from '../services/privacyRequests';
 
 const TYPES:Array<{id:PrivacyRequestType;label:string}>=[
   {id:'access',label:'Получить сведения об обработке моих данных'},
@@ -13,11 +13,12 @@ const TYPES:Array<{id:PrivacyRequestType;label:string}>=[
 const typeLabel=(id:string)=>TYPES.find(x=>x.id===id)?.label||id;
 
 export function PrivacyRightsPanel(){
+  const [cursor,setCursor]=useState<PrivacyCursor|null>(null);
   const [items,setItems]=useState<PrivacyRequest[]>([]);
   const [type,setType]=useState<PrivacyRequestType>('access');
   const [details,setDetails]=useState('');
   const [busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
-  const load=async()=>{setBusy(true);setError('');try{setItems(await loadPrivacyRequests());}catch(e){setError(e instanceof Error?e.message:'Не удалось загрузить запросы.');}finally{setBusy(false);}};
+  const load=async(more=false)=>{setBusy(true);setError('');try{const page=await loadPrivacyRequests(more?cursor:null);setItems(old=>more?[...old,...page.requests.filter(row=>!old.some(x=>x.id===row.id))]:page.requests);setCursor(page.nextCursor);}catch(e){setError(e instanceof Error?e.message:'Не удалось загрузить запросы.');}finally{setBusy(false);}};
   useEffect(()=>{void load();},[]);
   const submit=async()=>{
     setBusy(true);setError('');setNotice('');
@@ -45,11 +46,12 @@ export function PrivacyRightsPanel(){
     {notice&&<p role="status" className="rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-3 text-[10px] text-emerald-200">{notice}</p>}
     {items.length>0&&<div className="space-y-2 border-t border-slate-800 pt-3">
       <div className="flex items-center gap-2"><FileSearch className="h-4 w-4 text-violet-300"/><p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Мои запросы</p></div>
-      {items.slice(0,10).map(item=><div key={item.id} className="rounded-xl border border-slate-800 bg-slate-950 p-3">
+      {items.map(item=><div key={item.id} className="rounded-xl border border-slate-800 bg-slate-950 p-3">
         <div className="flex items-start justify-between gap-2"><p className="text-[10px] font-bold text-white">{typeLabel(item.type)}</p><span className="rounded-full bg-slate-800 px-2 py-0.5 text-[8px] font-black text-slate-300">{item.status}</span></div>
         <p className="mt-1 text-[9px] text-slate-500">{item.createdAt?new Date(item.createdAt).toLocaleString('ru-RU'):'—'}</p>
         {item.responseNote&&<p className="mt-2 text-[10px] leading-relaxed text-slate-300">{item.responseNote}</p>}
       </div>)}
+      {cursor&&<button type="button" disabled={busy} onClick={()=>void load(true)} className="min-h-11 w-full rounded-xl border border-violet-400/30 text-sm text-violet-200 disabled:opacity-40">Показать ещё</button>}
     </div>}
   </section>;
 }
