@@ -4,19 +4,22 @@ import { Capacitor } from '@capacitor/core';
 import { Download, PlusSquare, Share, Smartphone } from 'lucide-react';
 import { Modal } from './Modal';
 import { INSTALL_PROMO_HERO } from '../assets/installPromoHero';
+import { apiFetch } from '../services/apiEndpoint';
 
 interface InstallAppProps {
   autoPromptEnabled?: boolean;
 }
 
 const PROMPT_DISMISSED_KEY = 'sportbuddy_install_prompt_dismissed_v3';
-const ANDROID_APK = '/downloads/sportbuddy78-rustore-v31.apk';
+const ANDROID_APK = '/api/android-download';
+const FALLBACK_APK = {versionName:'31',fileName:'sportbuddy78-rustore-v31.apk',fileSize:20811542};
 
 export function InstallApp({ autoPromptEnabled = true }: InstallAppProps) {
   const [open, setOpen] = useState(false);
   const [iosHelp, setIosHelp] = useState(false);
   const [heroFailed, setHeroFailed] = useState(false);
   const [installed, setInstalled] = useState(false);
+  const [apkInfo,setApkInfo]=useState(FALLBACK_APK);
   const [dismissed, setDismissed] = useState(() => {
     try {
       return localStorage.getItem(PROMPT_DISMISSED_KEY) === '1';
@@ -31,6 +34,23 @@ export function InstallApp({ autoPromptEnabled = true }: InstallAppProps) {
       ios: /iPad|iPhone|iPod/i.test(ua),
       android: /Android/i.test(ua)
     };
+  }, []);
+
+  useEffect(() => {
+    let alive=true;
+    void apiFetch('/api/app-config',{cache:'no-store',signal:AbortSignal.timeout(8000)})
+      .then(async response=>response.ok?response.json():null)
+      .then(data=>{
+        if(!alive||!data?.androidDownload)return;
+        const next=data.androidDownload;
+        setApkInfo({
+          versionName:String(next.versionName||FALLBACK_APK.versionName),
+          fileName:String(next.fileName||FALLBACK_APK.fileName),
+          fileSize:Number(next.fileSize||FALLBACK_APK.fileSize)
+        });
+      })
+      .catch(()=>{});
+    return()=>{alive=false;};
   }, []);
 
   useEffect(() => {
@@ -79,7 +99,7 @@ export function InstallApp({ autoPromptEnabled = true }: InstallAppProps) {
   const androidButton = (
     <a
       href={ANDROID_APK}
-      download="sportbuddy78-rustore-v31.apk"
+      download={apkInfo.fileName}
       onClick={markDismissed}
       className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-lime-300/35 bg-lime-300 px-4 py-3 text-sm font-black text-slate-950 transition hover:bg-lime-200 active:scale-[0.98]"
     >
@@ -165,7 +185,7 @@ export function InstallApp({ autoPromptEnabled = true }: InstallAppProps) {
               </div>
 
               <p className="mt-3 text-[11px] leading-relaxed text-slate-500">
-                Android — APK v31, около 20 МБ. После скачивания открой файл для установки.
+                Android — APK v{apkInfo.versionName}, около {Math.max(1,Math.round(apkInfo.fileSize/1024/1024))} МБ. После скачивания открой файл для установки.
                 iPhone — открой sportbuddy78.pro именно в Safari.
               </p>
             </div>
