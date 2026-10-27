@@ -3,7 +3,7 @@ import {getFirestore} from 'firebase-admin/firestore';
 import {rm} from 'node:fs/promises';
 import {
   APK_CHUNK_BYTES,appendApkChunk,apkStorageRoot,cleanupOldApkStaging,createApkUpload,
-  finalizeApkUpload,publicApkRelease,safeApkStorageName,storedApkPath,verifyStoredApk
+  finalizeApkUpload,publicApkRelease,safeApkStorageName,storedApkPath,validateApkReleaseInput,verifyStoredApk
 } from '../server/apk-release.js';
 import {requireAdminSession,writeAdminAudit} from '../server/admin-control.js';
 
@@ -36,10 +36,13 @@ export default async function handler(req,res){
     }
 
     if(operation==='initUpload'){
-      const upload=await createApkUpload({
+      const input=validateApkReleaseInput({
         versionName:body.versionName,versionCode:body.versionCode,fileName:body.fileName,
         fileSize:body.fileSize,sha256:body.sha256,releaseNotes:body.releaseNotes
-      },session.email||'admin');
+      });
+      const duplicate=await db.collection('apkReleases').where('versionCode','==',input.versionCode).limit(1).get();
+      if(!duplicate.empty)return res.status(409).json({code:'APK_VERSION_CODE_EXISTS',error:'Этот Android versionCode уже загружен. Для новой сборки используйте новый versionCode.'});
+      const upload=await createApkUpload(input,session.email||'admin');
       return res.json({ok:true,uploadId:upload.id,chunkSize:APK_CHUNK_BYTES});
     }
 
@@ -60,16 +63,21 @@ export default async function handler(req,res){
         storageName:finalized.storageName,createdAt:finalized.createdAt,createdBy:finalized.createdBy,
         finalizedAt:finalized.finalizedAt
       };
-      await db.runTransaction(async tx=>{
-        const ref=db.collection('apkReleases').doc(releaseId);
-        const snap=await tx.get(ref);
-        if(snap.exists)throw Object.assign(new Error('Такая APK-версия уже сохранена.'),{status:409});
-        tx.create(ref,release);
-        await writeAdminAudit(db,session,{
-          action:'apk.release.upload',entityType:'apkRelease',entityId:releaseId,before:null,after:publicApkRelease({id:releaseId,...release}),
-          requestId:String(body.requestId||'')
-        },tx);
-      });
+      try{
+        await db.runTransaction(async tx=>{
+          const ref=db.collection('apkReleases').doc(releaseId);
+          const snap=await tx.get(ref);
+          if(snap.exists)throw Object.assign(new Error('Такая APK-версия уже сохранена.'),{status:409});
+          tx.create(ref,release);
+          await writeAdminAudit(db,session,{
+            action:'apk.release.upload',entityType:'apkRelease',entityId:releaseId,before:null,after:publicApkRelease({id:releaseId,...release}),
+            requestId:String(body.requestId||'')
+          },tx);
+        });
+      }catch(error){
+        await rm(storedApkPath(release.storageName,apkStorageRoot()),{force:true}).catch(()=>{});
+        throw error;
+      }
       return res.json({ok:true,release:{...publicApkRelease({id:releaseId,...release}),active:false}});
     }
 
@@ -113,16 +121,15 @@ export default async function handler(req,res){
     if(operation==='delete'){
       const releaseId=clean(body.releaseId,120);
       if(!releaseId||releaseId.includes('/'))return res.status(400).json({error:'Некорректный релиз'});
-      const [releaseSnap,configSnap]=await Promise.all([
-        db.collection('apkReleases').doc(releaseId).get(),
-        db.collection('apkConfig').doc('main').get()
-      ]);
-      if(!releaseSnap.exists)return res.status(404).json({error:'APK-релиз не найден'});
-      if(configSnap.exists&&String(configSnap.data()?.activeReleaseId||'')===releaseId)
-        return res.status(409).json({error:'Нельзя удалить активную APK-версию. Сначала опубликуйте другую.'});
-      const value=releaseSnap.data()||{},storageName=safeApkStorageName(value.storageName);
+      const releaseRef=db.collection('apkReleases').doc(releaseId),configRef=db.collection('apkConfig').doc('main');
+      let storageName='';
       await db.runTransaction(async tx=>{
-        tx.delete(db.collection('apkReleases').doc(releaseId));
+        const [releaseSnap,configSnap]=await Promise.all([tx.get(releaseRef),tx.get(configRef)]);
+        if(!releaseSnap.exists)throw Object.assign(new Error('APK-релиз не найден'),{status:404});
+        if(configSnap.exists&&String(configSnap.data()?.activeReleaseId||'')===releaseId)
+          throw Object.assign(new Error('Нельзя удалить активную APK-версию. Сначала опубликуйте другую.'),{status:409});
+        const value=releaseSnap.data()||{};storageName=safeApkStorageName(value.storageName);
+        tx.delete(releaseRef);
         await writeAdminAudit(db,session,{
           action:'apk.release.delete',entityType:'apkRelease',entityId:releaseId,
           before:publicApkRelease({id:releaseId,...value}),after:null,requestId:String(body.requestId||'')
