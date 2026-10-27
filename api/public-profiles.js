@@ -1,3 +1,5 @@
+import { relatedProfile } from '../server/related-profile.js';
+import { publicConsentState } from '../server/public-consent.js';
 import { loadRanking } from '../server/leaderboard.js';
 import { publicProfileCache } from '../server/public-profile-cache.js';
 import { getApps, initializeApp, cert } from 'firebase-admin/app';
@@ -15,8 +17,12 @@ export default async function handler(req,res){
     if(!getApps().length)initializeApp({credential:cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY||'{}'))});
     const {uid}=await getAuth().verifyIdToken(token,true);
     const db=getFirestore();
-    await readUserStatus(db,uid); // A newly authenticated account may still be bootstrapping.
-    if(req.body?.action === 'leaderboard') return res.status(200).json(await loadRanking(db,uid,req.body));
+    const caller=await readUserStatus(db,uid); // A newly authenticated account may still be bootstrapping.
+    if(req.body?.action === 'leaderboard') {
+      const consent=publicConsentState(caller.profile || {});
+      return res.status(200).json({...await loadRanking(db,uid,req.body),
+        needsPublicConsent:!consent.active || !consent.groups.includes('identity') || !consent.groups.includes('reputation')});
+    }
     const cursor=req.body?.cursor;
     const ids=req.body?.ids;
     const pageSize=req.body?.pageSize ?? 200;
@@ -25,11 +31,19 @@ export default async function handler(req,res){
       if(!Array.isArray(ids)||ids.length>50||!ids.every(validId)||cursor!==undefined)
         return res.status(400).json({error:'Некорректный список атлетов'});
       const unique=[...new Set(ids)].sort();
-      const page=await publicProfileCache(db).get('ids:'+JSON.stringify(unique),async()=>{
-        const docs=await Promise.all(unique.map(async id=>({id,snapshot:await db.collection('users').doc(id).get()})));
-        return {profiles:docs.filter(({snapshot:s})=>s.exists && s.data().isSuspended!==true && s.data().isDemo!==true)
-          .map(({id,snapshot:s})=>publicDiscoveryProfile(id,s.data())).filter(Boolean),nextCursor:null};
-      });
+      // Targeted responses depend on the caller's relationships. Never share this cache
+      // between users or retain access after a relationship/consent is revoked.
+      const profiles=await Promise.all(unique.map(async id=>{
+        const snapshot=await db.collection('users').doc(id).get();
+        if(!snapshot.exists)return null;
+        const user=snapshot.data();
+        if(user.isSuspended===true || user.isDemo===true)return null;
+        const published=publicDiscoveryProfile(id,user);
+        if(published?.name)return published;
+        const related=await relatedProfile(db,uid,caller.profile,id,user);
+        return related || published;
+      }));
+      const page={profiles:profiles.filter(Boolean),nextCursor:null};
       return res.status(200).json(page);
     }
     if(!Number.isInteger(pageSize)||pageSize<1||pageSize>200)

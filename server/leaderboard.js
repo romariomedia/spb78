@@ -19,7 +19,7 @@ export function rankingRow(id, user) {
   if(!consent.active||!consent.groups.includes('identity')||!consent.groups.includes('reputation'))return null;
   return {
     user: {id, name: label(user.name, 150) || 'Спортсмен', avatar: label(user.avatar, 4096),
-      locationName: label(user.locationName, 200),
+      locationName: consent.groups.includes('location') ? label(user.locationName, 200) : '',
       medalTier: ['bronze','silver','gold'].includes(user.medalTier) ? user.medalTier : 'bronze'},
     rating: typeof user.rating === 'number' && Number.isFinite(user.rating) ? Math.max(0,Math.min(5,user.rating)) : 0,
     values: {workouts: count(user.totalWorkouts), medals: count(user.totalDailyMedals),

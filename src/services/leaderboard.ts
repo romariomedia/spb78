@@ -105,6 +105,7 @@ export interface RankingEntry {
   user: Pick<UserProfile, 'id' | 'name' | 'avatar' | 'locationName' | 'medalTier'>;
 }
 export interface RankingPage {
+  needsPublicConsent?: boolean;
   metric: LeaderboardMetric;
   version: string;
   updatedAt: string;

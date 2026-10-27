@@ -12,10 +12,11 @@ import { CollapsibleCard } from './CollapsibleCard';
 
 interface LeaderboardProps {
   currentUserId: string;
+  onConfigureVisibility: () => void;
   refreshKey: number;
   onSelectUser: (id: string) => Promise<void>;
 }
-const LeaderboardInner: React.FC<LeaderboardProps> = ({currentUserId, refreshKey, onSelectUser}) => {
+const LeaderboardInner: React.FC<LeaderboardProps> = ({currentUserId, refreshKey, onSelectUser, onConfigureVisibility}) => {
   const [metric, setMetric] = useState<LeaderboardMetric>('workouts');
   const [expanded, setExpanded] = useState(false);
   const [result, setResult] = useState<{owner:string; page:RankingPage} | null>(null);
@@ -95,10 +96,15 @@ const LeaderboardInner: React.FC<LeaderboardProps> = ({currentUserId, refreshKey
         ) : undefined
       }
     >
-      {/* Community totals */}
+      {(page.needsPublicConsent || stats.athletes === 0) && <div role="status" className="rounded-2xl border border-lime-300/20 bg-lime-300/5 p-4 text-sm text-slate-200">
+        <p className="font-bold text-lime-300">{stats.athletes === 0 ? 'Участники ещё не открыли свою статистику' : 'Ваш профиль пока не участвует в рейтинге'}</p>
+        <p className="mt-2">Здесь учитываются только атлеты, разрешившие показ основных данных и спортивной статистики. Это не общее число пользователей проекта. Личный прогресс сохраняется в профиле.</p>
+        {page.needsPublicConsent && <button type="button" onClick={onConfigureVisibility} className="mt-3 rounded-xl bg-lime-300 px-4 py-2 font-bold text-slate-950">Настроить публичность профиля</button>}
+      </div>}
+      {/* Totals for visible ranking participants only */}
       <div className="grid grid-cols-4 gap-1.5">
         {[
-          { icon: '👥', value: stats.athletes, label: 'атлетов' },
+          { icon: '👥', value: stats.athletes, label: 'в рейтинге' },
           { icon: '🏋️', value: stats.workouts, label: 'трен.' },
           { icon: '🥇', value: stats.medals, label: 'медалей' },
           { icon: '🎁', value: stats.boxes, label: 'боксов' }

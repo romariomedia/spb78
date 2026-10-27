@@ -78,7 +78,7 @@ export function PublicProfileConsentPanel({user}:{user:UserProfile}){
       <div className="min-w-0 flex-1">
         <p className="text-sm font-black text-white">Публичность профиля</p>
         <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
-          Профиль показывается другим авторизованным пользователям SportBuddy78 только после отдельного согласия на распространение персональных данных. Это согласие не включает внешние публичные страницы и поисковую индексацию.
+          Анкета появляется в общем поиске SportBuddy78 после отдельного согласия на распространение выбранных данных. Имя и аватар остаются доступны вашим существующим собеседникам и контактам для общения. Это согласие не включает внешние публичные страницы и поисковую индексацию.
         </p>
       </div>
       <button type="button" onClick={()=>void load()} disabled={busy} className="rounded-xl p-2 text-slate-400 disabled:opacity-40" aria-label="Обновить">
@@ -91,6 +91,8 @@ export function PublicProfileConsentPanel({user}:{user:UserProfile}){
         ? 'Публичный профиль включён. Ниже можно изменить разрешённые категории или полностью отозвать согласие.'
         : 'Публичный профиль выключен. Другие пользователи не должны видеть вашу анкету в поиске и рейтинге.'}
     </div>
+
+    <p className="text-sm leading-relaxed text-slate-300">Для участия в таблице лидеров выберите «Основные данные профиля» и «Спортивная статистика», затем подтвердите согласие ниже. Накопленный прогресс сохраняется и при выключенной публичности.</p>
 
     <div className="space-y-2">
       {available.map(group=><label key={group.id} className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-800 bg-slate-950 p-3">

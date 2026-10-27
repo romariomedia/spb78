@@ -1227,7 +1227,7 @@ export default function App(): JSX.Element {
     // genderSet flag are treated as confirmed as long as gender is present.
     const blocked = currentUser.blockedUserIds || [];
     return (Array.isArray(allUsers) ? allUsers : []).filter(u => {
-      if (u.id === currentUser.id) return false;
+      if (u.relationshipOnly || u.id === currentUser.id) return false;
       if (blocked.includes(u.id)) return false;
       if (u.genderSet === false || u.gender === currentUser.gender) return false;
       // Never surface faceless profiles: a personal photo is mandatory.
@@ -2230,7 +2230,7 @@ export default function App(): JSX.Element {
                 {discoverViewMode === 'nearby' && currentUser ? (
                   <NearbyRadar
                     currentUser={currentUser}
-                    allUsers={allUsers}
+                    allUsers={allUsers.filter(u=>!u.relationshipOnly)}
                     myCoords={hasCurrentLocation ? userCoords : null}
                     locationLabel={userLocationLabel}
                     onSelectUser={(u) => setSelectedUserModal(u)}
@@ -2252,7 +2252,7 @@ export default function App(): JSX.Element {
                         center={userCoords}
                         showCurrentLocation={hasCurrentLocation}
                         zoom={12}
-                        users={allUsers.filter(u => u.id !== CURRENT_USER_ID && u.hasUsedGeolocation)}
+                        users={allUsers.filter(u => !u.relationshipOnly && u.id !== CURRENT_USER_ID && u.hasUsedGeolocation)}
                         onSelectUser={(u) => setSelectedUserModal(u)}
                         height="460px"
                       />
@@ -2504,6 +2504,7 @@ export default function App(): JSX.Element {
                 <TrainerBookings key={`trainer-out-${CURRENT_USER_ID}`} refreshKey={trainerRequestsVersion} onChat={id=>setPendingNotificationLink('#chat='+encodeURIComponent(id))}/>
                 {/* Community leaderboard */}
                 <Leaderboard
+                  onConfigureVisibility={()=>{setActiveTab('profile');setProfileSection('edit');}}
                   currentUserId={CURRENT_USER_ID}
                   refreshKey={rankingRefreshKey}
                   onSelectUser={async (id) => {

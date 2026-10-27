@@ -12,13 +12,13 @@ const bundled=await build({entryPoints:['api/public-profiles.js'],bundle:true,pl
  b.onResolve({filter:/^firebase-admin\//},a=>({path:a.path,namespace:'fake'}));
  b.onLoad({filter:/.*/,namespace:'fake'},a=>({contents:{
   'firebase-admin/app':'export const getApps=()=>[{}],initializeApp=()=>{},cert=x=>x;',
-  'firebase-admin/auth':`export const getAuth=()=>({verifyIdToken:async(token,revoked)=>{if(token!=='valid'||revoked!==true)throw {code:'auth/invalid-token'};return {uid:'me'}}});`,
+  'firebase-admin/auth':`export const getAuth=()=>({verifyIdToken:async(token,revoked)=>{if(!['valid','other'].includes(token)||revoked!==true)throw {code:'auth/invalid-token'};return {uid:token==='other'?'other':'me'}}});`,
   'firebase-admin/firestore':`export const getFirestore=()=>globalThis.__publicDb;export const FieldPath={documentId:()=> '__name__'};`
  }[a.path],loader:'js'}));
 }}]});
 const {default:handler}=await import('data:text/javascript;base64,'+Buffer.from(bundled.outputFiles[0].text).toString('base64'));
-function fixture(users){
- globalThis.__publicDb={collection(name){assert.equal(name,'users');let cursor='',limit=0;return {
+function fixture(users,chats={}){
+ globalThis.__publicDb={collection(name){if(name==='chats')return {doc(id){return {get:async()=>({exists:!!chats[id],data:()=>chats[id]})}}};assert.equal(name,'users');let cursor='',limit=0;return {
  doc(id){return {get:async()=>({exists:!!users[id],data:()=>users[id]})}},
  select(...fields){assert.ok(!fields.includes('rewardItems'));assert.ok(!fields.includes('email'));return this},
  orderBy(field){assert.equal(field,'__name__');return this},limit(n){limit=n;return this},startAfter(id){cursor=id;return this},
@@ -129,4 +129,47 @@ test('location consent exposes only coarse coordinates',()=>{
  assert.equal(profile.lng,30.31);
  assert.notEqual(profile.lat,59.9386123);
  assert.notEqual(profile.lng,30.3141456);
+});
+
+
+test('private correspondent identity survives revoked discovery consent without leaking to strangers',async()=>{
+ const users={me:{},other:{},alice:{name:'Alice',avatar:'https://example.com/a.jpg',email:'SECRET',lat:59.9,totalDailyMedals:12,sportPassport:{documents:['SECRET']}}};
+ const chats={chat_alice__me:{participantIds:['alice','me']}};
+ const request=fixture(users,chats);
+ const result=await request({ids:['alice']});
+ assert.equal(result.code,200);
+ assert.deepEqual(result.body.profiles,[{id:'alice',name:'Alice',avatar:'https://example.com/a.jpg',relationshipOnly:true,activeLooking:false}]);
+ assert.deepEqual((await request({ids:['alice']},'other')).body.profiles,[]);
+ assert.deepEqual((await request()).body.profiles,[]);
+ assert.equal((await request({action:'leaderboard'})).body.stats.athletes,0);
+ delete chats.chat_alice__me;
+ assert.deepEqual((await request({ids:['alice']})).body.profiles,[]);
+});
+
+test('friend identity is minimal, excludes blocked, suspended and missing accounts',async()=>{
+ const users={me:{friendIds:['alice']},alice:{name:'Alice',age:30,bio:'private',photoPortfolio:['private']}};
+ const request=fixture(users);
+ assert.equal((await request({ids:['alice']})).body.profiles[0].name,'Alice');
+ users.alice.blockedUserIds=['me'];
+ assert.deepEqual((await request({ids:['alice']})).body.profiles,[]);
+ delete users.alice.blockedUserIds;users.alice.isSuspended=true;
+ assert.deepEqual((await request({ids:['alice']})).body.profiles,[]);
+ delete users.alice;
+ assert.deepEqual((await request({ids:['alice']})).body.profiles,[]);
+});
+
+test('a guessed chat ID is not membership and does not reveal an identity',async()=>{
+ const request=fixture({me:{},alice:{name:'Alice'}},{chat_alice__me:{participantIds:['alice','someone-else']}});
+ assert.deepEqual((await request({ids:['alice']})).body.profiles,[]);
+});
+
+test('leaderboard explains missing consent and respects location group',async()=>{
+ const users={me:{name:'Me',totalWorkouts:12},alice:visible({name:'Alice',locationName:'PRIVATE'})};
+ const request=fixture(users);
+ const page=(await request({action:'leaderboard'})).body;
+ assert.equal(page.needsPublicConsent,true);
+ assert.equal(page.entries[0].user.locationName,'');
+ assert.equal(users.me.totalWorkouts,12);
+ users.me.publicDissemination=consent().publicDissemination;
+ assert.equal((await request({action:'leaderboard'})).body.needsPublicConsent,false);
 });

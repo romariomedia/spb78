@@ -50,6 +50,7 @@ export interface PublicDisseminationState {
 }
 
 export interface UserProfile {
+  relationshipOnly?: boolean;
   personalTrainer?: {enabled:boolean; sports:string[]; status:string; verifiedAt?:string;trainerLevel?:'start'|'pro'|''|null;hourlyRate?:number|null;serviceDescription?:string;isPromoted?:boolean};
   id: string;
   name: string;
