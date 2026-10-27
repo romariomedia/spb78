@@ -10,7 +10,7 @@ interface InstallAppProps {
 }
 
 const PROMPT_DISMISSED_KEY = 'sportbuddy_install_prompt_dismissed_v3';
-const ANDROID_APK = '/downloads/sportbuddy78-rustore-v28.apk';
+const ANDROID_APK = '/downloads/sportbuddy78-rustore-v31.apk';
 
 export function InstallApp({ autoPromptEnabled = true }: InstallAppProps) {
   const [open, setOpen] = useState(false);
@@ -79,7 +79,7 @@ export function InstallApp({ autoPromptEnabled = true }: InstallAppProps) {
   const androidButton = (
     <a
       href={ANDROID_APK}
-      download="sportbuddy78-rustore-v28.apk"
+      download="sportbuddy78-rustore-v31.apk"
       onClick={markDismissed}
       className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-lime-300/35 bg-lime-300 px-4 py-3 text-sm font-black text-slate-950 transition hover:bg-lime-200 active:scale-[0.98]"
     >
@@ -165,7 +165,7 @@ export function InstallApp({ autoPromptEnabled = true }: InstallAppProps) {
               </div>
 
               <p className="mt-3 text-[11px] leading-relaxed text-slate-500">
-                Android — APK v28, около 20 МБ. После скачивания открой файл для установки.
+                Android — APK v31, около 20 МБ. После скачивания открой файл для установки.
                 iPhone — открой sportbuddy78.pro именно в Safari.
               </p>
             </div>
