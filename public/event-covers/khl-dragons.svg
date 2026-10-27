@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-label="SportBuddy78 — хоккей в Санкт-Петербурге">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07111f"/>
+      <stop offset="0.55" stop-color="#10283d"/>
+      <stop offset="1" stop-color="#05090f"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="72%" cy="28%" r="48%">
+      <stop offset="0" stop-color="#d8ff5b" stop-opacity=".32"/>
+      <stop offset="1" stop-color="#d8ff5b" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="grid" width="56" height="56" patternUnits="userSpaceOnUse">
+      <path d="M56 0H0V56" fill="none" stroke="#93c5fd" stroke-opacity=".08"/>
+    </pattern>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <rect width="1600" height="900" fill="url(#glow)"/>
+  <rect width="1600" height="900" fill="url(#grid)"/>
+  <circle cx="1260" cy="280" r="170" fill="none" stroke="#d8ff5b" stroke-width="10" stroke-opacity=".85"/>
+  <circle cx="1260" cy="280" r="126" fill="none" stroke="#ffffff" stroke-width="3" stroke-opacity=".25"/>
+  <path d="M1160 350c72-118 134-167 208-177-17 54-52 93-106 119 39 8 75 28 108 61-87 8-155-6-210-3z" fill="#d8ff5b" opacity=".92"/>
+  <text x="100" y="150" font-family="Arial,Helvetica,sans-serif" font-size="34" font-weight="700" fill="#d8ff5b" letter-spacing="6">SPORTBUDDY78</text>
+  <text x="100" y="345" font-family="Arial,Helvetica,sans-serif" font-size="88" font-weight="900" fill="#ffffff">ХОККЕЙ В ПЕТЕРБУРГЕ</text>
+  <text x="100" y="450" font-family="Arial,Helvetica,sans-serif" font-size="58" font-weight="800" fill="#d8ff5b">ШАНХАЙ ДРЭГОНС</text>
+  <text x="100" y="535" font-family="Arial,Helvetica,sans-serif" font-size="30" font-weight="500" fill="#cbd5e1">Найдите компанию на матч и болейте вместе</text>
+  <rect x="100" y="645" rx="28" ry="28" width="520" height="96" fill="#d8ff5b"/>
+  <text x="145" y="707" font-family="Arial,Helvetica,sans-serif" font-size="34" font-weight="900" fill="#07111f">СКА АРЕНА · СПБ</text>
+  <text x="100" y="815" font-family="Arial,Helvetica,sans-serif" font-size="24" fill="#94a3b8">Фирменная обложка SportBuddy78 · не является официальной афишей клуба</text>
+</svg>
