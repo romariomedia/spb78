@@ -234,9 +234,9 @@ button, a, [role="button"] {
   will-change: transform, opacity;
 }
 
-/* Images: reserve space and decode off the main thread */
+/* Keep replaced image elements paintable in Android WebView.
+   Individual components control lazy loading and reserve their own aspect ratio. */
 img {
-  content-visibility: auto;
   -webkit-user-drag: none;
 }
 

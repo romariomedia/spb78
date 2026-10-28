@@ -1,3 +1,4 @@
+import {EventCover} from './EventCover';
 import React, { useEffect, useMemo, useState } from 'react';
 import { CalendarDays, ChevronDown, ExternalLink, MapPin, Ticket, Users } from 'lucide-react';
 import { OfficialEvent, UserProfile } from '../lib/types';
@@ -85,7 +86,7 @@ export const CitySportsEvents:React.FC<Props>=({currentUser,refreshKey,onOpenCha
       <p className="text-[11px] text-slate-400">Время московское. «Иду» — поиск компании; билет приобретается отдельно.</p>
       {loadError&&<p role="alert" className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-2 text-xs text-rose-300">Не удалось обновить афишу. Проверьте подключение.</p>}
       {visible.length===0?<div className="rounded-xl border border-slate-800 bg-slate-950 p-4 text-center text-xs text-slate-400">{!loaded?'Загружаем события…':'На выбранный период событий пока нет.'}</div>:
-      <div className="grid gap-3 sm:grid-cols-2">{visible.map(event=>{
+      <div className="grid gap-3 sm:grid-cols-2">{visible.map((event,index)=>{
         const joined=isRegistered(event,currentUser.id);
         const ticketUrl=verifiedTicketUrl(event);
         const eventCover=effectiveEventCover(event);
@@ -93,9 +94,7 @@ export const CitySportsEvents:React.FC<Props>=({currentUser,refreshKey,onOpenCha
         const organizerUrl=isMedia?event.organizerUrl:'';
         return <article key={event.id} className="rounded-xl border border-slate-800 bg-slate-950 p-2.5">
           <div className="space-y-3">
-            {eventCover&&<img src={eventCover} alt={`Афиша: ${event.title}`} loading="lazy" decoding="async"
-              onError={e=>{const fallback=presetEventCover(event);if(fallback&& !e.currentTarget.src.endsWith(fallback)){e.currentTarget.src=fallback;}else{e.currentTarget.style.display='none';}}}
-              className="aspect-[16/10] w-full rounded-lg bg-slate-900 object-contain"/>}
+            {eventCover&&<EventCover key={event.id+eventCover} src={eventCover} fallback={presetEventCover(event)} title={event.title} eager={index<2}/>}
             <div className="min-w-0 flex-1 space-y-1">
               <p className="text-[10px] font-bold uppercase text-sky-400">{event.league||event.sport}</p>
               <h4 className="text-sm font-black leading-tight text-white">{event.title}</h4>
