@@ -5,7 +5,7 @@ import {mkdtemp,readFile,writeFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {
-  assertApkIdentity,assertTrustedApkSigning,inspectApkFile,trustedAndroidSigningFingerprints,verifyApkSignature
+  assertApkIdentity,assertTrustedApkSigning,inspectApkFile,trustedAndroidSigningFingerprints,verifyApkSignature,parseVerifiedApkSigner
 } from '../server/apk-inspection.js';
 
 const hasVerifier=spawnSync(process.env.SB_APKSIGNER_PATH||'apksigner',['version']).status===0;
@@ -84,4 +84,25 @@ realApkTest('website app links include the certificate of the shipped APK',async
   const entry=links.find(x=>x.target.package_name===inspected.packageName);
   assert.ok(entry.target.sha256_cert_fingerprints.some(x=>x.replaceAll(':','').toLowerCase()===inspected.signingCertSha256));
  }finally{await rm(root,{recursive:true,force:true});}
+});
+
+test('apksigner parser accepts distro and SDK 36 formats with the same certificate',()=>{
+ const cert='1b1da30e9fd7a535e7c685e24e9e0f4ba0ec6d8caf7b7183aedf934e23e6cdf5';
+ for(const prefix of ['Signer #1','V2 Signer:','V3 Signer:','V3.1 Signer:','V3.2 Signer:']){
+  const output=`Verifies\nNumber of signers: 1\n${prefix} certificate SHA-256 digest: ${cert}\n`;
+  assert.equal(parseVerifiedApkSigner(output),cert);
+  assert.equal(parseVerifiedApkSigner(output.replaceAll('\n','\r\n')),cert);
+ }
+ assert.equal(parseVerifiedApkSigner(`Number of signers: 1\nV2 Signer: certificate SHA-256 digest: ${cert}\nV3 Signer: certificate SHA-256 digest: ${cert}\n`),cert);
+});
+
+test('apksigner parser rejects missing, multiple, conflicting or malformed signers',()=>{
+ const a='a'.repeat(64),b='b'.repeat(64);
+ for(const output of [
+  `Signer #1 certificate SHA-256 digest: ${a}\n`,
+  `Number of signers: 2\nSigner #1 certificate SHA-256 digest: ${a}\nSigner #2 certificate SHA-256 digest: ${a}\n`,
+  `Number of signers: 1\nV2 Signer: certificate SHA-256 digest: ${a}\nV3 Signer: certificate SHA-256 digest: ${b}\n`,
+  'Number of signers: 1\nV2 Signer: certificate SHA-256 digest: abcd\n',
+  'Number of signers: 1\n'
+ ])assert.throws(()=>parseVerifiedApkSigner(output),{code:'APK_SIGNATURE_INVALID'});
 });

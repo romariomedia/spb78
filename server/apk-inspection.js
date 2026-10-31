@@ -262,10 +262,19 @@ export async function verifyApkSignature(path,env=process.env){
     if(error.killed)fail('Проверка подписи APK превысила время ожидания.','APK_VERIFIER_TIMEOUT',503);
     fail('Цифровая подпись APK недействительна или файл повреждён.','APK_SIGNATURE_INVALID',400);
   }
-  const certs=[...stdout.matchAll(/^Signer #\d+ certificate SHA-256 digest: ([a-fA-F0-9:]+)\s*$/gm)].map(m=>normalizeFingerprint(m[1]));
-  // Current production uses one signer. Multi-signer changes require explicit review.
-  if(certs.length!==1||certs[0].length!==64)fail('Не удалось подтвердить единственного подписанта APK.','APK_SIGNATURE_INVALID',400);
-  return certs[0];
+  return parseVerifiedApkSigner(stdout);
+}
+
+/** Parse only output from a successful apksigner verify process. SDK 36 names
+ * signers by scheme; older distro tools use Signer #1. Repeated schemes may
+ * describe the same signer, but multiple actual signers remain unsupported. */
+export function parseVerifiedApkSigner(stdout){
+  const counts=[...stdout.matchAll(/^Number of signers: (\d+)[ \t]*\r?$/gm)];
+  const certs=[...stdout.matchAll(/^(?:Signer #\d+|V\d+(?:\.\d+)? Signer(?: #\d+)?):? certificate SHA-256 digest: ([a-fA-F0-9:]+)[ \t]*\r?$/gm)].map(m=>normalizeFingerprint(m[1]));
+  const unique=[...new Set(certs)];
+  if(counts.length!==1||Number(counts[0][1])!==1||unique.length!==1||unique[0].length!==64)
+    fail('Не удалось подтвердить единственного подписанта APK.','APK_SIGNATURE_INVALID',400);
+  return unique[0];
 }
 
 export async function inspectApkFile(path){
