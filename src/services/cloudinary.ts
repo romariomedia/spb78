@@ -17,6 +17,9 @@ const ROOT_FOLDER =
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const MAX_VIDEO_BYTES = 100 * 1024 * 1024;
+export const DEFAULT_IMAGE_UPLOAD_TIMEOUT_MS = 60_000;
+export const DEFAULT_VIDEO_UPLOAD_TIMEOUT_MS = 180_000;
+const MAX_UPLOAD_TIMEOUT_MS = 300_000;
 
 export type CldResourceType = 'image' | 'video' | 'auto';
 
@@ -38,6 +41,7 @@ export interface UploadOptions {
   signal?: AbortSignal;
   resourceType?: CldResourceType;
   retries?: number;
+  timeoutMs?: number;
 }
 
 export class CloudinaryUploadError extends Error {
@@ -89,6 +93,11 @@ function send(
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open('POST', url, true);
+    const requestedTimeout=Number(opts.timeoutMs);
+    xhr.timeout=Math.max(5_000,Math.min(
+      MAX_UPLOAD_TIMEOUT_MS,
+      Number.isFinite(requestedTimeout)&&requestedTimeout>0 ? requestedTimeout : DEFAULT_IMAGE_UPLOAD_TIMEOUT_MS
+    ));
 
     if (opts.onProgress) {
       xhr.upload.onprogress = (e) => {
@@ -139,6 +148,10 @@ function send(
       cleanup();
       reject(new CloudinaryUploadError('Загрузка отменена'));
     };
+    xhr.ontimeout = () => {
+      cleanup();
+      reject(new CloudinaryUploadError('Загрузка медиа превысила допустимое время. Проверьте соединение и повторите попытку.', 408));
+    };
 
     xhr.send(form);
   });
@@ -151,19 +164,23 @@ export async function uploadMedia(
 ): Promise<CloudinaryUploadResult> {
   const type = options.resourceType || detectType(file);
   validate(file, type);
+  const effectiveOptions:UploadOptions={
+    ...options,
+    timeoutMs:options.timeoutMs ?? (type==='video' ? DEFAULT_VIDEO_UPLOAD_TIMEOUT_MS : DEFAULT_IMAGE_UPLOAD_TIMEOUT_MS)
+  };
 
   const retries = options.retries === undefined ? 2 : options.retries;
   let lastError: unknown;
 
   for (let attempt = 0; attempt <= retries; attempt += 1) {
     try {
-      return await send(endpoint(type), buildForm(file, options), options);
+      return await send(endpoint(type), buildForm(file, effectiveOptions), effectiveOptions);
     } catch (err) {
       lastError = err;
       const status = (err as CloudinaryUploadError).status;
       // 4xx кроме 429 не лечится повтором: неверный preset / формат / размер
       const retryable = !status || status === 429 || status >= 500;
-      const aborted = options.signal ? options.signal.aborted : false;
+      const aborted = effectiveOptions.signal ? effectiveOptions.signal.aborted : false;
       if (!retryable || attempt === retries || aborted) break;
       await new Promise((r) => setTimeout(r, 500 * Math.pow(2, attempt)));
     }
@@ -195,7 +212,8 @@ export async function uploadRemoteUrl(
   }
   if (url.includes('res.cloudinary.com')) return url; // уже у нас
   const type = options.resourceType || 'auto';
-  const result = await send(endpoint(type), buildForm(url, options), options);
+  const effectiveOptions:UploadOptions={...options,timeoutMs:options.timeoutMs ?? DEFAULT_IMAGE_UPLOAD_TIMEOUT_MS};
+  const result = await send(endpoint(type), buildForm(url, effectiveOptions), effectiveOptions);
   return result.secureUrl;
 }
 
