@@ -17,7 +17,7 @@ import { readUserStatus } from '../server/user-status.js';
 import { chooseCanonicalPersonName } from '../shared/identity-policy.js';
 import {
   assertChatParticipants,assertChatRateLimit,assertChatRelationship,assertMessageDeleteAllowed,
-  buildRecentMessages,nextChatTimestamp,nextUnreadCounts,replyPreview,sanitizeChatText,tombstoneMessage
+  buildRecentMessages,nextChatTimestamp,nextUnreadCounts,replyPreview,sanitizeChatText,tombstoneMessage,unreadCountAfterTimestamp
 } from '../server/chat-policy.js';
 
 function init() {
@@ -449,11 +449,12 @@ async function chatMutation(db, uid, body) {
       const through=Number(body.throughTimestamp);
       if(!Number.isFinite(through)||through<0) throw Object.assign(new Error('Некорректная отметка прочтения'),{status:400});
       const readAt=Math.max(Number(thread.readAt?.[uid]||0),Math.min(through,Number(thread.lastMessageAt||0)));
+      const unreadCount=unreadCountAfterTimestamp(thread,uid,readAt);
       tx.update(chatRef,{
         readAt:{...(thread.readAt||{}),[uid]:readAt},
-        unreadCount:{...(thread.unreadCount||{}),[uid]:0}
+        unreadCount:{...(thread.unreadCount||{}),[uid]:unreadCount}
       });
-      return {readAt};
+      return {readAt,unreadCount};
     });
   }
 

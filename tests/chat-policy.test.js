@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   CHAT_DELETE_WINDOW_MS,CHAT_RECENT_LIMIT,assertChatParticipants,assertChatRateLimit,assertChatRelationship,
   assertMessageDeleteAllowed,buildRecentMessages,buildServerChatId,nextChatTimestamp,nextUnreadCounts,
-  replyPreview,sanitizeChatText,tombstoneMessage
+  replyPreview,sanitizeChatText,tombstoneMessage,unreadCountAfterTimestamp
 } from '../server/chat-policy.js';
 
 test('chat id is deterministic',()=>{
@@ -57,6 +57,22 @@ test('recent message cache is bounded while preserving newest messages',()=>{
 test('unread metadata increments only recipient and caps safely',()=>{
   assert.deepEqual(nextUnreadCounts({unreadCount:{u1:3,u2:7}},'u1','u2'),{u1:3,u2:8});
   assert.equal(nextUnreadCounts({unreadCount:{u2:999}},'u1','u2').u2,999);
+});
+
+test('read receipt preserves messages that arrived after the read boundary',()=>{
+  const thread={
+    lastMessageAt:300,
+    unreadCount:{u1:3},
+    recentMessages:[
+      {id:'old',senderId:'u2',timestamp:100},
+      {id:'through',senderId:'u2',timestamp:200},
+      {id:'concurrent',senderId:'u2',timestamp:300}
+    ]
+  };
+  assert.equal(unreadCountAfterTimestamp(thread,'u1',200),1);
+  assert.equal(unreadCountAfterTimestamp(thread,'u1',300),0);
+  assert.equal(unreadCountAfterTimestamp({...thread,recentMessages:[]},'u1',200),3);
+  assert.equal(unreadCountAfterTimestamp({...thread,recentMessages:[{senderId:'u1',timestamp:300}]},'u1',300),0);
 });
 
 test('message timestamps stay monotonic and spam guard rejects bursts',()=>{
