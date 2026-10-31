@@ -37,7 +37,7 @@ import {
 } from './lib/types';
 import {
   loadChatThreads, loadCachedChatThreads, mergeKnownChatThreads, chatThreadsForCategory, sendChatMessage, sendTrainingGroupMessage, ensureTrainingGroupChat, ensureEventGroupChat, markThreadAsRead, countUnread, deleteChatMessage, setChatTyping,
-  buildChatId, clearChatCache, formatTimeLabel, loadChatHistory, subscribeChatThreads
+  buildChatId, clearChatCache, removeChatFromCache, formatTimeLabel, loadChatHistory, subscribeChatThreads
 } from './services/chats';
 import { 
   loadAppData, loadPublicProfilePage, loadPublicProfilesByIds, createTraining, toggleJoinTraining, toggleLikeProfile,
@@ -1499,6 +1499,13 @@ export default function App(): JSX.Element {
     let isJoined: boolean;
     try { isJoined = await toggleJoinTraining(tr.id, !tr.participantIds.includes(CURRENT_USER_ID)); }
     catch (error) { notify(error instanceof Error ? error.message : 'Не удалось изменить запись', 'err'); return; }
+    const trainingChatId=`training_${tr.id}`;
+    if(!isJoined){
+      removeChatFromCache(trainingChatId,CURRENT_USER_ID);
+      setChatThreads(previous=>previous.filter(thread=>thread.id!==trainingChatId));
+      setAllChatThreads(previous=>previous.filter(thread=>thread.id!==trainingChatId));
+      if(openChatId===trainingChatId)setOpenChatId(null);
+    }
     // Keep the legacy local journal as a cache; render the server-confirmed result.
     setJoinedTraining(account?.id, tr.id, isJoined);
     setTrainings(prev => prev.map(t => {
