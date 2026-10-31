@@ -8,7 +8,8 @@ export async function adminPost<T>(path:string,body:Record<string,unknown>):Prom
  const session=getAdminSession();if(!session)throw new Error('admin-otp-required');
  if(!loaded){loaded=true;try{const saved=JSON.parse(sessionStorage.getItem(key)||'[]');if(Array.isArray(saved))for(const row of saved.slice(-40))if(Array.isArray(row)&&typeof row[0]==='string'&&typeof row[1]==='string')pending.set(row[0],row[1]);}catch{/* storage optional */}}
  const {requestId:ignored,...payload}=body;
- const retryKey=body.operation==='create'?JSON.stringify([session.sessionId,path,payload]):'';
+ const retryableOperations=new Set(['create','grant','grantPromotion']);
+ const retryKey=retryableOperations.has(String(body.operation||''))?JSON.stringify([session.sessionId,path,payload]):'';
  let requestId=body.requestId;
  if(retryKey){requestId=pending.get(retryKey)||crypto.randomUUID();pending.set(retryKey,String(requestId));while(pending.size>40)pending.delete(pending.keys().next().value!);persist();}
  const response=await apiFetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...body,requestId,sessionId:session.sessionId})});
