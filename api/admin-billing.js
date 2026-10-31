@@ -17,6 +17,15 @@ const int=(value,min,max)=>{
   return n;
 };
 const money=value=>Number.isFinite(Number(value))?Math.max(0,Number(value)):0;
+const validRequestId=value=>/^[a-zA-Z0-9_-]{8,120}$/.test(String(value||''));
+const sameGrantReceipt=(receipt,{subjectType,subjectId,days,note,adminEmail,eventType})=>
+  receipt?.eventType===eventType &&
+  receipt?.subjectType===subjectType &&
+  receipt?.subjectId===subjectId &&
+  Number(receipt?.days)===Number(days) &&
+  clean(receipt?.note,300)===note &&
+  clean(receipt?.adminEmail,320)===adminEmail;
+
 const iso=value=>{
   const date=value?.toDate?value.toDate():new Date(String(value||''));
   return Number.isFinite(date.getTime())?date.toISOString():'';
@@ -152,12 +161,21 @@ export default async function handler(req,res){
     }
 
     if(operation==='grant'){
-      const days=int(body.days,1,730),note=clean(body.note,300);
+      const days=int(body.days,1,730),note=clean(body.note,300),requestId=clean(body.requestId,120);
       if(note.length<3)return res.status(400).json({error:'Укажите причину бесплатного продления.'});
-      const now=Date.now();
+      if(!validRequestId(requestId))return res.status(400).json({error:'Некорректный requestId операции.'});
+      const now=Date.now(),adminEmail=String(session.email||'admin');
       const inheritedFreeUntil=await foundingCoachUntil(db,subjectType,subjectId);
+      const receiptRef=db.collection('billingLedger').doc(`admin-grant:${requestId}`);
       await db.runTransaction(async tx=>{
-        const snap=await tx.get(ref),before=snap.exists?snap.data()||{}:{};
+        const [snap,receiptSnap]=await Promise.all([tx.get(ref),tx.get(receiptRef)]);
+        const before=snap.exists?snap.data()||{}:{};
+        if(receiptSnap.exists){
+          const receipt=receiptSnap.data()||{};
+          if(!sameGrantReceipt(receipt,{subjectType,subjectId,days,note,adminEmail,eventType:'admin_grant'}))
+            throw Object.assign(new Error('requestId уже использован для другой операции.'),{status:409});
+          return;
+        }
         const ownerUserId=subjectType==='trainer'?subjectId:clean(before.ownerUserId,180);
         const base=Math.max(now,effectiveBusinessUntil(before,inheritedFreeUntil));
         const until=new Date(base+days*86400000).toISOString();
@@ -165,18 +183,18 @@ export default async function handler(req,res){
           ...before,subjectType,subjectId,subjectLabel:subject.label,ownerUserId,
           activeUntil:until,complimentaryUntil:until,
           createdAt:before.createdAt||new Date(now).toISOString(),updatedAt:new Date(now).toISOString(),
-          lastGrantedAt:new Date(now).toISOString(),lastGrantedBy:String(session.email||'admin')
+          lastGrantedAt:new Date(now).toISOString(),lastGrantedBy:adminEmail,lastGrantRequestId:requestId
         };
         tx.set(ref,next,{merge:false});
-        tx.create(db.collection('billingLedger').doc(randomUUID()),{
-          eventType:'admin_grant',subjectType,subjectId,subjectLabel:subject.label,ownerUserId,
-          days,amountRub:0,note,adminEmail:String(session.email||'admin'),createdAt:new Date(now).toISOString(),activeUntil:until
+        tx.create(receiptRef,{
+          eventType:'admin_grant',requestId,subjectType,subjectId,subjectLabel:subject.label,ownerUserId,
+          days,amountRub:0,note,adminEmail,createdAt:new Date(now).toISOString(),activeUntil:until
         });
         await writeAdminAudit(db,session,{
           action:'billing.grant',entityType:'businessSubscription',entityId:id,
           before:{activeUntil:before.activeUntil||'',complimentaryUntil:before.complimentaryUntil||''},
           after:{activeUntil:until,complimentaryUntil:until,days,note},
-          requestId:String(body.requestId||'')
+          requestId
         },tx);
       });
       const saved=await ref.get();
@@ -184,12 +202,21 @@ export default async function handler(req,res){
     }
 
     if(operation==='grantPromotion'){
-      const days=int(body.days??7,1,90),note=clean(body.note,300);
+      const days=int(body.days??7,1,90),note=clean(body.note,300),requestId=clean(body.requestId,120);
       if(note.length<3)return res.status(400).json({error:'Укажите причину бесплатного продвижения.'});
-      const now=Date.now(),config=await getBillingConfig(db);
+      if(!validRequestId(requestId))return res.status(400).json({error:'Некорректный requestId операции.'});
+      const now=Date.now(),config=await getBillingConfig(db),adminEmail=String(session.email||'admin');
       const inheritedFreeUntil=await foundingCoachUntil(db,subjectType,subjectId);
+      const receiptRef=db.collection('billingLedger').doc(`admin-promotion:${requestId}`);
       await db.runTransaction(async tx=>{
-        const snap=await tx.get(ref),before=snap.exists?snap.data()||{}:{};
+        const [snap,receiptSnap]=await Promise.all([tx.get(ref),tx.get(receiptRef)]);
+        const before=snap.exists?snap.data()||{}:{};
+        if(receiptSnap.exists){
+          const receipt=receiptSnap.data()||{};
+          if(!sameGrantReceipt(receipt,{subjectType,subjectId,days,note,adminEmail,eventType:'admin_promotion'}))
+            throw Object.assign(new Error('requestId уже использован для другой операции.'),{status:409});
+          return;
+        }
         if(before.adminPaused===true)throw Object.assign(new Error('Сначала возобновите карточку.'),{status:409});
         if(billingIsOpen(config,now)&&effectiveBusinessUntil(before,inheritedFreeUntil)<=now)
           throw Object.assign(new Error('Продвижение доступно только для активного размещения.'),{status:409});
@@ -200,17 +227,17 @@ export default async function handler(req,res){
           ...before,subjectType,subjectId,subjectLabel:subject.label,ownerUserId,
           activeUntil:before.activeUntil||'',paidUntil:before.paidUntil||'',complimentaryUntil:before.complimentaryUntil||'',
           promotedUntil,createdAt:before.createdAt||new Date(now).toISOString(),updatedAt:new Date(now).toISOString(),
-          lastPromotionGrantedAt:new Date(now).toISOString(),lastPromotionGrantedBy:String(session.email||'admin')
+          lastPromotionGrantedAt:new Date(now).toISOString(),lastPromotionGrantedBy:adminEmail,lastPromotionGrantRequestId:requestId
         };
         tx.set(ref,next,{merge:false});
-        tx.create(db.collection('billingLedger').doc(randomUUID()),{
-          eventType:'admin_promotion',subjectType,subjectId,subjectLabel:subject.label,ownerUserId,
-          days,amountRub:0,note,adminEmail:String(session.email||'admin'),createdAt:new Date(now).toISOString(),promotedUntil
+        tx.create(receiptRef,{
+          eventType:'admin_promotion',requestId,subjectType,subjectId,subjectLabel:subject.label,ownerUserId,
+          days,amountRub:0,note,adminEmail,createdAt:new Date(now).toISOString(),promotedUntil
         });
         await writeAdminAudit(db,session,{
           action:'billing.grantPromotion',entityType:'businessSubscription',entityId:id,
           before:{promotedUntil:before.promotedUntil||''},after:{promotedUntil,days,note},
-          requestId:String(body.requestId||'')
+          requestId
         },tx);
       });
       const saved=await ref.get();
