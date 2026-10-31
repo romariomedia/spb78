@@ -3,6 +3,7 @@ import { callServer } from './serverApi';
 import { db } from '../lib/firebase';
 import { ChatMessage, ChatThread, UserProfile } from '../lib/types';
 import { CURRENT_USER_ID } from './repository';
+import { pruneUnavailableGroupThreads } from '../../shared/chat-cache-policy.js';
 
 const CHATS_STORAGE_KEY = 'sportbuddy_chats_spb_v2';
 const storageKey = (userId = CURRENT_USER_ID) => `${CHATS_STORAGE_KEY}:${userId || 'anonymous'}`;
@@ -61,6 +62,13 @@ function writeAllThreads(threads: Record<string, ChatThread>, userId = CURRENT_U
 
 export function clearChatCache(userId: string): void {
   try { localStorage.removeItem(storageKey(userId)); } catch { /* storage unavailable */ }
+}
+
+export function removeChatFromCache(chatId: string, userId = CURRENT_USER_ID): void {
+  const threads=readAllThreads(userId);
+  if(!threads[chatId])return;
+  delete threads[chatId];
+  writeAllThreads(threads,userId);
 }
 
 export function formatTimeLabel(timestamp: number): string {
@@ -158,7 +166,13 @@ export function subscribeChatThreads(
   return onSnapshot(
     query(collection(db, 'chats'), where('participantIds', 'array-contains', currentUser.id)),
     (snapshot) => {
-      const stored = readAllThreads(currentUser.id);
+      const liveIds=snapshot.docs.map(chatDoc=>chatDoc.id);
+      const removedIds=snapshot.docChanges().filter(change=>change.type==='removed').map(change=>change.doc.id);
+      const stored = pruneUnavailableGroupThreads(readAllThreads(currentUser.id),{
+        liveIds,
+        removedIds,
+        authoritative:snapshot.metadata.fromCache===false
+      }) as Record<string,ChatThread>;
       snapshot.docs.forEach((chatDoc) => {
         const data = chatDoc.data() as ChatThread & { readAt?: Record<string, number> };
         const isGroup=data.kind==='training'||data.kind==='event';
@@ -262,7 +276,7 @@ export async function markThreadAsRead(chatId: string): Promise<void> {
   const uid = CURRENT_USER_ID;
   const thread = readAllThreads(uid)[chatId];
   if (!thread || !thread.participantIds.includes(uid)) return;
-  const result = await callServer<{readAt:number}>('/api/sportbuddy-mutation', {
+  const result = await callServer<{readAt:number;unreadCount:number}>('/api/sportbuddy-mutation', {
     action:'chat', operation:'read', chatId, throughTimestamp:thread.lastMessageAt
   });
   if (CURRENT_USER_ID !== uid) return;
@@ -272,7 +286,7 @@ export async function markThreadAsRead(chatId: string): Promise<void> {
     read:message.senderId===uid || message.timestamp<=result.readAt
   }));
   latest.readAt={...(latest.readAt||{}),[uid]:result.readAt};
-  latest.unreadCount={...(latest.unreadCount||{}),[uid]:0};
+  latest.unreadCount={...(latest.unreadCount||{}),[uid]:Math.max(0,Number(result.unreadCount||0))};
   writeAllThreads(threads,uid);
 }
 
