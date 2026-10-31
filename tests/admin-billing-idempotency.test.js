@@ -40,7 +40,7 @@ function fixture(){
     }
   };
   async function request(body){
-    const res={statusCode:200,status(code){this.statusCode=code;return this;},json(value){this.body=value;return this;}};
+    const res={statusCode:200,setHeader(){},status(code){this.statusCode=code;return this;},json(value){this.body=value;return this;}};
     await handler({method:'POST',body:{sessionId:'session',...body}},res);
     return res;
   }
