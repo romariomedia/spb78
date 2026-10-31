@@ -2,6 +2,9 @@ import {cert,getApps,initializeApp} from 'firebase-admin/app';
 import {getFirestore} from 'firebase-admin/firestore';
 import {rm} from 'node:fs/promises';
 import {
+  assertApkIdentity,assertTrustedApkSigning,inspectApkFile,sha256File
+} from '../server/apk-inspection.js';
+import {
   APK_CHUNK_BYTES,appendApkChunk,apkStorageRoot,cleanupOldApkStaging,createApkUpload,
   finalizeApkUpload,publicApkRelease,safeApkStorageName,storedApkPath,validateApkReleaseInput,verifyStoredApk
 } from '../server/apk-release.js';
@@ -11,6 +14,15 @@ if(!getApps().length){
   initializeApp({credential:cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY||'{}'))});
 }
 const clean=(v,max=500)=>typeof v==='string'?v.trim().slice(0,max):'';
+const adminRelease=value=>({
+  ...publicApkRelease(value),
+  packageName:clean(value.packageName,180),
+  manifestVersionName:clean(value.manifestVersionName,60),
+  manifestVersionCode:Number(value.manifestVersionCode||0),
+  signatureScheme:clean(value.signatureScheme,30),
+  signingCertSha256:clean(value.signingCertSha256,64),
+  signatureTrusted:value.signatureTrusted===true
+});
 
 export default async function handler(req,res){
   res.setHeader('Cache-Control','private, no-store');
@@ -29,7 +41,7 @@ export default async function handler(req,res){
       const activeId=configSnap.exists?String(configSnap.data()?.activeReleaseId||''):'';
       const releases=releasesSnap.docs.map(doc=>{
         const value=doc.data()||{};
-        return {...publicApkRelease({id:doc.id,...value}),active:doc.id===activeId};
+        return {...adminRelease({id:doc.id,...value}),active:doc.id===activeId};
       }).sort((a,b)=>Date.parse(b.createdAt||'')-Date.parse(a.createdAt||''));
       const active=releases.find(item=>item.active)||null;
       return res.json({active,releases,chunkSize:APK_CHUNK_BYTES,storageRootConfigured:Boolean(process.env.SB_APK_STORAGE_ROOT)});
@@ -56,12 +68,25 @@ export default async function handler(req,res){
     if(operation==='finalizeUpload'){
       const finalized=await finalizeApkUpload(String(body.uploadId||''),session.email||'admin');
       const releaseId=finalized.id;
+      let inspection;
+      try{
+        inspection=await inspectApkFile(storedApkPath(finalized.storageName,apkStorageRoot()));
+        assertApkIdentity(inspection,finalized);
+      }catch(error){
+        await rm(storedApkPath(finalized.storageName,apkStorageRoot()),{force:true}).catch(()=>{});
+        throw error;
+      }
       const release={
         versionName:finalized.versionName,versionCode:finalized.versionCode,
         fileName:`sportbuddy78-v${finalized.versionName}.apk`,
         fileSize:finalized.fileSize,sha256:finalized.sha256,releaseNotes:finalized.releaseNotes,
         storageName:finalized.storageName,createdAt:finalized.createdAt,createdBy:finalized.createdBy,
-        finalizedAt:finalized.finalizedAt
+        finalizedAt:finalized.finalizedAt,
+        packageName:inspection.packageName,
+        manifestVersionName:inspection.versionName,
+        manifestVersionCode:inspection.versionCode,
+        signatureScheme:inspection.signatureScheme,
+        signingCertSha256:inspection.signingCertSha256
       };
       try{
         await db.runTransaction(async tx=>{
@@ -78,7 +103,7 @@ export default async function handler(req,res){
         await rm(storedApkPath(release.storageName,apkStorageRoot()),{force:true}).catch(()=>{});
         throw error;
       }
-      return res.json({ok:true,release:{...publicApkRelease({id:releaseId,...release}),active:false}});
+      return res.json({ok:true,release:{...adminRelease({id:releaseId,...release}),active:false}});
     }
 
     if(operation==='publish'){
@@ -90,6 +115,13 @@ export default async function handler(req,res){
       const release=releaseSnap.data()||{};
       if(!safeApkStorageName(release.storageName)||!await verifyStoredApk(release.storageName,release.fileSize))
         return res.status(409).json({code:'APK_FILE_MISSING',error:'Файл APK отсутствует или повреждён. Опубликовать его нельзя.'});
+      const apkPath=storedApkPath(release.storageName,apkStorageRoot());
+      const actualSha256=await sha256File(apkPath);
+      if(actualSha256!==String(release.sha256||'').toLowerCase())
+        return res.status(409).json({code:'APK_HASH_MISMATCH',error:'SHA-256 сохранённого APK изменился. Публикация заблокирована.'});
+      const inspection=await inspectApkFile(apkPath);
+      assertApkIdentity(inspection,release);
+      assertTrustedApkSigning(inspection);
       const now=new Date().toISOString(),configRef=db.collection('apkConfig').doc('main');
       let active;
       await db.runTransaction(async tx=>{
@@ -108,14 +140,19 @@ export default async function handler(req,res){
           publishedBy:String(session.email||'admin')
         };
         tx.set(configRef,active,{merge:false});
-        tx.set(releaseRef,{publishedAt:now,publishedBy:String(session.email||'admin')},{merge:true});
+        tx.set(releaseRef,{
+          publishedAt:now,publishedBy:String(session.email||'admin'),
+          packageName:inspection.packageName,manifestVersionName:inspection.versionName,
+          manifestVersionCode:inspection.versionCode,signatureScheme:inspection.signatureScheme,
+          signingCertSha256:inspection.signingCertSha256,signatureTrusted:true
+        },{merge:true});
         await writeAdminAudit(db,session,{
           action:'apk.release.publish',entityType:'apkRelease',entityId:releaseId,
           before:before.activeReleaseId?{activeReleaseId:before.activeReleaseId,versionName:before.versionName,versionCode:before.versionCode}:null,
           after:publicApkRelease({id:releaseId,...release,...active}),requestId:String(body.requestId||'')
         },tx);
       });
-      return res.json({ok:true,active:publicApkRelease({id:releaseId,...release,...active})});
+      return res.json({ok:true,active:adminRelease({id:releaseId,...release,...active,...inspection,manifestVersionName:inspection.versionName,manifestVersionCode:inspection.versionCode,signatureTrusted:true})});
     }
 
     if(operation==='delete'){
