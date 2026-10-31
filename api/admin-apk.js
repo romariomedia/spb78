@@ -121,7 +121,7 @@ export default async function handler(req,res){
         return res.status(409).json({code:'APK_HASH_MISMATCH',error:'SHA-256 сохранённого APK изменился. Публикация заблокирована.'});
       const inspection=await inspectApkFile(apkPath);
       assertApkIdentity(inspection,release);
-      assertTrustedApkSigning(inspection);
+      await assertTrustedApkSigning(inspection);
       const now=new Date().toISOString(),configRef=db.collection('apkConfig').doc('main');
       let active;
       await db.runTransaction(async tx=>{
