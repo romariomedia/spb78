@@ -5,7 +5,7 @@ export function normalizeVkEmail(value) {
   return email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : '';
 }
 
-export async function resolveVkIdentity({ auth, vkId, mappedUid, profileUids, name, avatar }) {
+export async function resolveVkIdentity({ auth, vkId, mappedUid, profileUids, name, avatar, allowCreate = true }) {
   if (!/^[1-9]\d*$/.test(vkId)) throw new Error('Invalid verified VK ID');
   if (mappedUid) return { user: await auth.getUser(mappedUid), isNewAccount: false };
   const unique = [...new Set(profileUids)];
@@ -17,6 +17,11 @@ export async function resolveVkIdentity({ auth, vkId, mappedUid, profileUids, na
     return { user: await auth.getUser(uid), isNewAccount: false };
   } catch (error) {
     if (error.code !== 'auth/user-not-found') throw error;
+  }
+  if (!allowCreate) {
+    const error = new Error('VK account not found');
+    error.code = 'VK_ACCOUNT_NOT_FOUND';
+    throw error;
   }
   let photoURL;
   try {

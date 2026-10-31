@@ -6,8 +6,10 @@ const api = await import('data:text/javascript;base64,'+Buffer.from(built.output
 const storage = () => { const m = new Map(); return {getItem:k=>m.get(k)??null,setItem:(k,v)=>m.set(k,v),removeItem:k=>m.delete(k)}; };
 const callback = tx => new URL(`${tx.redirectUrl}/?code=one-use&device_id=device&state=${tx.state}`);
 test('redirect retains PKCE and state across page reload and consumes transaction once',()=>{
- const s=storage(), tx=api.beginVkRedirect(s,'https://sportbuddy78.pro');
+ const s=storage(), flow={registrationMode:false,termsAccepted:true,personalDataAccepted:true};
+ const tx=api.beginVkRedirect(s,'https://sportbuddy78.pro',flow);
  assert.match(tx.codeVerifier,/^[a-f0-9]{64}$/); assert.notEqual(tx.state,tx.codeVerifier);
+ assert.deepEqual(tx.flow,flow);
  assert.deepEqual(api.consumeVkRedirect(s,callback(tx)),tx);
  assert.throws(()=>api.consumeVkRedirect(s,callback(tx)));
 });
@@ -23,4 +25,11 @@ test('redirect rejects mismatched state, foreign origin, expiry and absent stora
 });
 test('OAuth secrets leave address bar while unrelated navigation is preserved',()=>{
  assert.equal(api.cleanVkCallback(new URL('https://sportbuddy78.pro/?code=secret&state=secret&device_id=d&campaign=run#profile')),'/?campaign=run#profile');
+});
+
+test('legacy/missing VK flow context fails closed for registration consent',()=>{
+ const s=storage(),tx=api.beginVkRedirect(s,'https://sportbuddy78.pro');
+ assert.deepEqual(tx.flow,{registrationMode:false,termsAccepted:false,personalDataAccepted:false});
+ const consumed=api.consumeVkRedirect(s,callback(tx));
+ assert.deepEqual(consumed.flow,tx.flow);
 });

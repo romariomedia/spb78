@@ -36,7 +36,7 @@ async function findProfileByVkId(vkId) {
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   try {
-    const { accessToken, vkUserId, name: suppliedName, avatar: suppliedAvatar } = req.body || {};
+    const { accessToken, vkUserId, name: suppliedName, avatar: suppliedAvatar, allowCreate } = req.body || {};
     if (!accessToken) return res.status(400).json({ error: 'VK access token is required' });
 
     const vkUser = await verifyVK(accessToken);
@@ -53,7 +53,8 @@ export default async function handler(req, res) {
     const { user: firebaseUser, isNewAccount } = await resolveVkIdentity({
       auth: adminAuth, vkId: verifiedVkId,
       mappedUid: mapping.exists ? mapping.data().uid : null,
-      profileUids: vkProfiles.map(profile => profile.id), name, avatar
+      profileUids: vkProfiles.map(profile => profile.id), name, avatar,
+      allowCreate: allowCreate !== false
     });
     const email = normalizeVkEmail(firebaseUser.email) || providerEmail;
     const token = await adminAuth.createCustomToken(firebaseUser.uid,{vkId:verifiedVkId,vkVerified:true});
@@ -75,6 +76,12 @@ export default async function handler(req, res) {
       isNewAccount
     });
   } catch (error) {
+    if (error?.code === 'VK_ACCOUNT_NOT_FOUND') {
+      return res.status(404).json({
+        code:'VK_ACCOUNT_NOT_FOUND',
+        error:'Аккаунт с этим VK ID ещё не создан. Переключитесь на «Создать аккаунт».'
+      });
+    }
     console.error('[vk-login]', error);
     return res.status(401).json({ error: 'Не удалось подтвердить VK ID на сервере' });
   }

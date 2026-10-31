@@ -1,9 +1,12 @@
-import { beginVkRedirect, consumeVkRedirect } from './vkRedirect';
+import { beginVkRedirect, consumeVkRedirect, type VkAuthFlowContext } from './vkRedirect';
 import { VKID_WEB_APP_ID, VKID_ANDROID_REDIRECT_URL } from './vkid';
 import { nativeHttp } from './nativeHttp';
 
-export async function nativeVkAuthorizeUrl(storage: Storage): Promise<string> {
-  const tx = beginVkRedirect(storage, VKID_ANDROID_REDIRECT_URL);
+export async function nativeVkAuthorizeUrl(
+  storage: Storage,
+  flow: Partial<VkAuthFlowContext> = {}
+): Promise<string> {
+  const tx = beginVkRedirect(storage, VKID_ANDROID_REDIRECT_URL, flow);
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(tx.codeVerifier));
   const challenge = btoa(String.fromCharCode(...new Uint8Array(digest))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
   const url = new URL('https://id.vk.ru/authorize');
@@ -12,7 +15,10 @@ export async function nativeVkAuthorizeUrl(storage: Storage): Promise<string> {
   return url.href;
 }
 
-export async function exchangeNativeVkCallback(storage: Storage, rawUrl: string): Promise<{access_token:string;user_id:string}> {
+export async function exchangeNativeVkCallback(
+  storage: Storage,
+  rawUrl: string
+): Promise<{access_token:string;user_id:string;flow:VkAuthFlowContext}> {
   const url = new URL(rawUrl);
   let tx: ReturnType<typeof consumeVkRedirect>;
   try { tx = consumeVkRedirect(storage, url); }
@@ -28,7 +34,7 @@ export async function exchangeNativeVkCallback(storage: Storage, rawUrl: string)
   if (!response.ok || data.error || !data.access_token || !data.user_id || data.state !== tx.state) {
     throw new Error('Не удалось подтвердить ответ VK ID (VK-EXCHANGE). Начните вход заново.');
   }
-  return {access_token:data.access_token, user_id:String(data.user_id)};
+  return {access_token:data.access_token, user_id:String(data.user_id), flow:tx.flow};
 }
 
 /** Fixed destination/package, no caller-controlled intent extras or fallback URL. */

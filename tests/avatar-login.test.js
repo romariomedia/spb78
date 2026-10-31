@@ -30,3 +30,10 @@ test('login imports provider photo only through fresh profile bootstrap', () => 
   const api = readFileSync(new URL('../api/sportbuddy-mutation.js', import.meta.url), 'utf8');
   assert.ok(api.includes('validateProfileInput(withoutLegacyLoginAvatar(updates))'));
 });
+
+test('AuthScreen forwards the server-verified VK avatar into fresh profile bootstrap', () => {
+  const auth = readFileSync(new URL('../src/components/AuthScreen.tsx', import.meta.url), 'utf8');
+  assert.ok(auth.includes("const verifiedAvatar = getHighQualityVKAvatar(result.avatar || (u.avatar as string) || '')"));
+  assert.ok(auth.includes('onAuthenticated(result.account, result.isNewAccount ?? false, verifiedAvatar)'));
+  assert.ok(!auth.includes("onAuthenticated(result.account, result.isNewAccount ?? false, getHighQualityVKAvatar((u.avatar as string) || ''))"));
+});
