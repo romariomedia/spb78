@@ -1,5 +1,6 @@
 import {createHash,X509Certificate} from 'node:crypto';
 import {open,stat} from 'node:fs/promises';
+import {resolve} from 'node:path';
 import {inflateRawSync} from 'node:zlib';
 
 const EOCD_SIGNATURE=0x06054b50;
@@ -268,16 +269,26 @@ export function assertApkIdentity(inspection,releaseMeta,env=process.env){
   return true;
 }
 
-export function trustedAndroidSigningFingerprints(env=process.env){
-  return String(env.SB_ANDROID_SIGNING_CERT_SHA256||'')
+export async function trustedAndroidSigningFingerprints(env=process.env){
+  const configured=String(env.SB_ANDROID_SIGNING_CERT_SHA256||'')
     .split(/[;,]/)
     .map(normalizeFingerprint)
     .filter(value=>value.length===64);
+  if(configured.length)return configured;
+  const referencePath=String(env.SB_ANDROID_TRUSTED_APK_PATH||'').trim()
+    ||resolve(process.cwd(),'dist/downloads/sportbuddy78-rustore-v31.apk');
+  try{
+    const reference=await inspectApkFile(referencePath);
+    const fingerprint=normalizeFingerprint(reference.signingCertSha256);
+    return fingerprint.length===64?[fingerprint]:[];
+  }catch{
+    return [];
+  }
 }
 
-export function assertTrustedApkSigning(inspection,env=process.env){
-  const trusted=trustedAndroidSigningFingerprints(env);
-  if(!trusted.length)fail('На сервере не настроен SHA-256 production-сертификата Android. Публикация APK заблокирована.','APK_SIGNING_CERT_NOT_CONFIGURED',503);
+export async function assertTrustedApkSigning(inspection,env=process.env){
+  const trusted=await trustedAndroidSigningFingerprints(env);
+  if(!trusted.length)fail('Не удалось определить production-сертификат Android из .env или эталонного APK v31. Публикация APK заблокирована.','APK_SIGNING_CERT_NOT_CONFIGURED',503);
   const actual=normalizeFingerprint(inspection?.signingCertSha256);
   if(!trusted.includes(actual))fail('APK подписан не production-сертификатом SportBuddy78. Публикация заблокирована.','APK_SIGNING_CERT_MISMATCH',409);
   return true;
