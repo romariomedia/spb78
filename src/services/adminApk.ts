@@ -13,6 +13,12 @@ export interface ApkRelease {
   createdBy:string;
   publishedAt:string;
   publishedBy:string;
+  packageName:string;
+  manifestVersionName:string;
+  manifestVersionCode:number;
+  signatureScheme:string;
+  signingCertSha256:string;
+  signatureTrusted:boolean;
   active:boolean;
 }
 export interface ApkReleaseState {

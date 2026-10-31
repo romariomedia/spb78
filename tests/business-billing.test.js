@@ -319,3 +319,45 @@ test('all paid business services fail closed until legal compliance gate is enab
   assert.equal(response.statusCode,503);
   assert.equal(response.body.code,'LEGAL_COMPLIANCE_NOT_READY');
 });
+
+
+test('late business payment after owner change is quarantined and never rewrites the new owner',async t=>{
+  t.mock.timers.enable({apis:['Date'],now:Date.parse('2027-02-01T12:00:00Z')});
+  const f=fixture();
+  f.data.set('businessSubscriptions/venue:venue-1',{
+    subjectType:'venue',subjectId:'venue-1',subjectLabel:'Venue',
+    ownerUserId:'new-owner',activeUntil:'2027-04-01T12:00:00.000Z',paidUntil:'2027-04-01T12:00:00.000Z'
+  });
+  f.data.set('payments/business-payment-1',{
+    product:'business_subscription',ownerUserId:'old-owner',
+    subjectType:'venue',subjectId:'venue-1',subjectLabel:'Venue',
+    interval:'monthly',months:1,amount:'1000.00',currency:'RUB',
+    processed:false,createdAt:'2027-01-31T12:00:00.000Z'
+  });
+  f.setProviderMode('webhook');
+  f.setRemote({
+    id:'business-payment-1',status:'succeeded',paid:true,test:false,
+    amount:{value:'1000.00',currency:'RUB'},
+    metadata:{
+      product:'sportbuddy78_business_subscription',userId:'old-owner',
+      subjectType:'venue',subjectId:'venue-1',interval:'monthly',months:'1'
+    }
+  });
+  const response=await f.request(webhook,{event:'payment.succeeded',object:{id:'business-payment-1'}});
+  assert.equal(response.statusCode,200);
+  const subscription=f.data.get('businessSubscriptions/venue:venue-1');
+  assert.equal(subscription.ownerUserId,'new-owner');
+  assert.equal(subscription.activeUntil,'2027-04-01T12:00:00.000Z');
+  const payment=f.data.get('payments/business-payment-1');
+  assert.equal(payment.processed,true);
+  assert.equal(payment.fulfillmentStatus,'owner_changed_manual_review');
+  assert.equal(payment.fulfillmentExpectedOwnerUserId,'old-owner');
+  assert.equal(payment.fulfillmentCurrentOwnerUserId,'new-owner');
+  assert.ok(f.data.has('billingLedger/yookassa-owner-conflict:business-payment-1'));
+  assert.equal(f.data.has('billingLedger/yookassa:business-payment-1'),false);
+  assert.equal(f.data.has('businessContracts/business-payment-1'),false);
+
+  const duplicate=await f.request(webhook,{event:'payment.succeeded',object:{id:'business-payment-1'}});
+  assert.equal(duplicate.statusCode,200);
+  assert.equal(f.data.get('businessSubscriptions/venue:venue-1').ownerUserId,'new-owner');
+});

@@ -146,7 +146,7 @@ export function AdminApkManager(){
         <Upload className="h-4 w-4"/>{busy==='upload'?'Загружаем…':'Загрузить как черновик'}
       </button>
       <p className="text-[9px] leading-relaxed text-slate-600">
-        Сервер проверяет расширение, размер, APK/ZIP-заголовок и SHA-256. Подпись Android должна быть выполнена вашим production-ключом до загрузки. Публикация выполняется отдельной кнопкой после загрузки.
+        Сервер проверяет SHA-256, AndroidManifest.xml, package ru.sportbuddy.mobile, versionName/versionCode и наличие APK Signature Scheme v2/v3. При публикации сертификат повторно сверяется с production-сертификатом текущего доверенного APK.
       </p>
     </div>
 
@@ -165,6 +165,12 @@ export function AdminApkManager(){
                     {item.active&&<span className="rounded-full bg-lime-400/15 px-2 py-0.5 text-[9px] font-black text-lime-300">АКТИВНА</span>}
                   </div>
                   <p className="mt-1 text-[9px] text-slate-500">{mb(item.fileSize)} · загружен {date(item.createdAt)}</p>
+                  {item.packageName&&<div className="mt-2 rounded-lg border border-slate-800 bg-slate-950/70 p-2 text-[9px] leading-relaxed text-slate-400">
+                    <p>Package: <b className="text-white">{item.packageName}</b></p>
+                    <p>Manifest: <b className="text-white">v{item.manifestVersionName} · build {item.manifestVersionCode}</b></p>
+                    <p>Подпись: <b className="text-white">{item.signatureScheme||'—'}</b> · <span className={item.signatureTrusted?'text-lime-300':'text-amber-300'}>{item.signatureTrusted?'production-подпись подтверждена':'сертификат будет сверён при публикации'}</span></p>
+                    {item.signingCertSha256&&<p className="truncate font-mono" title={item.signingCertSha256}>Cert SHA-256: {item.signingCertSha256}</p>}
+                  </div>}
                   {item.releaseNotes&&<p className="mt-2 whitespace-pre-wrap text-[10px] leading-relaxed text-slate-300">{item.releaseNotes}</p>}
                 </div>
                 <div className="flex gap-2">
