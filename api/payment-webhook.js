@@ -54,6 +54,23 @@ export default async function handler(req, res) {
         const subscriptionSnap = await tx.get(subscriptionRef);
         const adminSnap = adminRef ? await tx.get(adminRef) : null;
         const subscription = subscriptionSnap.exists ? subscriptionSnap.data() || {} : {};
+        if(subscriptionSnap.exists && String(subscription.ownerUserId||'')!==String(expected.ownerUserId||'')){
+          const processedAt=new Date(now).toISOString();
+          tx.create(db.collection('billingLedger').doc(`yookassa-owner-conflict:${id}`),{
+            eventType:'payment_owner_conflict',provider:'yookassa',paymentId:id,
+            subjectType:expected.subjectType,subjectId:expected.subjectId,subjectLabel:expected.subjectLabel,
+            paymentOwnerUserId:expected.ownerUserId,currentOwnerUserId:String(subscription.ownerUserId||''),
+            amountRub:Number(expected.amount),currency:'RUB',createdAt:processedAt,
+            note:'Платёж подтверждён после смены владельца; услуга не выдана, требуется ручная проверка.'
+          });
+          tx.update(ref,{
+            status:'succeeded',processed:true,processedAt,
+            fulfillmentStatus:'owner_changed_manual_review',
+            fulfillmentExpectedOwnerUserId:expected.ownerUserId,
+            fulfillmentCurrentOwnerUserId:String(subscription.ownerUserId||'')
+          });
+          return;
+        }
         const currentRaw = subscription.activeUntil;
         const currentExpiry = currentRaw?.toDate ? currentRaw.toDate().getTime() : Date.parse(String(currentRaw || ''));
         const freeRaw = adminSnap?.exists && adminSnap.data()?.foundingCoach === true ? adminSnap.data()?.foundingCoachFreeUntil : '';
@@ -87,7 +104,23 @@ export default async function handler(req, res) {
         const subscriptionSnap = await tx.get(subscriptionRef);
         if (!subscriptionSnap.exists) throw new Error('Business subscription missing');
         const subscription = subscriptionSnap.data() || {};
-        if (subscription.ownerUserId !== expected.ownerUserId) throw new Error('Business owner changed');
+        if(String(subscription.ownerUserId||'')!==String(expected.ownerUserId||'')){
+          const processedAt=new Date(now).toISOString();
+          tx.create(db.collection('billingLedger').doc(`yookassa-owner-conflict:${id}`),{
+            eventType:'promotion_owner_conflict',provider:'yookassa',paymentId:id,
+            subjectType:expected.subjectType,subjectId:expected.subjectId,subjectLabel:expected.subjectLabel,
+            paymentOwnerUserId:expected.ownerUserId,currentOwnerUserId:String(subscription.ownerUserId||''),
+            amountRub:Number(expected.amount),currency:'RUB',createdAt:processedAt,
+            note:'Оплата продвижения подтверждена после смены владельца; продвижение не выдано, требуется ручная проверка.'
+          });
+          tx.update(ref,{
+            status:'succeeded',processed:true,processedAt,
+            fulfillmentStatus:'owner_changed_manual_review',
+            fulfillmentExpectedOwnerUserId:expected.ownerUserId,
+            fulfillmentCurrentOwnerUserId:String(subscription.ownerUserId||'')
+          });
+          return;
+        }
         const currentRaw = subscription.promotedUntil;
         const currentExpiry = currentRaw?.toDate ? currentRaw.toDate().getTime() : Date.parse(String(currentRaw || ''));
         const base = Number.isFinite(currentExpiry) && currentExpiry > now ? currentExpiry : now;
