@@ -188,7 +188,8 @@ function readLp(buffer,offset){
 }
 
 function certificateFromSchemeValue(value){
-  const signer=readLp(value,0).value;
+  const signerSequence=readLp(value,0).value;
+  const signer=readLp(signerSequence,0).value;
   const signedData=readLp(signer,0).value;
   const digests=readLp(signedData,0);
   const certificates=readLp(signedData,digests.next).value;
