@@ -43,3 +43,14 @@ test('concurrent first logins resolve to the same deterministic UID', async () =
   };
   assert.equal((await resolveVkIdentity({ ...args, auth })).user.uid, 'vk_123');
 });
+
+test('VK login mode never creates a missing account', async () => {
+  const auth = {
+    async getUser() { throw missing(); },
+    async createUser() { assert.fail('login mode must not create'); }
+  };
+  await assert.rejects(
+    resolveVkIdentity({ ...args, auth, allowCreate:false }),
+    error => error?.code === 'VK_ACCOUNT_NOT_FOUND'
+  );
+});
