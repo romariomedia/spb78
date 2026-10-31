@@ -3,7 +3,7 @@ import { Modal } from './Modal';
 import { LegalSection } from './LegalSection';
 import { recordRegistrationLegalAcceptance } from '../services/legalAcceptance';
 import { nativeVkAuthorizeUrl, exchangeNativeVkCallback } from '../services/nativeVk';
-import { beginVkRedirect, consumeVkRedirect, cleanVkCallback } from '../services/vkRedirect';
+import { beginVkRedirect, consumeVkRedirect, cleanVkCallback, type VkAuthFlowContext } from '../services/vkRedirect';
 import { isBetaActive } from '../lib/release';
 import { useEffect, useRef, useState } from 'react';
 import * as VKID from '@vkid/sdk';
@@ -99,16 +99,29 @@ export function AuthScreen({ onAuthenticated, initialNotice = '', onBrowse }: Pr
   const registrationModeRef = useRef(true);
   const vkInFlight = useRef(false);
 
+  const currentVkFlow = (): VkAuthFlowContext => ({
+    registrationMode: registrationModeRef.current,
+    termsAccepted: termsAcceptedRef.current,
+    personalDataAccepted: personalDataAcceptedRef.current
+  });
+
   // Shared tail of the VK ID flow: exchange code → profile → local account.
-  const finishVkLogin = async (code: string, deviceId: string, callbackUrl?: string) => {
+  const finishVkLogin = async (
+    code: string,
+    deviceId: string,
+    callbackUrl?: string,
+    restoredFlow?: VkAuthFlowContext
+  ) => {
     if (vkInFlight.current) return;
     vkInFlight.current = true;
     setError('');
     setVkBusy(true);
     try {
+      let flow = restoredFlow ?? currentVkFlow();
       const tokens = isNativeApp
         ? await exchangeNativeVkCallback(localStorage, callbackUrl || '')
         : await VKID.Auth.exchangeCode(code, deviceId);
+      if (isNativeApp && 'flow' in tokens) flow = tokens.flow;
       let u: Record<string, unknown> = {};
       try {
         if (isNativeApp) throw new Error('Profile is verified by our server');
@@ -127,7 +140,8 @@ export function AuthScreen({ onAuthenticated, initialNotice = '', onBrowse }: Pr
         (u.email as string) || `vk_${vkId}@sportbuddy78.pro`,
         fullName,
         getHighQualityVKAvatar((u.avatar as string) || ''),
-        tokens.access_token
+        tokens.access_token,
+        flow.registrationMode
       );
 
       if (!result.ok || !result.account) {
@@ -135,8 +149,8 @@ export function AuthScreen({ onAuthenticated, initialNotice = '', onBrowse }: Pr
         return;
       }
 
-      if (result.isNewAccount || registrationModeRef.current) {
-        if (!termsAcceptedRef.current || !personalDataAcceptedRef.current) {
+      if (result.isNewAccount) {
+        if (!flow.termsAccepted || !flow.personalDataAccepted) {
           clearLocalAuthSession();
           setError('Для создания нового аккаунта сначала отдельно примите Пользовательское соглашение и Согласие на обработку персональных данных.');
           return;
@@ -150,7 +164,8 @@ export function AuthScreen({ onAuthenticated, initialNotice = '', onBrowse }: Pr
         }
       }
 
-      onAuthenticated(result.account, result.isNewAccount ?? false, getHighQualityVKAvatar((u.avatar as string) || ''));
+      const verifiedAvatar = getHighQualityVKAvatar(result.avatar || (u.avatar as string) || '');
+      onAuthenticated(result.account, result.isNewAccount ?? false, verifiedAvatar);
     } catch (error) {
       if (isNativeApp) { setError(error instanceof Error ? error.message : 'Не удалось завершить вход (VK-EXCHANGE).'); }
       else setError('Не удалось обменять код VK ID (VK-EXCHANGE). Начните вход заново. Если окно ВК закрывается или зависает, используйте вход в этой вкладке.');
@@ -231,7 +246,7 @@ export function AuthScreen({ onAuthenticated, initialNotice = '', onBrowse }: Pr
             const deviceId = callbackUrl.searchParams.get('device_id');
             if (!code || !deviceId) throw new Error('incomplete callback');
             VKID.Config.update({ state: tx.state, codeVerifier: tx.codeVerifier, redirectUrl: tx.redirectUrl });
-            void finishVkLogin(code, deviceId).finally(() => {
+            void finishVkLogin(code, deviceId, undefined, tx.flow).finally(() => {
               VKID.Config.update({ state: '', codeVerifier: '' });
             });
           }
@@ -283,7 +298,7 @@ export function AuthScreen({ onAuthenticated, initialNotice = '', onBrowse }: Pr
   const handleNativeVk = async () => {
     setError(''); setVkBusy(true);
     try {
-      const url = await nativeVkAuthorizeUrl(localStorage);
+      const url = await nativeVkAuthorizeUrl(localStorage, currentVkFlow());
       // Capacitor routes navigation to a foreign HTTPS host to Android ACTION_VIEW.
       // No localhost origin, iframe, popup or WebView cookie dependency.
       window.location.assign(url);
@@ -296,7 +311,7 @@ export function AuthScreen({ onAuthenticated, initialNotice = '', onBrowse }: Pr
     setError('');
     setVkBusy(true);
     try {
-      const tx = beginVkRedirect(sessionStorage, VKID_WEB_REDIRECT_URL);
+      const tx = beginVkRedirect(sessionStorage, VKID_WEB_REDIRECT_URL, currentVkFlow());
       VKID.Config.update({ mode: VKID.ConfigAuthMode.Redirect,
         responseMode: VKID.ConfigResponseMode.Redirect,
         state: tx.state, codeVerifier: tx.codeVerifier, redirectUrl: tx.redirectUrl });
