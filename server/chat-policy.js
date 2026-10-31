@@ -74,25 +74,19 @@ export function nextUnreadCounts(thread = {}, senderId, recipientId) {
   };
 }
 
-/**
- * Preserve messages that arrived after the client's read boundary.
- * The newest messages are always kept in recentMessages/messages, so this
- * fixes the read-vs-new-message race without resetting a later unread.
- */
-export function unreadCountAfterTimestamp(thread = {}, uid, readAt = 0) {
-  const boundary = Number(readAt || 0);
-  const recent = Array.isArray(thread.recentMessages)
-    ? thread.recentMessages
-    : Array.isArray(thread.messages) ? thread.messages : [];
-  const after = recent.filter(message =>
-    !message?.deletedAt &&
-    message?.senderId !== uid &&
-    Number(message?.timestamp || 0) > boundary
-  ).length;
-  if (after > 0) return Math.min(999, after);
-  const last = Number(thread.lastMessageAt || 0);
-  if (last > boundary) return Math.min(999, Math.max(1, Number(thread.unreadCount?.[uid] || 0)));
-  return 0;
+/** Count the complete authoritative tail for a partial read, beyond the preview. */
+export async function unreadCountAfterTimestamp(thread = {}, uid, readAt = 0, tx, chatRef) {
+  const boundary=Number(readAt||0);
+  if(boundary>=Number(thread.lastMessageAt||0))return 0;
+  let messages=Array.isArray(thread.messages)?thread.messages:[];
+  if(Number(thread.messageStorageVersion||0)>=2){
+    const tail=await tx.get(chatRef.collection('messages').where('timestamp','>',boundary));
+    messages=tail.docs.map(doc=>doc.data());
+  }else if(Array.isArray(thread.recentMessages)&&!messages.length){
+    messages=thread.recentMessages;
+  }
+  return Math.min(999,messages.filter(message=>!message?.deletedAt&&
+    message?.senderId!==uid&&Number(message?.timestamp||0)>boundary).length);
 }
 
 

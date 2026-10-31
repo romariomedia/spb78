@@ -1,4 +1,7 @@
 import {createHash,X509Certificate} from 'node:crypto';
+import {execFile} from 'node:child_process';
+import {promisify} from 'node:util';
+const execFileAsync=promisify(execFile);
 import {open,stat} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import {inflateRawSync} from 'node:zlib';
@@ -84,7 +87,7 @@ async function extractEntry(fd,entry){
   const compressed=await readExact(fd,dataOffset,entry.compressedSize);
   let output;
   if(entry.method===0)output=compressed;
-  else if(entry.method===8)output=inflateRawSync(compressed);
+  else if(entry.method===8)output=inflateRawSync(compressed,{maxOutputLength:MAX_MANIFEST_BYTES});
   else fail('Неподдерживаемый метод сжатия AndroidManifest.xml.','APK_ZIP_METHOD_UNSUPPORTED',400);
   if(output.length!==entry.uncompressedSize)fail('Размер AndroidManifest.xml не совпадает с ZIP-каталогом.','APK_MANIFEST_INVALID',400);
   return output;
@@ -247,6 +250,24 @@ async function inspectSigningBlock(fd,centralOffset){
   fail('В APK Signing Block нет поддерживаемой подписи v2/v3.','APK_SIGNATURE_UNSUPPORTED',400);
 }
 
+/** Verify the signed contents, not merely the public certificate in the ZIP. */
+export async function verifyApkSignature(path,env=process.env){
+  let stdout;
+  try{
+    ({stdout}=await execFileAsync(env.SB_APKSIGNER_PATH||'apksigner',
+      ['verify','--verbose','--print-certs',resolve(path)],
+      {timeout:30000,maxBuffer:1024*1024,encoding:'utf8'}));
+  }catch(error){
+    if(error.code==='ENOENT')fail('На сервере не установлен apksigner. Установите apksigner и Java перед загрузкой APK.','APK_VERIFIER_UNAVAILABLE',503);
+    if(error.killed)fail('Проверка подписи APK превысила время ожидания.','APK_VERIFIER_TIMEOUT',503);
+    fail('Цифровая подпись APK недействительна или файл повреждён.','APK_SIGNATURE_INVALID',400);
+  }
+  const certs=[...stdout.matchAll(/^Signer #\d+ certificate SHA-256 digest: ([a-fA-F0-9:]+)\s*$/gm)].map(m=>normalizeFingerprint(m[1]));
+  // Current production uses one signer. Multi-signer changes require explicit review.
+  if(certs.length!==1||certs[0].length!==64)fail('Не удалось подтвердить единственного подписанта APK.','APK_SIGNATURE_INVALID',400);
+  return certs[0];
+}
+
 export async function inspectApkFile(path){
   const info=await stat(path);
   if(!info.isFile()||info.size<1024)fail('APK-файл отсутствует или пуст.','APK_FILE_INVALID',400);
@@ -258,6 +279,8 @@ export async function inspectApkFile(path){
     const manifest=await extractEntry(fd,manifestEntry);
     const identity=parseBinaryAndroidManifest(manifest);
     const signing=await inspectSigningBlock(fd,directory.centralOffset);
+    const verifiedCert=await verifyApkSignature(path);
+    if(verifiedCert!==signing.signingCertSha256)fail('Сертификат APK не соответствует проверенной подписи.','APK_SIGNATURE_INVALID',400);
     return {...identity,...signing};
   }finally{await fd.close();}
 }

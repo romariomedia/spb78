@@ -59,7 +59,7 @@ test('unread metadata increments only recipient and caps safely',()=>{
   assert.equal(nextUnreadCounts({unreadCount:{u2:999}},'u1','u2').u2,999);
 });
 
-test('read receipt preserves messages that arrived after the read boundary',()=>{
+test('read receipt preserves messages that arrived after the read boundary',async()=>{
   const thread={
     lastMessageAt:300,
     unreadCount:{u1:3},
@@ -69,10 +69,10 @@ test('read receipt preserves messages that arrived after the read boundary',()=>
       {id:'concurrent',senderId:'u2',timestamp:300}
     ]
   };
-  assert.equal(unreadCountAfterTimestamp(thread,'u1',200),1);
-  assert.equal(unreadCountAfterTimestamp(thread,'u1',300),0);
-  assert.equal(unreadCountAfterTimestamp({...thread,recentMessages:[]},'u1',200),3);
-  assert.equal(unreadCountAfterTimestamp({...thread,recentMessages:[{senderId:'u1',timestamp:300}]},'u1',300),0);
+  assert.equal(await unreadCountAfterTimestamp(thread,'u1',200),1);
+  assert.equal(await unreadCountAfterTimestamp(thread,'u1',300),0);
+  assert.equal(await unreadCountAfterTimestamp({...thread,recentMessages:[]},'u1',200),0);
+  assert.equal(await unreadCountAfterTimestamp({...thread,recentMessages:[{senderId:'u1',timestamp:300}]},'u1',300),0);
 });
 
 test('message timestamps stay monotonic and spam guard rejects bursts',()=>{
@@ -105,4 +105,17 @@ test('tombstone hides user-visible text but keeps message identity',()=>{
   assert.equal(deleted.text,'Сообщение удалено');
   assert.equal(deleted.deletedAt,456);
   assert.equal(deleted.deletedBy,'u1');
+});
+
+test('partial read counts the full persisted history beyond the 60-message preview',async()=>{
+ const messages=Array.from({length:100},(_,i)=>({senderId:'other',timestamp:i+1}));
+ let queries=0;
+ const ref={collection(name){assert.equal(name,'messages');return {where(field,op,boundary){assert.deepEqual([field,op,boundary],['timestamp','>',0]);return 'tail';}};}};
+ const tx={async get(query){queries++;assert.equal(query,'tail');return {docs:messages.map(m=>({data:()=>m}))};}};
+ const thread={lastMessageAt:100,messageStorageVersion:2,recentMessages:messages.slice(-60)};
+ assert.equal(await unreadCountAfterTimestamp(thread,'me',0,tx,ref),100);
+ assert.equal(await unreadCountAfterTimestamp(thread,'me',100,tx,ref),0);
+ assert.equal(queries,1,'full reads avoid scanning history');
+ messages.push({senderId:'me',timestamp:101},{senderId:'other',timestamp:102,deletedAt:103});
+ assert.equal(await unreadCountAfterTimestamp({...thread,lastMessageAt:102},'me',0,tx,ref),100);
 });

@@ -33,7 +33,12 @@ jobs:
         run: |
           find api server shared -name '*.js' -type f -print0 | xargs -0 -n1 node --check
 
+      - name: Android signature verifier
+        run: sudo apt-get update && sudo apt-get install -y apksigner default-jre-headless
+
       - name: Тесты
+        env:
+          SB_REQUIRE_APK_VERIFIER: '1'
         run: npm test
 
       - name: Типы и сборка фронтенда

@@ -40,7 +40,7 @@ jobs:
       - name: Install and validate web build
         run: |
           npm ci --include=dev
-          npm test
+          SB_APKSIGNER_PATH="$ANDROID_HOME/build-tools/36.0.0/apksigner" SB_REQUIRE_APK_VERIFIER=1 npm test
           npm run build
       - name: Configure Firebase Android push
         env:
@@ -87,6 +87,11 @@ jobs:
           "$APKSIGNER" verify --verbose --print-certs "$APK"
           AAPT="$(find "$ANDROID_HOME/build-tools" -name aapt | sort -V | tail -n 1)"
           "$AAPT" dump badging "$APK" | grep -m1 "^package: name='ru.sportbuddy.mobile'.*versionCode='$EXPECTED_VERSION'"
+          SB_APKSIGNER_PATH="$APKSIGNER" node --input-type=module -e '
+            import {inspectApkFile,assertTrustedApkSigning} from "./server/apk-inspection.js";
+            const value=await inspectApkFile("android/app/build/outputs/apk/release/app-release.apk");
+            await assertTrustedApkSigning(value,{SB_ANDROID_SIGNING_CERT_SHA256:"1b1da30e9fd7a535e7c685e24e9e0f4ba0ec6d8caf7b7183aedf934e23e6cdf5"});
+          '
           mkdir -p release
           cp "$APK" "release/sportbuddy78-rustore-v${EXPECTED_VERSION}.apk"
           sha256sum release/*.apk

@@ -202,3 +202,45 @@ python3 ops/prune-releases.py --apply  # apply the same safety checks, then dele
 
 No cron job, daemon, new dependencies or APK rebuild is required. Disk space does not grow
 with each normal successful release, while failed/incomplete builds remain for diagnosis.
+
+## APK signature verification and chat read receipts (1 November 2026)
+
+Before preparing this release, install the signature verifier on the VPS once:
+
+```bash
+apt-get update
+apt-get install -y apksigner default-jre-headless
+apksigner version
+```
+
+The API runs `apksigner verify --verbose --print-certs` with a 30-second limit
+at upload finalization and again at publication. Missing tooling blocks these
+operations; existing downloads continue. `SB_APKSIGNER_PATH` optionally selects
+an Android SDK executable. The package/version and trusted certificate checks
+remain mandatory. A readable certificate alone is not proof of a valid signature.
+
+Tests of real APK signatures require Java/apksigner. Quality CI requires these
+checks; environments without Android tooling explicitly skip only the real APK
+integration tests. For a release verification run use
+`SB_REQUIRE_APK_VERIFIER=1 npm test` after installing the tool.
+
+The app-links file retains the previous certificate and adds the certificate
+cryptographically verified in the shipped v31 APK (1B:1D:A3:0E:9F:D7:A5:35:...
+23:E6:CD:F5). This preserves links for previously installed builds. Do not change
+or regenerate the RuStore signing key. Signed-build CI rejects a different key
+from the shipped v31 certificate; a planned key rotation requires separate review.
+
+After the web/API release is activated, build a new signed Android APK from the
+same commit using `RuStore signed APK`. Choose a versionCode greater than every
+build already distributed (the website currently serves 31). In APK Manager,
+enter the actual manifest versionName (currently 1.0), the chosen versionCode,
+upload and publish. Replacing the server alone does not replace the JS bundled
+in the installed APK. Confirm `/api/app-config` and `/api/android-download`
+serve the newly published artifact, and install it over the existing app.
+
+Chat partial-read transactions now query the persisted message tail instead of
+counting only 60 preview messages; full reads do not scan history. Client caches
+ignore older read responses and only remove inaccessible groups after a
+server-confirmed snapshot. No new composite index, rules deployment or data
+migration is required. Check VK return, two-device unread counts and Android
+app-link opening on physical devices after the new APK is installed.

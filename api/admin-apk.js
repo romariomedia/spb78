@@ -72,6 +72,7 @@ export default async function handler(req,res){
       try{
         inspection=await inspectApkFile(storedApkPath(finalized.storageName,apkStorageRoot()));
         assertApkIdentity(inspection,finalized);
+        await assertTrustedApkSigning(inspection);
       }catch(error){
         await rm(storedApkPath(finalized.storageName,apkStorageRoot()),{force:true}).catch(()=>{});
         throw error;
@@ -125,7 +126,9 @@ export default async function handler(req,res){
       const now=new Date().toISOString(),configRef=db.collection('apkConfig').doc('main');
       let active;
       await db.runTransaction(async tx=>{
-        const current=await tx.get(configRef);
+        const [current,stillPresent]=await Promise.all([tx.get(configRef),tx.get(releaseRef)]);
+        if(!stillPresent.exists||stillPresent.data()?.sha256!==release.sha256||stillPresent.data()?.storageName!==release.storageName)
+          throw Object.assign(new Error('APK-релиз изменён или удалён. Повторите публикацию.'),{status:409});
         const before=current.exists?current.data()||{}:{};
         active={
           activeReleaseId:releaseId,

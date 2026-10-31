@@ -1,11 +1,16 @@
 import test from 'node:test';
+import {spawnSync} from 'node:child_process';
 import assert from 'node:assert/strict';
 import {mkdtemp,readFile,writeFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {
-  assertApkIdentity,assertTrustedApkSigning,inspectApkFile,trustedAndroidSigningFingerprints
+  assertApkIdentity,assertTrustedApkSigning,inspectApkFile,trustedAndroidSigningFingerprints,verifyApkSignature
 } from '../server/apk-inspection.js';
+
+const hasVerifier=spawnSync(process.env.SB_APKSIGNER_PATH||'apksigner',['version']).status===0;
+if(process.env.SB_REQUIRE_APK_VERIFIER==='1'&&!hasVerifier)throw new Error('apksigner required for release verification');
+const realApkTest=(name,fn)=>test(name,{skip:!hasVerifier},fn);
 
 async function currentSignedApk(){
   const root=await mkdtemp(join(tmpdir(),'sb78-real-apk-'));
@@ -18,7 +23,7 @@ async function currentSignedApk(){
   return {root,path};
 }
 
-test('deep APK inspector reads the real signed v31 package, manifest version and certificate',async()=>{
+realApkTest('deep APK inspector reads the real signed v31 package, manifest version and certificate',async()=>{
   const {root,path}=await currentSignedApk();
   try{
     const inspection=await inspectApkFile(path);
@@ -38,7 +43,7 @@ test('APK identity validation rejects wrong package, versionName and versionCode
   assert.throws(()=>assertApkIdentity({...good,versionCode:32},{versionName:'1.0',versionCode:31}),{code:'APK_VERSION_CODE_MISMATCH'});
 });
 
-test('trusted signing certificate falls back to the verified reference APK and rejects another cert',async()=>{
+realApkTest('trusted signing certificate falls back to the verified reference APK and rejects another cert',async()=>{
   const {root,path}=await currentSignedApk();
   try{
     const env={SB_ANDROID_TRUSTED_APK_PATH:path};
@@ -51,4 +56,32 @@ test('trusted signing certificate falls back to the verified reference APK and r
       error=>error?.code==='APK_SIGNING_CERT_MISMATCH'
     );
   }finally{await rm(root,{recursive:true,force:true});}
+});
+
+realApkTest('changing a signature byte is rejected despite keeping the original certificate',async()=>{
+ const {root,path}=await currentSignedApk();
+ try{
+  const bytes=await readFile(path);
+  const end=bytes.indexOf(Buffer.from('APK Sig Block 42'));
+  const start=end+16-Number(bytes.readBigUInt64LE(end-8))-8;
+  const value=start+8+12,signer=value+8;
+  const signatures=signer+4+bytes.readUInt32LE(signer);
+  bytes[signatures+4+bytes.readUInt32LE(signatures)-1]^=1;
+  await writeFile(path,bytes);
+  await assert.rejects(()=>inspectApkFile(path),{code:'APK_SIGNATURE_INVALID'});
+ }finally{await rm(root,{recursive:true,force:true});}
+});
+
+test('missing verifier fails closed with actionable service error',async()=>{
+ await assert.rejects(()=>verifyApkSignature('/tmp/nonexistent.apk',{SB_APKSIGNER_PATH:'/nonexistent/apksigner'}),{code:'APK_VERIFIER_UNAVAILABLE',status:503});
+});
+
+realApkTest('website app links include the certificate of the shipped APK',async()=>{
+ const {root,path}=await currentSignedApk();
+ try{
+  const inspected=await inspectApkFile(path);
+  const links=JSON.parse(await readFile(new URL('../public/.well-known/assetlinks.json',import.meta.url)));
+  const entry=links.find(x=>x.target.package_name===inspected.packageName);
+  assert.ok(entry.target.sha256_cert_fingerprints.some(x=>x.replaceAll(':','').toLowerCase()===inspected.signingCertSha256));
+ }finally{await rm(root,{recursive:true,force:true});}
 });
