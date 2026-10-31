@@ -106,7 +106,8 @@ export async function loginWithVK(
   email: string,
   fullName: string,
   avatar: string,
-  vkAccessToken?: string
+  vkAccessToken?: string,
+  allowCreate = true
 ): Promise<AuthResult & { avatar?: string }> {
   if (!vkAccessToken || !vkId) {
     return { ok: false, error: 'VK не передал действительный токен авторизации' };
@@ -121,7 +122,8 @@ export async function loginWithVK(
         vkUserId: vkId,
         email: email || vkFallbackEmail(vkId),
         name: fullName,
-        avatar
+        avatar,
+        allowCreate
       })
     });
 
