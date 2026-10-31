@@ -9,7 +9,8 @@ const api=await import('data:text/javascript;base64,'+Buffer.from(result.outputF
 const storage=()=>{const m=new Map();return {getItem:k=>m.get(k)??null,setItem:(k,v)=>m.set(k,v),removeItem:k=>m.delete(k)};};
 const callback=url=>`${url.searchParams.get('redirect_uri')}?code=one-use&device_id=test-device&state=${url.searchParams.get('state')}`;
 test('native VK uses system-browser redirect with PKCE and survives a fresh exchange instance',async()=>{
- const s=storage(),url=new URL(await api.nativeVkAuthorizeUrl(s));
+ const s=storage(),flow={registrationMode:true,termsAccepted:true,personalDataAccepted:true};
+ const url=new URL(await api.nativeVkAuthorizeUrl(s,flow));
  assert.equal(url.origin,'https://id.vk.ru');assert.equal(url.searchParams.get('client_id'),'54699979');
  assert.equal(url.searchParams.get('redirect_uri'),'https://sportbuddy78.pro/vk-callback');
  assert.equal(url.searchParams.get('origin'),null);assert.equal(url.searchParams.get('code_challenge_method'),'S256');
@@ -22,7 +23,7 @@ test('native VK uses system-browser redirect with PKCE and survives a fresh exch
   assert.equal(form.get('device_id'),'test-device');
   return Response.json({access_token:'test-token',user_id:42,state:form.get('state')});
  };
- assert.deepEqual(await api.exchangeNativeVkCallback(s,callback(url)),{access_token:'test-token',user_id:'42'});
+ assert.deepEqual(await api.exchangeNativeVkCallback(s,callback(url)),{access_token:'test-token',user_id:'42',flow});
  await assert.rejects(api.exchangeNativeVkCallback(s,callback(url)),/VK-SESSION/);assert.equal(count,1);
 });
 test('native VK rejects forged callback origin, path, state and token-response state',async()=>{
