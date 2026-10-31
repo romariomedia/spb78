@@ -146,7 +146,7 @@ export function AdminApkManager(){
         <Upload className="h-4 w-4"/>{busy==='upload'?'Загружаем…':'Загрузить как черновик'}
       </button>
       <p className="text-[9px] leading-relaxed text-slate-600">
-        Сервер проверяет расширение, размер, APK/ZIP-заголовок и SHA-256. Подпись Android должна быть выполнена вашим production-ключом до загрузки. Публикация выполняется отдельной кнопкой после загрузки.
+        Сервер проверяет SHA-256, AndroidManifest.xml, package ru.sportbuddy.mobile, versionName/versionCode и наличие APK Signature Scheme v2/v3. При публикации сертификат повторно сверяется с production-сертификатом текущего доверенного APK.
       </p>
     </div>
 
