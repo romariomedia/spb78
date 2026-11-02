@@ -1,10 +1,9 @@
 import { useBackLayer } from '../hooks/useMobileNavigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowRight, ChevronLeft, ChevronRight, X, Zap, MapPin, BookOpen } from 'lucide-react';
+import { ArrowRight, ChevronLeft, ChevronRight, X, Zap, Sparkles } from 'lucide-react';
 import { triggerHapticImpact, triggerHapticNotification } from '../services/native';
 import { guideChapters } from './welcomeGuideContent';
 import './WelcomeGuide.css';
-import { WelcomeGuideArtwork } from './WelcomeGuideArtwork';
 
 const GUIDE_SEEN_KEY='sportbuddy_welcome_guide_v2';
 export function hasSeenWelcomeGuide():boolean {try{return localStorage.getItem(GUIDE_SEEN_KEY)==='1';}catch{return false;}}
@@ -54,17 +53,12 @@ export function WelcomeGuide({isOpen,onClose,userName,onStart,initialSlide=0}:We
     {slides.map((item,i)=><button key={item.id} aria-current={i===index?'step':undefined} onClick={()=>go(i)}><span>{String(i+1).padStart(2,'0')}</span>{item.label}</button>)}
    </nav>
    <div className="sb-guide-body" ref={scroll}>
-    <figure className="sb-guide-art" key={'art-'+slide.id}>
-     <WelcomeGuideArtwork key={slide.id} art={slide.art}/>
-     <div className="sb-guide-art-shade"/>
-     <figcaption><MapPin size={13}/> Санкт-Петербург и дальше</figcaption>
-    </figure>
     <article key={slide.id} className="sb-guide-copy">
-     <p className="sb-guide-kicker">{index===0&&userName?`Привет, ${userName.split(' ')[0]}!`:slide.eyebrow}</p>
+     <p className="sb-guide-kicker">{index===0&&userName?`Привет, ${userName.trim().split(/\s+/)[0]?.slice(0,24)}!`:slide.eyebrow}</p>
      <h2 id="sb-guide-title" aria-live="polite">{slide.title}<em>{slide.accent}</em></h2>
      <p className="sb-guide-lead">{slide.lead}</p>
      {slide.points.length > 0 && <ol className="sb-guide-steps">{slide.points.map(([title,detail],i)=><li key={title}><span className="sb-guide-number">0{i+1}</span><div><h3>{title}</h3><p>{detail}</p></div></li>)}</ol>}
-     <aside className="sb-guide-tip"><BookOpen size={17}/><p>{slide.tip}</p></aside>
+     <aside className="sb-guide-tip"><Sparkles size={16} aria-hidden="true"/><p>{slide.tip}</p></aside>
     </article>
    </div>
    <footer className="sb-guide-footer">
