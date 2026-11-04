@@ -152,7 +152,9 @@ export function InstallApp({ autoPromptEnabled = true }: InstallAppProps) {
                 <img
                   src={INSTALL_PROMO_HERO}
                   alt="SportBuddy78 — найди своих, двигайся вместе"
-                  className="h-full w-full object-cover"
+                  width={1672}
+                  height={941}
+                  className="h-full w-full object-contain"
                   decoding="async"
                   loading="eager"
                   onError={() => setHeroFailed(true)}
