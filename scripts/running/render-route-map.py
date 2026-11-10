@@ -1,52 +1,80 @@
-from PIL import Image,ImageDraw,ImageFont,ImageEnhance
+"""Render the catalogue's geographic display paths over attributed OSM tiles.
+Run from any directory; requires Pillow. Tiles are cached outside the repository.
+"""
+from PIL import Image, ImageDraw, ImageFont, ImageEnhance
 from pathlib import Path
-import math,xml.etree.ElementTree as E,urllib.request,io,json
-root=Path(__file__).resolve().parents[2]
-route=next(r for r in json.loads((root/'shared/running-routes.json').read_text()) if r['id']=='alexandriysky')
-pts=[(p['lng'],p['lat']) for p in route['displayPath']]
-z=15
-N=256*2**z
-def pixel(p):
- lng,lat=p;v=math.radians(lat)
- return (lng+180)/360*N,(1-math.asinh(math.tan(v))/math.pi)/2*N
-xy=[pixel(p) for p in pts]
-xs,ys=zip(*xy)
-x0=int(min(xs))-100;y0=int(min(ys))-65;x1=int(max(xs))+100;y1=int(max(ys))+65
-im=Image.new('RGB',(x1-x0,y1-y0))
-for x in range(x0//256,x1//256+1):
- for y in range(y0//256,y1//256+1):
-  req=urllib.request.Request(f'https://tile.openstreetmap.org/{z}/{x}/{y}.png',headers={'User-Agent':'SportBuddy78 route preview (one-off map composition)'})
-  data=urllib.request.urlopen(req,timeout=25).read()
-  tile=Image.open(io.BytesIO(data)).convert('RGB');im.paste(tile,(x*256-x0,y*256-y0))
-W,H=1600,1200
-canvas=Image.new('RGB',(W,H),'#080e15');d=ImageDraw.Draw(canvas)
-font='/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf';bold='/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
-def text(x,y,t,size=24,fill='#e9f0f4',weight=False):d.text((x,y),t,font=ImageFont.truetype(bold if weight else font,size),fill=fill)
-text(64,36,'SPORTBUDDY',34,weight=True);text(337,36,'78',34,'#c6ff00',True)
-text(64,105,'АЛЕКСАНДРИЙСКИЙ ПАРК',48,weight=True)
-text(65,169,'ПЕТЕРГОФ  /  ВИД СВЕРХУ',23,'#91a2ae')
-d.rounded_rectangle((1245,42,1536,191),radius=28,fill='#c6ff00');text(1288,60,'5 КМ',56,'#0b1419',True);text(1288,135,'ДИСТАНЦИЯ',19,'#0b1419',True)
-# Map background retains real roads, buildings and park geometry, muted for high-contrast route.
-mapw,maph=1472,800
-scale=min(mapw/im.width,maph/im.height)
-im=im.resize((round(im.width*scale),round(im.height*scale)),Image.Resampling.LANCZOS)
-im=ImageEnhance.Color(im).enhance(.45);im=ImageEnhance.Brightness(im).enhance(.42)
-left=(W-im.width)//2;top=232+(maph-im.height)//2
-canvas.paste(im,(left,top));d=ImageDraw.Draw(canvas)
-line=[((x-x0)*scale+left,(y-y0)*scale+top) for x,y in xy]
-d.line(line,fill='#14210d',width=17,joint='curve');d.line(line,fill='#c6ff00',width=7,joint='curve')
-# Arrowheads give direction, rather than inventing an illustrative route shape.
-for i in [6,14,24,34,46,58,66]:
- a,b=line[i-1],line[i];ang=math.atan2(b[1]-a[1],b[0]-a[0]);cx,cy=b
- tri=[(cx+10*math.cos(ang),cy+10*math.sin(ang)),(cx+9*math.cos(ang+2.5),cy+9*math.sin(ang+2.5)),(cx+9*math.cos(ang-2.5),cy+9*math.sin(ang-2.5))]
- d.polygon(tri,fill='#f4ffd6')
-for point,label,offset,color in [(line[0],'СТАРТ',(26,-50),'#c6ff00'),(line[-1],'ФИНИШ',(26,20),'#ffffff')]:
- x,y=point;d.ellipse((x-11,y-11,x+11,y+11),fill=color,outline='#080e15',width=3)
- tx,ty=x+offset[0],y+offset[1];d.line([(x,y),(tx,ty+18)],fill=color,width=2)
- d.rounded_rectangle((tx-5,ty-2,tx+120,ty+35),radius=8,fill='#080e15');text(tx,ty,label,22,color,True)
-text(1458,245,'С',20,'#ffffff',True);d.line((1470,310,1470,276),fill='#ffffff',width=3);d.polygon([(1470,263),(1464,278),(1476,278)],fill='#ffffff')
-text(64,1054,'1 КРУГ   •   ГРУНТ   •   ПРОТИВ ЧАСОВОЙ СТРЕЛКИ',24,'#c6ff00',True)
-text(64,1100,'5 км — замер организаторов; линия карты ≈ 4,93 км. Рейтинг ожидает проверки.',20,'#b3c0c9')
-text(64,1142,'Трасса: 5 вёрст Петергоф / Google My Maps  ·  Подложка: © OpenStreetMap contributors',17,'#8b9aa5')
-canvas.save(root/'public/running/alexandriysky-map.webp',quality=90)
-print('Created',canvas.size,'points',len(pts))
+from concurrent.futures import ThreadPoolExecutor
+import math, urllib.request, json, tempfile
+ROOT = Path(__file__).resolve().parents[2]
+CACHE = Path(tempfile.gettempdir()) / 'sb78-osm-tiles'
+CACHE.mkdir(exist_ok=True)
+W, H = 2000, 1600
+LIME = '#c6ff00'
+FONT = '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'
+BOLD = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
+
+def render(route):
+    z = 16
+    n = 256 * 2**z
+    def pixel(lng, lat):
+        return ((lng+180)/360*n, (1-math.asinh(math.tan(math.radians(lat)))/math.pi)/2*n)
+    xy = [pixel(p['lng'], p['lat']) for p in route['displayPath']]
+    xs, ys = zip(*xy)
+    # Reserve header and footer while filling the whole card with geographic context.
+    scale = min((W-360)/(max(xs)-min(xs)), (H-600)/(max(ys)-min(ys)))
+    cx, cy = (min(xs)+max(xs))/2, (min(ys)+max(ys))/2
+    x0, y0 = cx-W/scale/2, cy-(H/2+35)/scale
+    bw, bh = math.ceil(W/scale), math.ceil(H/scale)
+    base = Image.new('RGB', (bw, bh))
+    tiles = [(x,y) for x in range(math.floor(x0/256),math.ceil((x0+bw)/256)) for y in range(math.floor(y0/256),math.ceil((y0+bh)/256))]
+    def fetch(t):
+        x,y=t; path=CACHE/f'{z}-{x}-{y}.png'
+        if not path.exists():
+            req=urllib.request.Request(f'https://tile.openstreetmap.org/{z}/{x}/{y}.png',headers={'User-Agent':'SportBuddy78 route card renderer; one-off catalogue previews'})
+            path.write_bytes(urllib.request.urlopen(req,timeout=30).read())
+        return x,y,path
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        for x,y,path in pool.map(fetch, tiles):
+            with Image.open(path) as tile:base.paste(tile.convert('RGB'),(round(x*256-x0),round(y*256-y0)))
+    base=base.resize((W,H),Image.Resampling.LANCZOS)
+    base=ImageEnhance.Color(base).enhance(.48)
+    base=Image.blend(base,Image.new('RGB',(W,H),'#0b1b2c'),.57).convert('RGBA')
+    overlay=Image.new('RGBA',(W,H));od=ImageDraw.Draw(overlay)
+    for y in range(H):
+        alpha=int(240*max(0,1-y/360)) if y<360 else int(245*max(0,(y-(H-290))/290))
+        if alpha:od.line((0,y,W,y),fill=(6,13,22,alpha))
+    base=Image.alpha_composite(base,overlay);d=ImageDraw.Draw(base)
+    def text(x,y,s,size=24,color='#f4f7fa',bold=False):d.text((x,y),s,font=ImageFont.truetype(BOLD if bold else FONT,size),fill=color)
+    line=[((x-x0)*scale,(y-y0)*scale) for x,y in xy]
+    d.line(line,fill='#122310',width=25,joint='curve');d.line(line,fill=LIME,width=11,joint='curve')
+    # Evenly spaced direction arrows, independent of source point density.
+    walked=0;next_arrow=260
+    for a,b in zip(line,line[1:]):
+        length=math.dist(a,b)
+        while walked+length>=next_arrow and length:
+            t=(next_arrow-walked)/length;x=a[0]+t*(b[0]-a[0]);y=a[1]+t*(b[1]-a[1]);ang=math.atan2(b[1]-a[1],b[0]-a[0])
+            d.polygon([(x+16*math.cos(ang),y+16*math.sin(ang)),(x+14*math.cos(ang+2.5),y+14*math.sin(ang+2.5)),(x+14*math.cos(ang-2.5),y+14*math.sin(ang-2.5))],fill='#ffffff');next_arrow+=260
+        walked+=length
+    x,y=line[0]
+    d.ellipse((x-19,y-19,x+19,y+19),fill=LIME,outline='#07111c',width=5)
+    label='СТАРТ / ФИНИШ';tx=min(W-380,max(50,x+32));ty=max(255,y-58)
+    d.rounded_rectangle((tx-14,ty-10,tx+325,ty+42),radius=14,fill='#0b1521');text(tx,ty,label,29,LIME,True)
+    if math.dist(line[0],line[-1])>25:
+        fx,fy=line[-1];d.ellipse((fx-12,fy-12,fx+12,fy+12),fill='white',outline='#07111c',width=4)
+    text(70,45,'SPORTBUDDY78',30,LIME,True)
+    title=route['name'].upper();size=60 if len(title)<24 else 53
+    text(70,103,title,size,bold=True);text(73,183,route['city'].upper(),25,'#b8c9d7')
+    d.rounded_rectangle((1570,45,1930,222),radius=26,fill=LIME)
+    text(1600,65,route['distanceLabel'].upper(),66,'#0b1521',True);text(1603,151,'ДИСТАНЦИЯ',25,'#0b1521',True)
+    text(70,H-145,'1 КРУГ',30,LIME,True)
+    caption={'park300':'АЛЛЕИ И ФИНСКИЙ ЗАЛИВ','alexandriysky':'ПАРКОВЫЕ ДОРОЖКИ','neva-bridges':'ДВОРЦОВЫЙ + БЛАГОВЕЩЕНСКИЙ'}[route['id']]
+    text(265,H-145,caption,29,bold=True)
+    text(70,H-62,'© OpenStreetMap contributors',21,'#bccad2')
+    if route['id']=='alexandriysky':text(650,H-62,'Трасса: 5 вёрст Петергоф',21,'#bccad2')
+    text(1875,270,'С',28,bold=True);d.polygon([(1887,312),(1874,344),(1887,336),(1900,344)],fill='white')
+    base.convert('RGB').save(ROOT/'public'/route['mapImage'].lstrip('/'),quality=91)
+    print(route['id'],route['distanceLabel'],flush=True)
+
+if __name__=='__main__':
+    for route in json.loads((ROOT/'shared/running-routes.json').read_text()):
+        render(route)
