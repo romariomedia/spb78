@@ -8,6 +8,7 @@ export function requiresLegalAcceptance(name,req){
   if(name==='sportbuddy-mutation')return !['bootstrapProfile','syncIdentity','myPromos'].includes(b.action)&&!(b.action==='chat'&&b.operation==='history');
   if(name==='sport-id-verification')return ['trainerServices','trainerSave','trainerSubmit','submit','bookingCreate','bookingAccept'].includes(b.action);
   if(name==='sport-passport')return b.action==='update'||(b.action==='setPublic'&&b.enabled===true);
+  if(name==='running')return b.action==='save';
   if(name==='stories')return b.action==='create';
   if(name==='public-consent')return b.operation==='grant';
   if(name==='business-legal-profile')return b.operation==='save';

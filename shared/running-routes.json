@@ -1,0 +1,20 @@
+[
+  {
+    "id": "park300", "version": 1, "name": "Парк 300-летия", "city": "Санкт-Петербург",
+    "description": "Пробежка у Финского залива с видами на Лахта Центр. Выберите дорожки по силам; на открытых участках бывает ветрено.",
+    "surface": "Асфальт и плитка", "distanceLabel": "Свободная дистанция", "start": null,
+    "meetingPoint": "Выберите точку встречи на карте при создании тренировки",
+    "images": ["/running/park300-1.webp", "/running/park300-2.webp", "/running/park300-3.webp"],
+    "sourceUrl": "https://www.sportmaster.ru/media/routes/sankt-peterburg/beg/",
+    "verified": false, "path": [], "distanceM": null
+  },
+  {
+    "id": "alexandriysky", "version": 1, "name": "Александрийский парк", "city": "Петергоф",
+    "description": "Грунтовый круг в пейзажном парке. Ориентир — трасса 5 вёрст: против часовой стрелки, от входа напротив вокзала. После дождя возможны лужи и грязь. SportBuddy78 не является организатором забегов 5 вёрст.",
+    "surface": "Грунт", "distanceLabel": "5 км по описанию трассы", "start": {"lat": 59.865668, "lng": 29.925865},
+    "meetingPoint": "Вход в Александрийский парк напротив вокзала Новый Петергоф",
+    "images": ["/running/alexandriysky-1.webp", "/running/alexandriysky-2.webp", "/running/alexandriysky-3.webp"],
+    "sourceUrl": "https://5verst.ru/petergofaleksandriysky/course/",
+    "verified": false, "path": [], "distanceM": 5000
+  }
+]

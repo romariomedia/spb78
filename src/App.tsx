@@ -1,3 +1,4 @@
+import type {RunningRoute} from './components/RunningPanel';
 import {TrainerLevelBadge} from './components/TrainerLevelBadge';
 import {TrainerBookings} from './components/TrainerBookings';
 import { PersonalTrainerPanel } from './components/PersonalTrainerPanel';
@@ -23,6 +24,7 @@ import { subscribeNotifications,restorePush,readNotifications } from './services
 import { trainingGenderError, trainingGenderLabel } from './lib/trainingEligibility';
 import { BetaNotice } from './components/BetaNotice';
 import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense, JSX } from 'react';
+const RunningPanel = lazy(() => import('./components/RunningPanel'));
 import { motion, AnimatePresence, useMotionValue, useTransform, useReducedMotion } from 'framer-motion';
 import { 
   Users, Dumbbell, Newspaper, MapPin, Heart, X as CloseIcon, 
@@ -221,6 +223,8 @@ export default function App(): JSX.Element {
 
   // App Core State
   const [activeTab, setActiveTab] = useState<TabType>('discover');
+  const [runningLoaded, setRunningLoaded] = useState(false);
+  useEffect(() => { if (activeTab === 'trainings') setRunningLoaded(true); }, [activeTab]);
   const [leisureEventId, setLeisureEventId] = useState('');
   const [direction, setDirection] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -276,6 +280,7 @@ export default function App(): JSX.Element {
   const [isCreateTrainingOpen, setIsCreateTrainingOpen] = useState<boolean>(false);
 
   // Create Training Form Fields
+  const [newTrRouteId, setNewTrRouteId] = useState('');
   const [newTrTitle, setNewTrTitle] = useState('');
   const [newTrSport, setNewTrSport] = useState('Бег');
   const [newTrDate, setNewTrDate] = useState(() =>
@@ -1404,6 +1409,7 @@ export default function App(): JSX.Element {
     let created: Training;
     try {
       created = await createTraining({
+        runningRouteId: newTrRouteId || undefined,
         title: newTrTitle,
         sport: newTrSport,
         dateLabel: `${formatFullDate(newTrDate)}, ${newTrTime}`,
@@ -1444,6 +1450,7 @@ export default function App(): JSX.Element {
     // Reset fields
     setNewTrGender('any');
     setNewTrDistrict('');
+    setNewTrRouteId('');
     setNewTrTitle('');
     setNewTrDesc('');
     setSelectedVenueForTraining(null);
@@ -1451,7 +1458,17 @@ export default function App(): JSX.Element {
   };
 
   /** Starts the organizer flow from a SportBuddy Places card. */
+  const handleCreateTrainingFromRoute = (route: RunningRoute) => {
+    if (!isPremium) { setProfileSection('tariff'); handleTabChange('profile'); return; }
+    setSelectedVenueForTraining(null); setVenueRentalConfirmed(false);
+    setNewTrRouteId(route.id); setNewTrTitle(`Пробежка: ${route.name}`); setNewTrSport('Бег');
+    setNewTrDesc(`${route.name}. ${route.meetingPoint}. ${route.sourceUrl}`);
+    setNewTrCity(route.city); setNewTrAddress(route.meetingPoint); setNewTrDistrict('');
+    setNewTrCoords(route.start || DEFAULT_COORDS); setNewTrLocationSelected(!!route.start);
+    setIsCreateTrainingOpen(true);
+  };
   const handleCreateTrainingFromVenue = (venue: SportVenue) => {
+    setNewTrRouteId('');
     triggerHapticImpact('medium');
     setIsPlacesOpen(false);
     setIsVenuePickerOpen(false);
@@ -1480,6 +1497,7 @@ export default function App(): JSX.Element {
 
   /** Entry point for the "Создать" button — Free users are sent to tariff. */
   const handleOpenCreateTraining = () => {
+    setNewTrRouteId('');
     triggerHapticImpact('medium');
     if (!isPremium) {
       triggerHapticNotification('warning');
@@ -2421,6 +2439,7 @@ export default function App(): JSX.Element {
               </div>
             )}
 
+            {currentUser && (runningLoaded || activeTab === 'trainings') && <Suspense fallback={null}><RunningPanel key={currentUser.id} userId={currentUser.id} visible={activeTab === 'trainings'} onOpen={() => handleTabChange('trainings')} onTraining={handleCreateTrainingFromRoute} /></Suspense>}
             {/* ==================== TAB 2: TRAININGS (ТРЕНИРОВКИ) ==================== */}
             {activeTab === 'trainings' && (
               <div className="space-y-4">

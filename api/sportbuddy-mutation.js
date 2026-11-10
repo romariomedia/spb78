@@ -1,3 +1,4 @@
+import runningRoutes from '../shared/running-routes.json' with {type:'json'};
 import { withoutLegacyLoginAvatar } from '../server/avatar-policy.js';
 import { eventStart } from '../shared/event-time.js';
 import { publicProfile } from '../server/public-profile.js';
@@ -658,7 +659,9 @@ async function trainingMutation(db, uid, body) {
     const venueRentalConfirmed = data.venueRentalConfirmed === true;
     if (venueId && !venueRentalConfirmed) throw Object.assign(new Error('Подтвердите условия посещения выбранной площадки'), { status: 400 });
     const districtId = data.districtId === undefined ? '' : validateDistrictId(data.districtId);
-    const training = { id, districtId, participantGender, title:data.title.trim(), sport:String(data.sport || ''), dateKey, time,
+    const runningRoute = data.runningRouteId ? runningRoutes.find(r=>r.id===data.runningRouteId) : null;
+    if(data.runningRouteId && (!runningRoute || data.sport!=='Бег'))throw Object.assign(new Error('Некорректный беговой маршрут'),{status:400});
+    const training = { ...(runningRoute?{runningRouteId:runningRoute.id,runningRouteVersion:runningRoute.version}:{}), id, districtId, participantGender, title:data.title.trim(), sport:String(data.sport || ''), dateKey, time,
       dateLabel:String(data.dateLabel || dateKey), locationName:String(data.locationName || ''), address:String(data.address || ''),
       lat, lng, level:['amateur','semi-pro','pro'].includes(data.level)?data.level:'amateur', participantsMax:max,
       description:String(data.description || '').slice(0,2000),
