@@ -3,6 +3,8 @@ import type {RunPoint} from '../../shared/running.js';
 export type RunDraft={id:string;routeId:string;routeVersion?:number;startedAt:number;endedAt?:number;points:RunPoint[];segment:number;publish?:boolean};
 export type RecorderSnapshot={draft:RunDraft|null;recording:boolean;error:string};
 interface Recorder {
+ cardCapabilities():Promise<{save:boolean}>;
+ saveCard(options:{data:string}):Promise<{cancelled:boolean}>;
  shareCard(options:{data:string}):Promise<void>;
  snapshot(options:{owner:string}):Promise<RecorderSnapshot>;
  start(options:{owner:string;draft:RunDraft}):Promise<RecorderSnapshot>;

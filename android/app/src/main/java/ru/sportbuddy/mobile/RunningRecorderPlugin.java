@@ -4,6 +4,7 @@ import android.Manifest;
 import android.content.Intent;
 import android.os.*;
 import androidx.core.content.ContextCompat;
+import androidx.activity.result.ActivityResult;
 import com.getcapacitor.*;
 import com.getcapacitor.annotation.*;
 import org.json.*;
@@ -15,11 +16,45 @@ import org.json.*;
 public class RunningRecorderPlugin extends Plugin {
     private static final java.util.concurrent.ConcurrentHashMap<String,Integer> epochs = new java.util.concurrent.ConcurrentHashMap<>();
     static boolean isCurrentStart(String owner, int epoch) { return owner != null && epochs.getOrDefault(owner, 0) == epoch; }
+    @PluginMethod public void cardCapabilities(PluginCall call) { call.resolve(new JSObject().put("save", true)); }
+    private byte[] cardBytes(PluginCall call) throws Exception {
+        String data = call.getString("data");
+        if (data == null || data.length() > 12000000) throw new Exception("Некорректная карточка");
+        byte[] bytes = android.util.Base64.decode(data, android.util.Base64.DEFAULT);
+        byte[] signature = {(byte)137, 80, 78, 71, 13, 10, 26, 10};
+        if (bytes.length < signature.length) throw new Exception("Некорректный PNG");
+        for (int i = 0; i < signature.length; i++) if (bytes[i] != signature[i]) throw new Exception("Некорректный PNG");
+        return bytes;
+    }
+    @PluginMethod public void saveCard(PluginCall call) {
+        try {
+            cardBytes(call);
+            Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
+                .setType("image/png").putExtra(Intent.EXTRA_TITLE, "sportbuddy-run-" + System.currentTimeMillis() + ".png");
+            startActivityForResult(call, intent, "cardDestination");
+        } catch (Exception e) { call.reject("Не удалось открыть сохранение карточки", e); }
+    }
+    @ActivityCallback private void cardDestination(PluginCall call, ActivityResult result) {
+        if (call == null) return;
+        if (result.getResultCode() != android.app.Activity.RESULT_OK) {
+            call.resolve(new JSObject().put("cancelled", true)); return;
+        }
+        android.net.Uri uri = result.getData() == null ? null : result.getData().getData();
+        if (uri == null) { call.reject("Папка для сохранения не выбрана"); return; }
+        // Cloud document providers may block: never write the PNG on the UI thread.
+        new Thread(() -> {
+            try {
+                try (java.io.OutputStream out = getContext().getContentResolver().openOutputStream(uri, "w")) {
+                    if (out == null) throw new Exception("Не удалось открыть файл");
+                    out.write(cardBytes(call)); out.flush();
+                }
+                call.resolve(new JSObject().put("cancelled", false));
+            } catch (Exception e) { call.reject("Не удалось сохранить карточку", e); }
+        }, "running-card-save").start();
+    }
     @PluginMethod public void shareCard(PluginCall call) {
         try {
-            String data = call.getString("data");
-            if (data == null || data.length() > 6000000) throw new Exception("Некорректная карточка");
-            byte[] bytes = android.util.Base64.decode(data, android.util.Base64.DEFAULT);
+            byte[] bytes = cardBytes(call);
             java.io.File directory = new java.io.File(getContext().getCacheDir(), "running-cards");
             if (!directory.exists() && !directory.mkdirs()) throw new Exception("Нет места для карточки");
             java.io.File[] old = directory.listFiles();
