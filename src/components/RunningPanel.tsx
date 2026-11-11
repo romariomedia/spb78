@@ -30,14 +30,15 @@ export default function RunningPanel({userId,visible,onTraining,onOpen}:{userId:
  const [resultCard,setResultCard]=useState<Result|null>(null);
  const [nativeReady,setNativeReady]=useState(!nativeRecorder);
  const [consent,setConsent]=useState(false),[open,setOpen]=useState(false);
- const persist=(d:Draft|null)=>{ref.current=d;setDraft(d);try{if(d)localStorage.setItem(key,JSON.stringify(d));else localStorage.removeItem(key);}catch{setError('Память устройства заполнена. Не закрывайте приложение до сохранения результата.');}};
+ const persist=(d:Draft|null)=>{ref.current=d;setDraft(d);try{if(d&&!nativeRecorder)localStorage.setItem(key,JSON.stringify(d));else localStorage.removeItem(key);}catch{setError('Память устройства заполнена. Не закрывайте приложение до сохранения результата.');}};
  const applyNative=(snapshot:RecorderSnapshot)=>{
   // Native storage owns the track; publication consent remains a UI choice.
   const d=snapshot.draft;
   persist(d?{...d,publish:ref.current?.id===d.id?ref.current.publish:false}:null);
   setRecording(snapshot.recording);
   setNow(Date.now());
-  setGps(snapshot.error||(snapshot.recording?'Фоновая запись GPS включена':d?.endedAt?'Пробежка завершена':'Запись на паузе'));
+  const last=d?.points.at(-1);
+  setGps(snapshot.error||(snapshot.recording?(last?(Date.now()-last.timestamp>30000?'Нет свежего GPS-сигнала. Запись ожидает координаты.':`Фоновая запись · GPS ±${Math.round(last.accuracy)} м`):'Фоновая запись включена · ожидаем GPS…'):d?.endedAt?'Пробежка завершена':'Запись на паузе'));
  };
  useEffect(()=>{
   if(!nativeRecorder)return;

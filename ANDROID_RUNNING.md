@@ -31,3 +31,7 @@ The 1080×1350 result card contains distance, full time, pace, route, date and r
 5. Force-stop and restart: previous points restore paused. Account switch/sign-out pauses collection and does not expose the previous account's draft.
 6. Complete a field-verified reference route, then test reverse direction, shortcut and GPS dropout. All three catalogue routes currently have ranking disabled.
 7. Save offline then retry online; share PNG, reopen card from history, cancel the share sheet. Check Android 13+ and an OEM device with battery restrictions.
+
+## Проверка сборки 11 ноября 2026
+
+GitHub Actions Running Android check, run 43001592699: assembleDebug, assembleDebugAndroidTest и testDebugUnitTest успешно выполнены. Instrumentation-тест с устройством не запускался. Полный JS-набор: 531 passed, 4 skipped; профильные running-тесты: 18 passed. Синтетический UI-сценарий и формирование PNG прошли. На Android GPS-черновик не дублируется в localStorage: источником восстановления служит native-файл вне резервных копий. Реальное поведение GPS/уведомления/поделиться требует проверки на устройстве.
