@@ -34,9 +34,14 @@ public class RunningService extends Service implements LocationListener {
             return START_NOT_STICKY;
         }
         ResultReceiver reply = intent.getParcelableExtra("reply");
+        if (!RunningRecorderPlugin.isCurrentStart(requestedOwner, intent.getIntExtra("epoch", -1)) || recording) {
+            Bundle result = new Bundle(); result.putString("error", "Запуск отменён или запись уже идёт");
+            if (reply != null) reply.send(1, result);
+            if (!recording) stopSelf();
+            return START_NOT_STICKY;
+        }
         try {
-            if (!RunningRecorderPlugin.isCurrentStart(requestedOwner, intent.getIntExtra("epoch", -1))) throw new Exception("Запуск записи отменён");
-            if (current != null && current.recording) throw new Exception("Пробежка уже записывается");
+            error = "";
             owner = requestedOwner;
             draft = RunStore.read(this, owner);
             if (draft == null || draft.has("endedAt")) throw new Exception("Нет активного черновика");
@@ -104,7 +109,7 @@ public class RunningService extends Service implements LocationListener {
         if (locations != null) locations.removeUpdates(this);
         timer.removeCallbacks(deadline);
         if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
-        if (finish && draft != null) {
+        if (finish && draft != null && !draft.has("endedAt")) {
             try {
                 long end = Math.min(System.currentTimeMillis(), draft.getLong("startedAt") + RunStore.MAX_DURATION);
                 draft.put("endedAt", end);
