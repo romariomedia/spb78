@@ -22,7 +22,7 @@ test('pause time counts, distance across pause is excluded and rankings reject g
  assert.equal(r.elapsedMs,160000);assert.equal(r.eligible,false);assert.equal(r.hasGaps,true);assert.ok(r.distanceM<200);
 });
 test('reject malformed, reordered, inaccurate and future GPS inputs',()=>{
- for(const bad of [null,[],[...points].reverse(),points.map((p,i)=>i? p:{...p,lat:NaN}),points.map(p=>({...p,accuracy:100}))])assert.throws(()=>validateRun({...run,points:bad},route,run.endedAt));
+ for(const bad of [null,[...points].reverse(),points.map((p,i)=>i? p:{...p,lat:NaN}),points.map(p=>({...p,accuracy:100}))])assert.throws(()=>validateRun({...run,points:bad},route,run.endedAt));
  assert.throws(()=>validateRun({...run,endedAt:start+7*3600000},route,start+7*3600000));
  assert.throws(()=>validateRun(run,route,start));
 });
@@ -30,7 +30,7 @@ test('shortcuts, reverse direction, GPS outages and teleportation cannot rank',(
  const reverse=points.map((p,i)=>({...p,lat:points[points.length-1-i].lat}));
  assert.equal(validateRun({...run,points:reverse},route,run.endedAt).eligible,false);
  const shortcut=points.filter((_,i)=>i===0||i===20);
- assert.throws(()=>validateRun({...run,points:shortcut},route,run.endedAt),/короткая запись/);
+ assert.equal(validateRun({...run,points:shortcut},route,run.endedAt).eligible,false);
  const jump=points.map((p,i)=>i===10?{...p,lng:31}:p);
  const result=validateRun({...run,points:jump},route,run.endedAt);
  assert.equal(result.eligible,false);assert.equal(result.hasSpeedJumps,true);assert.ok(result.distanceM<201);
@@ -71,4 +71,17 @@ test('dense reference checkpoints accept a valid run sampled every five seconds'
 test('free runs do not show an unverified-route warning',()=>{
  const result=validateRun(run,null,run.endedAt);
  assert.equal(result.eligible,false);assert.match(result.reason,/Свободная пробежка/);
+});
+
+test('early finish saves actual short distance and can never rank as a full route',()=>{
+ const short={...run,points:points.slice(0,2),endedAt:start+5000};
+ const result=validateRun(short,route,short.endedAt);
+ assert.ok(result.distanceM>0&&result.distanceM<20);assert.equal(result.eligible,false);assert.equal(result.elapsedMs,5000);assert.match(result.reason,/не полностью/);
+ const zero=validateRun({...short,points:[points[0]]},route,short.endedAt);
+ assert.equal(zero.distanceM,0);assert.equal(zero.paceSecPerKm,0);assert.equal(zero.eligible,false);
+});
+
+test('finishing before a GPS fix still saves time without inventing distance',()=>{
+ const result=validateRun({...run,points:[]},route,run.endedAt);
+ assert.equal(result.distanceM,0);assert.equal(result.elapsedMs,100000);assert.equal(result.eligible,false);assert.match(result.reason,/GPS-точки не получены/);
 });

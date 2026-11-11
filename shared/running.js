@@ -24,7 +24,7 @@ export function validateRun(input, route, now=Date.now()) {
   const {startedAt,endedAt,points}=input||{};
   if(!Number.isFinite(startedAt)||!Number.isFinite(endedAt)||endedAt<=startedAt||endedAt-startedAt>MAX_DURATION_MS
     ||endedAt>now+60000||startedAt<now-30*86400000) fail('Некорректное время пробежки (максимум 6 часов, отправка в течение 30 дней).');
-  if(!Array.isArray(points)||points.length<2||points.length>MAX_POINTS) fail('Для сохранения нужны от 2 до 12000 точек GPS.');
+  if(!Array.isArray(points)||points.length>MAX_POINTS) fail('Для сохранения нужны не более 12000 точек GPS.');
   let previous=null,gaps=false,speed=false;
   for(const p of points) {
     if(!validPoint(p)||p.timestamp<startedAt||p.timestamp>endedAt) fail('Некорректные точки GPS.');
@@ -37,7 +37,7 @@ export function validateRun(input, route, now=Date.now()) {
     previous=p;
   }
   const meters=Math.round(trackDistance(points));
-  if(meters<20) fail('Слишком короткая запись: нужно хотя бы 20 метров с GPS.');
+
   const elapsedMs=endedAt-startedAt;
   let reason=route?'Маршрут ещё не прошёл проверку точной трассы.':'Свободная пробежка сохранена в личную историю.';
   let eligible=false;
@@ -48,11 +48,13 @@ export function validateRun(input, route, now=Date.now()) {
     let cursor=0;
     for(const p of points) while(cursor<path.length && distanceM(p,path[cursor])<=35) cursor++;
     const nearPath=points.every(p=>path.some(q=>distanceM(p,q)<=60));
-    eligible=dense && !gaps && !speed && cursor===path.length && nearPath
+    eligible=meters>=20 && dense && !gaps && !speed && cursor===path.length && nearPath
       && distanceM(points[0],path[0])<=35 && distanceM(points.at(-1),path.at(-1))<=35
       && Math.abs(meters-route.distanceM)<=route.distanceM*0.08
       && points[0].timestamp-startedAt<=15000 && endedAt-points.at(-1).timestamp<=15000;
     reason=eligible?'GPS-проверка пройдена.':'Трек не соответствует трассе или содержит паузы, разрывы GPS, скачки скорости.';
   }
-  return {distanceM:meters,elapsedMs,paceSecPerKm:Math.round(elapsedMs/meters),eligible,reason,hasGaps:gaps,hasSpeedJumps:speed};
+  if(route?.distanceM>0 && meters<route.distanceM*0.92)reason='Маршрут пройден не полностью. Личный результат сохранён, в рейтинг не включён.';
+  if(!points.length)reason='GPS-точки не получены. Сохранено только время; дистанция не определена, результат вне рейтинга.';
+  return {distanceM:meters,elapsedMs,paceSecPerKm:meters>0?Math.round(elapsedMs/meters):0,eligible,reason,hasGaps:gaps,hasSpeedJumps:speed};
 }

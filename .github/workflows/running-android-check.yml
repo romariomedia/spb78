@@ -1,0 +1,41 @@
+name: Running Android check
+on:
+  pull_request:
+    paths:
+      - 'android/**'
+      - 'src/components/Running*.tsx'
+      - 'src/services/runningRecorder.ts'
+      - 'shared/running*'
+      - '.github/workflows/running-android-check.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  debug-build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - run: npm ci --include=dev
+      - run: node --test tests/running*.test.js
+      - run: npm run build
+      - run: npx cap sync android
+      - name: Install SDK
+        run: "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager 'platforms;android-36' 'build-tools;36.0.0'"
+      - name: Compile Android recorder and instrumentation tests
+        working-directory: android
+        run: bash gradlew --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest
+      - uses: actions/upload-artifact@v4
+        with:
+          name: running-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 7
