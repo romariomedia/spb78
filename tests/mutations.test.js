@@ -658,3 +658,14 @@ test('gym companions use the training flow and require venue access confirmation
   assert.equal(created.body.training.venueId,'ddx-galereya');
   assert.equal((await f.request('b',{action:'training',operation:'toggleJoinTraining',trainingId:created.body.training.id})).body.joined,true);
 });
+test('route training preserves the canonical route version and rejects incompatible sports',async()=>{
+ const f=fixture({'users/a':premium()});
+ const value={...training(),sport:'Бег',runningRouteId:'neva-bridges',runningRouteVersion:999};
+ const created=await f.request('a',{action:'training',operation:'createTraining',training:value});
+ assert.equal(created.statusCode,200);
+ assert.equal(created.body.training.runningRouteId,'neva-bridges');
+ assert.equal(created.body.training.runningRouteVersion,1);
+ for(const extra of [{sport:'Футбол'},{runningRouteId:'missing'}]){
+  assert.equal((await f.request('a',{action:'training',operation:'createTraining',training:{...value,...extra}})).statusCode,400);
+ }
+});

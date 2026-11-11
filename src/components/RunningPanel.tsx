@@ -7,7 +7,7 @@ import {MAX_POINTS,MAX_DURATION_MS,distanceM,trackDistance,validPoint,type RunPo
 import {callServer} from '../services/serverApi';
 import 'leaflet/dist/leaflet.css';
 export type RunningRoute=typeof routesData[number];
-type Draft={id:string;routeId:string;startedAt:number;endedAt?:number;points:RunPoint[];segment:number;publish?:boolean};
+type Draft={id:string;routeId:string;routeVersion?:number;startedAt:number;endedAt?:number;points:RunPoint[];segment:number;publish?:boolean};
 type Result={id:string;routeId:string;endedAt:number;distanceM:number;elapsedMs:number;paceSecPerKm:number;reason:string};
 const clock=(ms:number)=>{const s=Math.floor(ms/1000);return `${Math.floor(s/3600).toString().padStart(2,'0')}:${Math.floor(s/60%60).toString().padStart(2,'0')}:${(s%60).toString().padStart(2,'0')}`;};
 const button='rounded-xl border border-slate-600 px-3 py-2 text-sm font-bold hover:border-lime-400 disabled:opacity-40';
@@ -19,7 +19,7 @@ function FollowRun({point,visible}:{point:RunPoint;visible:boolean}){
 export default function RunningPanel({userId,visible,onTraining,onOpen}:{userId:string;visible:boolean;onOpen?:()=>void;onTraining:(r:RunningRoute)=>void}){
  const key=`sb78-running-v1:${userId}`;
  const [draft,setDraft]=useState<Draft|null>(()=>{try{const d=JSON.parse(localStorage.getItem(key)||'null');return d&&typeof d.id==='string'&&Number.isFinite(d.startedAt)&&Number.isInteger(d.segment)&&typeof d.routeId==='string'&&(!d.endedAt||Number.isFinite(d.endedAt))&&Array.isArray(d.points)&&d.points.length<=MAX_POINTS&&d.points.every(validPoint)?d:null;}catch{return null;}});
- const ref=useRef(draft),stopRef=useRef<(()=>void)|null>(null),generation=useRef(0);
+ const ref=useRef(draft),stopRef=useRef<(()=>void)|null>(null),generation=useRef(0),leaderRequest=useRef(0);
  const [recording,setRecording]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[gps,setGps]=useState(''),[now,setNow]=useState(Date.now());
  const [history,setHistory]=useState<Result[]>([]),[selected,setSelected]=useState<RunningRoute|null>(null),[photo,setPhoto]=useState(0),[leaders,setLeaders]=useState('');
  const [ranking,setRanking]=useState<{name:string;elapsedMs:number;paceSecPerKm:number;endedAt:number}[]>([]);
@@ -27,7 +27,7 @@ export default function RunningPanel({userId,visible,onTraining,onOpen}:{userId:
  const persist=(d:Draft|null)=>{ref.current=d;setDraft(d);try{if(d)localStorage.setItem(key,JSON.stringify(d));else localStorage.removeItem(key);}catch{setError('Память устройства заполнена. Не закрывайте приложение до сохранения результата.');}};
  const stop=()=>{generation.current++;stopRef.current?.();stopRef.current=null;setRecording(false);};
  const refresh=()=>callServer<{runs:Result[]}>('/api/running',{action:'history'}).then(r=>setHistory(r.runs));
- useEffect(()=>{refresh().catch(()=>setError('Не удалось загрузить историю. Нажмите «Обновить».'));return()=>{generation.current++;stopRef.current?.();};},[userId]);
+ useEffect(()=>{refresh().catch(()=>setError('Не удалось загрузить историю. Нажмите «Обновить».'));return()=>{generation.current++;leaderRequest.current++;stopRef.current?.();};},[userId]);
  useEffect(()=>{if(!draft||draft.endedAt)return;const timer=window.setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(timer);},[draft?.id,draft?.endedAt]);
  useEffect(()=>{if(draft&&!draft.endedAt&&now-draft.startedAt>=MAX_DURATION_MS){stop();persist({...draft,endedAt:draft.startedAt+MAX_DURATION_MS,points:draft.points.filter(p=>p.timestamp<=draft.startedAt+MAX_DURATION_MS)});setError('Достигнут лимит 6 часов. Сохраните пробежку.');}},[now,draft?.id,draft?.endedAt]);
  useEffect(()=>{if(!recording)return;const warn=(e:BeforeUnloadEvent)=>{e.preventDefault();e.returnValue='';};window.addEventListener('beforeunload',warn);return()=>window.removeEventListener('beforeunload',warn);},[recording]);
@@ -38,7 +38,7 @@ export default function RunningPanel({userId,visible,onTraining,onOpen}:{userId:
   let next=ref.current;
   if(next?.endedAt){setBusy(false);return;}
   if(next&&Date.now()-next.startedAt>=MAX_DURATION_MS){setError('Запись старше 6 часов. Завершите её или удалите черновик.');setBusy(false);return;}
-  if(!next)next={id:`run_${crypto.randomUUID()}`,routeId,startedAt:Date.now(),points:[],segment:0};
+  if(!next)next={id:`run_${crypto.randomUUID()}`,routeId,routeVersion:routesData.find(r=>r.id===routeId)?.version||0,startedAt:Date.now(),points:[],segment:0};
   else next={...next,segment:next.segment+1};
   persist(next);
   const position=(p:{coords:{latitude:number;longitude:number;accuracy:number};timestamp:number})=>{
@@ -69,7 +69,7 @@ export default function RunningPanel({userId,visible,onTraining,onOpen}:{userId:
  }
  async function save(){
   const d=ref.current;if(!d?.endedAt)return;setBusy(true);setError('');
-  try{await callServer('/api/running',{action:'save',run:d});persist(null);setGps('Результат сохранён');await refresh();}
+  try{await callServer('/api/running',{action:'save',run:d});persist(null);setGps('Результат сохранён');try{await refresh();}catch{setError('Пробежка сохранена. Не удалось обновить историю — нажмите «Обновить».');}}
   catch(e){setError(e instanceof Error?e.message:'Не удалось сохранить. Черновик остаётся на устройстве.');}
   finally{setBusy(false);}
  }
@@ -90,9 +90,9 @@ export default function RunningPanel({userId,visible,onTraining,onOpen}:{userId:
     {draft.endedAt&&routesData.find(r=>r.id===draft.routeId)?.verified&&<label className="flex gap-2 text-xs"><input type="checkbox" checked={draft.publish===true} onChange={e=>persist({...draft,publish:e.target.checked})}/>Опубликовать моё имя и результат в рейтинге маршрута. Точный трек не публикуется.</label>}
     <div className="flex flex-wrap gap-2">{!draft.endedAt?<><button className={button} disabled={busy} onClick={()=>recording?stop():start(draft.routeId)}>{recording?'Пауза':'Продолжить'}</button><button className={button} disabled={busy} onClick={()=>{stop();persist({...ref.current!,endedAt:Date.now()});}}>Завершить</button></>:<button className={`${button} bg-lime-300 text-slate-950`} disabled={busy} onClick={save}>{busy?'Сохраняем…':'Сохранить результат'}</button>}<button className={button} disabled={busy} onClick={()=>{if(window.confirm('Удалить несохранённую пробежку?')){stop();persist(null);}}}>Удалить черновик</button></div>
    </div>}
-   <div className="grid gap-3 sm:grid-cols-2">{routesData.map(r=><button key={r.id} onClick={()=>{setSelected(r);setPhoto(0);setLeaders('');setRanking([]);}} className="overflow-hidden rounded-2xl border border-slate-700 text-left hover:border-lime-300"><img loading="lazy" src={r.mapImage||r.images[0]} alt={`${r.mapImage?"Схема маршрута":"ИИ-иллюстрация"}: ${r.name}`} className="aspect-[5/4] w-full object-contain"/><div className="p-3"><strong>{r.name}</strong><p className="text-xs text-slate-400">{r.city} · {r.distanceLabel}</p></div></button>)}</div>
+   <div className="grid gap-3 sm:grid-cols-2">{routesData.map(r=><button key={r.id} onClick={()=>{leaderRequest.current++;setSelected(r);setPhoto(0);setLeaders('');setRanking([]);}} className="overflow-hidden rounded-2xl border border-slate-700 text-left hover:border-lime-300"><img loading="lazy" src={r.mapImage||r.images[0]} alt={`${r.mapImage?"Схема маршрута":"ИИ-иллюстрация"}: ${r.name}`} className="aspect-[5/4] w-full object-contain"/><div className="p-3"><strong>{r.name}</strong><p className="text-xs text-slate-400">{r.city} · {r.distanceLabel}</p></div></button>)}</div>
    {selected&&<div className="rounded-2xl border border-lime-300/30 p-3 space-y-3">
-    <div className="flex justify-between"><h3 className="font-bold">{selected.name}</h3><button onClick={()=>setSelected(null)} aria-label="Закрыть маршрут">✕</button></div>
+    <div className="flex justify-between"><h3 className="font-bold">{selected.name}</h3><button onClick={()=>{leaderRequest.current++;setSelected(null);}} aria-label="Закрыть маршрут">✕</button></div>
     {selected.mapImage&&<div className="space-y-2"><a href={selected.mapImage} target="_blank" rel="noreferrer" aria-label="Открыть схему маршрута крупно"><img src={selected.mapImage} alt={`Схема сверху: ${selected.name}, ${selected.distanceLabel}, лаймовая линия, старт и финиш`} className="rounded-xl w-full"/></a></div>}
     <img src={selected.images[photo]} alt={`ИИ-иллюстрация ${selected.name}, вариант ${photo+1}`} className="rounded-xl w-full"/>
     <div className="flex gap-2">{selected.images.map((_,i)=><button key={i} className={button} aria-pressed={photo===i} onClick={()=>setPhoto(i)}>Вид {i+1}</button>)}</div>
@@ -102,7 +102,7 @@ export default function RunningPanel({userId,visible,onTraining,onOpen}:{userId:
      <a className="text-lime-300 text-xs underline" href={selected.geometrySourceUrl||selected.sourceUrl} target="_blank" rel="noreferrer">Источник карты</a>
      <p className="text-xs text-slate-400">Результаты сохраняются в личную историю. Таблица лидеров откроется после проверки трассы.</p>
     </div></details>
-    <div className="flex flex-wrap gap-2"><button className={`${button} bg-lime-300 text-slate-950`} disabled={!!draft||!consent||busy} onClick={()=>start(selected.id)}>Бежать одному</button><button className={button} onClick={()=>onTraining(selected)}>Создать тренировку</button><button className={button} onClick={()=>callServer<{reason:string;leaders:typeof ranking}>('/api/running',{action:'leaders',routeId:selected.id}).then(r=>{setLeaders(r.reason);setRanking(r.leaders);}).catch(()=>setLeaders('Не удалось загрузить рейтинг. Повторите попытку.'))}>Таблица лидеров</button></div>
+    <div className="flex flex-wrap gap-2"><button className={`${button} bg-lime-300 text-slate-950`} disabled={!!draft||!consent||busy} onClick={()=>start(selected.id)}>Бежать одному</button><button className={button} onClick={()=>onTraining(selected)}>Создать тренировку</button><button className={button} onClick={()=>{const request=++leaderRequest.current;callServer<{reason:string;leaders:typeof ranking}>('/api/running',{action:'leaders',routeId:selected.id}).then(r=>{if(request!==leaderRequest.current)return;setLeaders(r.reason);setRanking(r.leaders);}).catch(()=>{if(request===leaderRequest.current)setLeaders('Не удалось загрузить рейтинг. Повторите попытку.');});}}>Таблица лидеров</button></div>
     {ranking.length>0&&<div className="overflow-x-auto"><table className="w-full text-sm text-left"><thead><tr><th>Место</th><th>Участник</th><th>Время</th><th>Дата</th></tr></thead><tbody>{ranking.map((r,i)=><tr key={i}><td>{i+1}</td><td>{r.name}</td><td>{clock(r.elapsedMs)}</td><td>{new Date(r.endedAt).toLocaleDateString('ru-RU')}</td></tr>)}</tbody></table></div>}
     {leaders&&<p className="text-sm text-slate-300" role="status">{leaders}</p>}
    </div>}

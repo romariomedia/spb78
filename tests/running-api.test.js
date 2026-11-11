@@ -43,3 +43,14 @@ test('running API saves computed private summaries idempotently, never retains G
 test('rankings stay closed for unverified geometry regardless of requested override',async()=>{
  fixture();const r=await request({action:'leaders',routeId:'alexandriysky',verified:true});assert.equal(r.statusCode,200);assert.equal(r.body.available,false);assert.deepEqual(r.body.leaders,[]);
 });
+test('saved results retain their original route version; legacy drafts cannot rank',async()=>{
+ fixture();const startedAt=Date.now()-110000;
+ const run={id:'run_version01',routeId:'park300',routeVersion:1,publish:true,startedAt,endedAt:startedAt+100000,points:Array.from({length:21},(_,i)=>({lat:60+i*.00009,lng:30,accuracy:5,segment:0,timestamp:startedAt+i*5000}))};
+ const current=await request({action:'save',run});assert.equal(current.statusCode,200);assert.equal(current.body.run.routeVersion,1);
+ const legacy=await request({action:'save',run:{...run,id:'run_version02',routeVersion:undefined}});
+ assert.equal(legacy.statusCode,200);assert.equal(legacy.body.run.routeVersion,0);assert.equal(legacy.body.run.published,false);assert.match(legacy.body.run.reason,/Версия маршрута/);
+ const old=await request({action:'save',run:{...run,id:'run_version03',routeVersion:2}});
+ assert.equal(old.statusCode,200);assert.equal(old.body.run.routeVersion,2);assert.equal(old.body.run.eligible,false);
+ assert.equal((await request({action:'save',run:{...run,routeVersion:2}})).statusCode,409);
+ assert.equal((await request({action:'save',run:{...run,routeVersion:'1'}})).statusCode,400);
+});

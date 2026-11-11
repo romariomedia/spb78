@@ -39,14 +39,14 @@ export function validateRun(input, route, now=Date.now()) {
   const meters=Math.round(trackDistance(points));
   if(meters<20) fail('Слишком короткая запись: нужно хотя бы 20 метров с GPS.');
   const elapsedMs=endedAt-startedAt;
-  let reason='Маршрут ещё не прошёл проверку точной трассы.';
+  let reason=route?'Маршрут ещё не прошёл проверку точной трассы.':'Свободная пробежка сохранена в личную историю.';
   let eligible=false;
   if(route?.verified===true && route.path?.length>=2 && route.distanceM>0) {
     // Ordered dense checkpoints prevent shortcuts/backtracking and opposite-direction runs.
     const path=route.path;
     const dense=path.every((p,i)=>!i||distanceM(path[i-1],p)<=50);
     let cursor=0;
-    for(const p of points) if(cursor<path.length && distanceM(p,path[cursor])<=35) cursor++;
+    for(const p of points) while(cursor<path.length && distanceM(p,path[cursor])<=35) cursor++;
     const nearPath=points.every(p=>path.some(q=>distanceM(p,q)<=60));
     eligible=dense && !gaps && !speed && cursor===path.length && nearPath
       && distanceM(points[0],path[0])<=35 && distanceM(points.at(-1),path.at(-1))<=35

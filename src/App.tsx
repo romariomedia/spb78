@@ -4067,6 +4067,7 @@ export default function App(): JSX.Element {
                 value={newTrSport}
                 onChange={e => {
                   setNewTrSport(e.target.value);
+                  if(e.target.value!=='Бег')setNewTrRouteId('');
                   if (selectedVenueForTraining && !selectedVenueForTraining.sports.includes(e.target.value)) {
                     setSelectedVenueForTraining(null); setVenueRentalConfirmed(false);
                   }

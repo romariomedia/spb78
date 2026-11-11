@@ -61,3 +61,14 @@ test('deleting the winning public run restores the next-best run in the same tra
  assert.equal(best.elapsedMs,b.elapsedMs);assert.equal('points' in best,false);assert.ok(!records.has(`runningResults/${resultId('u',a.id)}`));
  await writeResult(db,'u',null,b.id,true);assert.ok(!records.has(`runningBest/${resultId('u','r:v1')}`));
 });
+test('dense reference checkpoints accept a valid run sampled every five seconds',()=>{
+ const densePath=Array.from({length:201},(_,i)=>({lat:60+i*.000009,lng:30}));
+ const result=validateRun(run,{...route,path:densePath},run.endedAt);
+ assert.equal(result.eligible,true);
+ const reverse=points.map((p,i)=>({...p,lat:points[points.length-1-i].lat}));
+ assert.equal(validateRun({...run,points:reverse},{...route,path:densePath},run.endedAt).eligible,false);
+});
+test('free runs do not show an unverified-route warning',()=>{
+ const result=validateRun(run,null,run.endedAt);
+ assert.equal(result.eligible,false);assert.match(result.reason,/Свободная пробежка/);
+});

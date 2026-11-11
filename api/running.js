@@ -35,9 +35,13 @@ export default async function handler(req,res){
       if(typeof b.run?.id!=='string'||!/^run_[a-zA-Z0-9-]{8,80}$/.test(b.run.id))return res.status(400).json({error:'Некорректный ID пробежки'});
       const run=b.run, route=routes.find(r=>r.id===run.routeId);
       if(run.routeId&&!route)return res.status(400).json({error:'Маршрут не найден'});
-      const result=validateRun(run,route);
-      const fingerprint=createHash('sha256').update(JSON.stringify({startedAt:run.startedAt,endedAt:run.endedAt,routeId:run.routeId||'',points:run.points,publish:run.publish===true})).digest('hex');
-      const value={id:run.id,userId:uid,routeId:route?.id||'',routeVersion:route?.version||0,startedAt:run.startedAt,endedAt:run.endedAt,...result,fingerprint,createdAt:Date.now(),published:result.eligible&&run.publish===true};
+      const version=run.routeVersion ?? 0;
+      if(!Number.isSafeInteger(version)||version<0)return res.status(400).json({error:'Некорректная версия маршрута'});
+      const sameVersion=!route||version===route.version;
+      const result=validateRun(run,route&&!sameVersion?{...route,verified:false}:route);
+      if(route&&!sameVersion)result.reason='Версия маршрута изменилась или не указана. Результат сохранён без участия в рейтинге.';
+      const fingerprint=createHash('sha256').update(JSON.stringify({startedAt:run.startedAt,endedAt:run.endedAt,routeId:run.routeId||'',routeVersion:version,points:run.points,publish:run.publish===true})).digest('hex');
+      const value={id:run.id,userId:uid,routeId:route?.id||'',routeVersion:route?version:0,startedAt:run.startedAt,endedAt:run.endedAt,...result,fingerprint,createdAt:Date.now(),published:result.eligible&&run.publish===true};
       const saved=await writeResult(db,uid,{...value,routeKey:routeKey(value)},run.id);
       return res.json({run:saved});
     }
