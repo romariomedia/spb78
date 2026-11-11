@@ -2,7 +2,7 @@ import {useEffect, useRef, useState} from 'react';
 import {Download, Share2, ImagePlus, Mountain, Layers, Check, RotateCcw, X} from 'lucide-react';
 import routes from '../../shared/running-routes.json';
 import {hasBackgroundRecorder, runningRecorder} from '../services/runningRecorder';
-import {canvasBlob, DEFAULT_CROP, drawRunningCard, loadCardImage, prepareCardPhoto, runDuration, runPace, runStatus, type RunSummary} from '../lib/runningCard';
+import {canvasBlob, DEFAULT_CROP, drawRunningCard, loadCardImage, prepareCardPhoto, runAverageSpeed, runDuration, runPace, runStatus, type RunSummary} from '../lib/runningCard';
 export type {RunSummary} from '../lib/runningCard';
 
 type Mode = 'route' | 'photo' | 'transparent';
@@ -147,7 +147,7 @@ function CardEditor({result, saved}: {result: RunSummary; saved: boolean}) {
       <div className="mx-auto max-w-sm">
         <div aria-busy={!ready && !(mode === 'photo' && !photo)} className="relative aspect-[4/5] overflow-hidden rounded-2xl border border-white/10"
           style={{backgroundColor: '#243137', backgroundImage: 'conic-gradient(#344349 25%, transparent 0 50%, #344349 0 75%, transparent 0)', backgroundSize: '24px 24px'}}>
-          {ready && output ? <img src={output.url} className="h-full w-full object-contain" alt={`${title}: ${(result.distanceM / 1000).toFixed(2)} км, ${runDuration(result.elapsedMs)}, ${runPace(result)} мин/км. ${status}`}/>
+          {ready && output ? <img src={output.url} className="h-full w-full object-contain" alt={`${title}: ${(result.distanceM / 1000).toFixed(2)} км, ${runDuration(result.elapsedMs)}, ${runPace(result)} мин/км, средняя скорость ${runAverageSpeed(result)} км/ч с учётом пауз. ${status}`}/>
             : <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-slate-950/90 p-6 text-center text-sm text-slate-400"><ImagePlus size={32} className="text-lime-300/60"/>{error || (mode === 'photo' && !photo ? 'Добавь фото — здесь появится твоя карточка' : 'Готовим предпросмотр…')}
               {error && <button type="button" className={secondary} onClick={() => setRetry(n => n + 1)}>Повторить</button>}</div>}
         </div>

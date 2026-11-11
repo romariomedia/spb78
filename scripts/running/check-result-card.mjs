@@ -35,6 +35,7 @@ try {
     const target = path.join(artifacts,name); await d.saveAs(target); return target;
   }
   const landscape = await download('landscape.png');
+  assert.match(await preview.getAttribute('alt'),/средняя скорость 9,6 км\/ч с учётом пауз/);
   const meta = await sharp(landscape).metadata(); assert.equal(meta.width,1080); assert.equal(meta.height,1350);
   await page.screenshot({path:path.join(artifacts,'editor-mobile.png'),fullPage:true});
   const first = await preview.getAttribute('src');
@@ -78,6 +79,7 @@ try {
   await page.getByRole('button',{name:'Без GPS',exact:true}).click(); await ready();
   assert.equal(await page.getByRole('button',{name:'Пейзаж',exact:true}).isDisabled(),true);
   assert.match(await preview.getAttribute('alt'),/0.00 км.*— мин/);
+  assert.match(await preview.getAttribute('alt'),/средняя скорость — км\/ч/);
   await page.getByRole('button',{name:'Другой маршрут',exact:true}).click(); await ready();
   assert.match(await preview.getAttribute('alt'),/Александрийский парк/);
   assert.deepEqual(uploads,[]); assert.deepEqual(errors,[]);

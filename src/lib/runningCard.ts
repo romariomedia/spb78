@@ -20,6 +20,12 @@ export const runPace = (result: RunSummary) => {
   const s = Math.round(result.paceSecPerKm);
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 };
+// Use the same full elapsed time as pace, including pauses; no moving-time estimate.
+export const runAverageSpeed = (result: Pick<RunSummary, 'distanceM' | 'elapsedMs'>) => {
+  if (!Number.isFinite(result.distanceM) || result.distanceM <= 0 || !Number.isFinite(result.elapsedMs) || result.elapsedMs <= 0) return '—';
+  const kmh = result.distanceM / result.elapsedMs * 3600;
+  return Number.isFinite(kmh) ? kmh.toFixed(1).replace('.', ',') : '—';
+};
 export const runStatus = (result: RunSummary, saved: boolean) => !saved ? 'Результат ещё не сохранён'
   : result.published ? 'Результат включён в рейтинг'
   : result.eligible ? 'Трасса пройдена · личный результат' : 'Личный результат · вне рейтинга';
@@ -104,13 +110,15 @@ export function drawRunningCard(canvas: HTMLCanvasElement, result: RunSummary, s
   text('КМ', 909, 877, 35, accent, 700, 99);
   text('ДИСТАНЦИЯ ПО GPS', 74, 930, 21, muted, 600);
   line(72, 974, 936, transparent ? (darkInk ? '#10232a88' : '#ffffff88') : '#ffffff44');
-  text(runDuration(result.elapsedMs), 72, 1059, 58, ink, 700, 470);
-  text(runPace(result), 650, 1059, 58, ink, 700, 358);
-  text('ПОЛНОЕ ВРЕМЯ', 74, 1103, 20, muted, 600);
-  text('ТЕМП · МИН / КМ', 652, 1103, 20, muted, 600);
+  text(runDuration(result.elapsedMs), 72, 1059, 52, ink, 700, 310);
+  text(runPace(result), 440, 1059, 52, ink, 700, 240);
+  text(runAverageSpeed(result), 740, 1059, 52, ink, 700, 268);
+  text('ПОЛНОЕ ВРЕМЯ', 74, 1103, 18, muted, 600, 310);
+  text('ТЕМП · МИН / КМ', 442, 1103, 18, muted, 600, 240);
+  text('СР. СКОРОСТЬ · КМ/Ч', 742, 1103, 18, muted, 600, 266);
   line(72, 1140, 936, transparent ? (darkInk ? '#10232a55' : '#ffffff66') : '#ffffff33');
   text(runStatus(result, saved), 74, 1192, 25, ink, 500);
-  text('Время включает паузы', 74, 1230, 20, muted, 400);
+  text('Темп и средняя скорость учитывают паузы', 74, 1230, 20, muted, 400);
   text('Каждый шаг имеет значение.', 74, 1291, 22, muted, 400, 560);
   text('sportbuddy78.pro', 748, 1291, 23, accent, 700, 260);
 }
