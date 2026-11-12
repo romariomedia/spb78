@@ -31,6 +31,7 @@ try{
  await page.waitForTimeout(400); // Let the preceding arrow-driven layout animation settle.
  // Real touch drag via the handle, without dragging the scrollable page.
  const from=await page.getByRole('button',{name:'Перетащить: Календарь',exact:true}).boundingBox();
+ assert.equal(await page.getByRole('button',{name:'Перетащить: Календарь',exact:true}).evaluate(e=>getComputedStyle(e).touchAction),'none');
  const to=await page.getByRole('button',{name:'Перетащить: Мероприятия',exact:true}).boundingBox();
  const cdp=await context.newCDPSession(page),x=from.x+from.width/2,y=from.y+from.height/2;
  await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});

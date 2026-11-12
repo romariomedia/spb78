@@ -7,7 +7,7 @@ type Section={id:string;title:string;content:ReactNode};
 function OrderRow({id,title,index,count,onMove}:{id:string;title:string;index:number;count:number;onMove:(offset:number)=>void}){
  const controls=useDragControls();
  return <Reorder.Item value={id} dragListener={false} dragControls={controls} className="relative flex items-center gap-2 rounded-2xl border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-white shadow-lg">
-  <button type="button" aria-label={`Перетащить: ${title}`} onPointerDown={e=>controls.start(e)} className="touch-none cursor-grab rounded-xl p-3 text-lime-300 active:cursor-grabbing"><GripVertical size={20}/></button>
+  <button type="button" aria-label={`Перетащить: ${title}`} onPointerDown={e=>controls.start(e)} style={{touchAction:'none'}} className="cursor-grab rounded-xl p-3 text-lime-300 active:cursor-grabbing"><GripVertical size={20}/></button>
   <span className="flex-1 font-semibold">{title}</span>
   <button type="button" aria-label={`${title}: вверх`} disabled={!index} onClick={()=>onMove(-1)} className="rounded-xl p-3 text-slate-300 disabled:opacity-20"><ArrowUp size={18}/></button>
   <button type="button" aria-label={`${title}: вниз`} disabled={index===count-1} onClick={()=>onMove(1)} className="rounded-xl p-3 text-slate-300 disabled:opacity-20"><ArrowDown size={18}/></button>
