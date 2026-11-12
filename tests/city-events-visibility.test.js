@@ -15,7 +15,7 @@ test('published spectator fixtures do not require tickets to appear in calendar'
  assert.ok(!filter.includes('ticketUrl'));
 });
 test('city spectator block is only in feed, deep links follow its location',()=>{
- const trainings=app.indexOf("{activeTab === 'trainings' && (");
+ const trainings=app.indexOf('<DashboardSections');
  const feed=app.indexOf("{activeTab === 'feed' && (");
  assert.ok(trainings>=0&&feed>trainings);
  const block=app.indexOf('<CitySportsEvents');
