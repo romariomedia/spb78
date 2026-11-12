@@ -1,6 +1,21 @@
 // Shared deterministic GPS calculations. Never trust a client-provided distance/time.
 export const MAX_POINTS = 12000;
 export const MAX_DURATION_MS = 6 * 60 * 60 * 1000;
+export const START_RADIUS_M = 100;
+// A route can only start from a fresh, precise fix near its advertised start.
+export function assertRunStart(point, route, now=Date.now()) {
+  if (!validPoint(point) || point.timestamp > now+1000 || now-point.timestamp > 15000)
+    throw new Error('Не получены свежие точные координаты. Выйдите на открытое место и повторите старт.');
+  if (route && (!route.start || !Number.isFinite(route.start.lat) || !Number.isFinite(route.start.lng)))
+    throw new Error('У маршрута не задана точка старта. Выберите свободную пробежку.');
+  if (route) {
+    const distance = distanceM(point, route.start);
+    if (distance > START_RADIUS_M) {
+      const label = distance >= 1000 ? `${(distance/1000).toFixed(1).replace('.', ',')} км` : `${Math.round(distance)} м`;
+      throw new Error(`До старта маршрута ${label}. Подойдите ближе ${START_RADIUS_M} м или выберите свободную пробежку.`);
+    }
+  }
+}
 export function distanceM(a, b) {
   const r = Math.PI / 180, dlat = (b.lat-a.lat)*r, dlng = (b.lng-a.lng)*r;
   const h = Math.sin(dlat/2)**2 + Math.cos(a.lat*r)*Math.cos(b.lat*r)*Math.sin(dlng/2)**2;

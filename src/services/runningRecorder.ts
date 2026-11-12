@@ -7,7 +7,7 @@ interface Recorder {
  saveCard(options:{data:string}):Promise<{cancelled:boolean}>;
  shareCard(options:{data:string}):Promise<void>;
  snapshot(options:{owner:string}):Promise<RecorderSnapshot>;
- start(options:{owner:string;draft:RunDraft}):Promise<RecorderSnapshot>;
+ start(options:{owner:string;draft?:RunDraft}):Promise<RecorderSnapshot>;
  pause(options:{owner:string}):Promise<RecorderSnapshot>;
  finish(options:{owner:string}):Promise<RecorderSnapshot>;
  discard(options:{owner:string}):Promise<RecorderSnapshot>;

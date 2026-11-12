@@ -34,4 +34,8 @@ final class RunStore {
         } catch (Exception e) { if (out != null) f.failWrite(out); throw e; }
     }
     static synchronized void delete(Context context, String owner) throws Exception { file(context, owner).delete(); }
+    static synchronized void clearPending(Context context, String owner) throws Exception {
+        JSONObject draft = read(context, owner);
+        if (draft != null && draft.optBoolean("pendingStart")) delete(context, owner);
+    }
 }

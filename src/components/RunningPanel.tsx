@@ -3,7 +3,7 @@ import {Capacitor} from '@capacitor/core';
 import {Geolocation} from '@capacitor/geolocation';
 import {MapContainer,TileLayer,Polyline,CircleMarker,useMap} from 'react-leaflet';
 import routesData from '../../shared/running-routes.json';
-import {MAX_POINTS,MAX_DURATION_MS,distanceM,trackDistance,validPoint,type RunPoint} from '../../shared/running.js';
+import {MAX_POINTS,MAX_DURATION_MS,assertRunStart,distanceM,trackDistance,validPoint,type RunPoint} from '../../shared/running.js';
 import {callServer} from '../services/serverApi';
 import {runningRecorder,hasBackgroundRecorder,type RunDraft,type RecorderSnapshot} from '../services/runningRecorder';
 import RunningResultCard from './RunningResultCard';
@@ -75,11 +75,32 @@ export default function RunningPanel({userId,visible,onTraining,onOpen}:{userId:
   let next=ref.current;
   if(next?.endedAt){setBusy(false);return;}
   if(next&&Date.now()-next.startedAt>=MAX_DURATION_MS){setError('Запись старше 6 часов. Завершите её или удалите черновик.');setBusy(false);return;}
-  if(!next)next={id:`run_${crypto.randomUUID()}`,routeId,routeVersion:routesData.find(r=>r.id===routeId)?.version||0,startedAt:Date.now(),points:[],segment:0};
+  if(!next){
+   try{
+    // No draft or timer exists until GPS and the selected route's start are checked.
+    const route=routesData.find(r=>r.id===routeId)||null;
+    if(routeId&&!route)throw new Error('Маршрут не найден. Выберите его заново.');
+    if(Capacitor.isNativePlatform())await Geolocation.requestPermissions();
+    if(generation.current!==token)return;
+    const p=Capacitor.isNativePlatform()
+     ? await Geolocation.getCurrentPosition({enableHighAccuracy:true,timeout:15000,maximumAge:0})
+     : await new Promise<GeolocationPosition>((resolve,reject)=>navigator.geolocation
+       ? navigator.geolocation.getCurrentPosition(resolve,reject,{enableHighAccuracy:true,timeout:15000,maximumAge:0})
+       : reject(new Error('Геолокация недоступна')));
+    if(generation.current!==token)return;
+    const point={lat:p.coords.latitude,lng:p.coords.longitude,accuracy:p.coords.accuracy,timestamp:p.timestamp,segment:0};
+    assertRunStart(point,route);
+    next={id:`run_${crypto.randomUUID()}`,routeId,routeVersion:route?.version||0,startedAt:point.timestamp,points:[point],segment:0};
+   }catch(e){
+    if(generation.current===token){setError(e instanceof Error?e.message:'Не удалось определить местоположение. Разрешите точный GPS и повторите.');setGps('Пробежка не начата');}
+    setBusy(false);return;
+   }
+   if(generation.current!==token){setBusy(false);return;}
+  }
   else next={...next,segment:next.segment+1};
   if(nativeRecorder){
    nativeOperation.current=true;
-   try{applyNative(await runningRecorder.start({owner:userId,draft:next}));}
+   try{applyNative(await runningRecorder.start({owner:userId,draft:ref.current?undefined:next}));}
    catch(e){setError(e instanceof Error?e.message:'Не удалось включить фоновую запись.');}
    finally{nativeOperation.current=false;setBusy(false);}
    return;

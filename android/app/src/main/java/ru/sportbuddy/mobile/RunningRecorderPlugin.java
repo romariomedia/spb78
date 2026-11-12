@@ -14,6 +14,7 @@ import org.json.*;
     @Permission(alias = "notifications", strings = {Manifest.permission.POST_NOTIFICATIONS})
 })
 public class RunningRecorderPlugin extends Plugin {
+    private final java.util.concurrent.atomic.AtomicBoolean cardSaving = new java.util.concurrent.atomic.AtomicBoolean();
     private static final java.util.concurrent.ConcurrentHashMap<String,Integer> epochs = new java.util.concurrent.ConcurrentHashMap<>();
     static boolean isCurrentStart(String owner, int epoch) { return owner != null && epochs.getOrDefault(owner, 0) == epoch; }
     @PluginMethod public void cardCapabilities(PluginCall call) { call.resolve(new JSObject().put("save", true)); }
@@ -27,29 +28,38 @@ public class RunningRecorderPlugin extends Plugin {
         return bytes;
     }
     @PluginMethod public void saveCard(PluginCall call) {
+        if (!cardSaving.compareAndSet(false, true)) { call.reject("Дождитесь завершения сохранения карточки"); return; }
         try {
-            cardBytes(call);
+            RunningCardFile.prepare(getContext(), call.getData());
             Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
                 .setType("image/png").putExtra(Intent.EXTRA_TITLE, "sportbuddy-run-" + System.currentTimeMillis() + ".png");
-            startActivityForResult(call, intent, "cardDestination");
-        } catch (Exception e) { call.reject("Не удалось открыть сохранение карточки", e); }
+            getActivity().runOnUiThread(() -> {
+                try { startActivityForResult(call, intent, "cardDestination"); }
+                catch (Exception e) { RunningCardFile.delete(getContext(), call.getData()); cardSaving.set(false); call.reject("Не удалось открыть сохранение карточки", e); }
+            });
+        } catch (Exception e) { cardSaving.set(false); call.reject("Не удалось подготовить сохранение карточки", e); }
     }
     @ActivityCallback private void cardDestination(PluginCall call, ActivityResult result) {
-        if (call == null) return;
+        if (call == null) { cardSaving.set(false); return; }
         if (result.getResultCode() != android.app.Activity.RESULT_OK) {
+            RunningCardFile.delete(getContext(), call.getData()); cardSaving.set(false);
             call.resolve(new JSObject().put("cancelled", true)); return;
         }
         android.net.Uri uri = result.getData() == null ? null : result.getData().getData();
-        if (uri == null) { call.reject("Папка для сохранения не выбрана"); return; }
+        if (uri == null) { RunningCardFile.delete(getContext(), call.getData()); cardSaving.set(false); call.reject("Папка для сохранения не выбрана"); return; }
         // Cloud document providers may block: never write the PNG on the UI thread.
         new Thread(() -> {
             try {
-                try (java.io.OutputStream out = getContext().getContentResolver().openOutputStream(uri, "w")) {
+                try (java.io.InputStream in = new java.io.FileInputStream(RunningCardFile.get(getContext(), call.getData()));
+                     java.io.OutputStream out = getContext().getContentResolver().openOutputStream(uri, "w")) {
                     if (out == null) throw new Exception("Не удалось открыть файл");
-                    out.write(cardBytes(call)); out.flush();
+                    byte[] buffer = new byte[16384]; int count;
+                    while ((count = in.read(buffer)) != -1) out.write(buffer, 0, count);
+                    out.flush();
                 }
                 call.resolve(new JSObject().put("cancelled", false));
             } catch (Exception e) { call.reject("Не удалось сохранить карточку", e); }
+            finally { RunningCardFile.delete(getContext(), call.getData()); cardSaving.set(false); }
         }, "running-card-save").start();
     }
     @PluginMethod public void shareCard(PluginCall call) {
@@ -73,9 +83,10 @@ public class RunningRecorderPlugin extends Plugin {
         return owner;
     }
     private void resolve(PluginCall call, String owner) throws Exception {
-        JSONObject draft = RunStore.read(getContext(), owner);
         RunningService service = RunningService.current;
         boolean matching = service != null && owner.equals(service.owner);
+        if (!matching || !service.recording) RunStore.clearPending(getContext(), owner);
+        JSONObject draft = RunStore.read(getContext(), owner);
         JSObject result = new JSObject().put("draft", draft == null ? JSONObject.NULL : draft)
             .put("recording", matching && service.recording).put("error", matching ? service.error : "");
         call.resolve(result);
@@ -86,12 +97,17 @@ public class RunningRecorderPlugin extends Plugin {
         });
     }
     @PluginMethod public void start(PluginCall call) {
+        // Capacitor invokes plugin methods on a worker; permission launchers require main.
+        getActivity().runOnUiThread(() -> {
+          try {
         try { call.getData().put("recorderEpoch", epochs.merge(owner(call), 1, Integer::sum)); }
         catch (Exception e) { call.reject("Требуется аккаунт", e); return; }
         if (getPermissionState("location") != PermissionState.GRANTED) {
             requestPermissionForAlias("location", call, "locationPermission"); return;
         }
         requestNotification(call);
+          } catch (Exception e) { call.reject("Не удалось запросить разрешения для пробежки", e); }
+        });
     }
     @PermissionCallback private void locationPermission(PluginCall call) {
         if (getPermissionState("location") != PermissionState.GRANTED) { call.reject("Разрешите точное местоположение для записи пробежки"); return; }
@@ -115,11 +131,13 @@ public class RunningRecorderPlugin extends Plugin {
                     if (owner.equals(service.owner)) { resolve(call, owner); return; }
                     service.stopRun(false);
                 }
+                RunStore.clearPending(getContext(), owner);
                 JSONObject draft = RunStore.read(getContext(), owner);
                 if (draft == null) {
                     draft = call.getObject("draft");
                     if (draft == null || !draft.optString("id").matches("run_[a-zA-Z0-9-]{8,80}") || draft.optLong("startedAt") <= 0
                         || draft.optJSONArray("points") == null || draft.getJSONArray("points").length() > RunStore.MAX_POINTS) throw new Exception("Некорректный черновик");
+                    draft.put("pendingStart", true);
                 } else {
                     draft.put("segment", draft.optInt("segment") + 1);
                 }
@@ -133,7 +151,10 @@ public class RunningRecorderPlugin extends Plugin {
                     }
                 });
                 ContextCompat.startForegroundService(getContext(), intent);
-            } catch (Exception e) { call.reject(e.getMessage(), e); }
+            } catch (Exception e) {
+                try { RunStore.clearPending(getContext(), owner(call)); } catch (Exception ignored) {}
+                call.reject(e.getMessage(), e);
+            }
         });
     }
     @PluginMethod public void pause(PluginCall call) { stop(call, false, false); }

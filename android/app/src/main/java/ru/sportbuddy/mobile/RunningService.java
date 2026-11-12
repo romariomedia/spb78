@@ -59,11 +59,14 @@ public class RunningService extends Service implements LocationListener {
             PowerManager power = (PowerManager) getSystemService(POWER_SERVICE);
             wakeLock = power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "SportBuddy78:running");
             wakeLock.acquire(remaining);
+            draft.remove("pendingStart");
+            RunStore.write(this, owner, draft);
             recording = true;
             timer.postDelayed(deadline, remaining);
             if (reply != null) reply.send(0, Bundle.EMPTY);
         } catch (Exception e) {
             error = e.getMessage() == null ? "Не удалось запустить GPS" : e.getMessage();
+            try { RunStore.clearPending(this, owner); } catch (Exception ignored) {}
             Bundle result = new Bundle(); result.putString("error", error);
             if (reply != null) reply.send(1, result);
             stopRun(false);
