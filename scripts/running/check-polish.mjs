@@ -6,12 +6,12 @@ const require=createRequire(import.meta.url);
 const {chromium}=require(process.env.PLAYWRIGHT_PACKAGE||'playwright');
 const artifacts='artifacts/interface-polish';await mkdir(artifacts,{recursive:true});
 const server=spawn(process.execPath,['node_modules/vite/bin/vite.js','--host','127.0.0.1','--port','4179','--strictPort'],{stdio:'pipe'});
-let logs='',browser;server.stdout.on('data',d=>logs+=d);server.stderr.on('data',d=>logs+=d);
+let logs='',browser,page;server.stdout.on('data',d=>logs+=d);server.stderr.on('data',d=>logs+=d);
 try{
  let ready=false;for(let i=0;i<120;i++){try{if((await fetch('http://127.0.0.1:4179/scripts/running/polish-preview.html')).ok){ready=true;break;}}catch{}if(server.exitCode!==null)throw Error(logs);await new Promise(r=>setTimeout(r,250));}assert.ok(ready,logs);
  browser=await chromium.launch({headless:true});
  const context=await browser.newContext({viewport:{width:390,height:844},hasTouch:true,reducedMotion:'reduce'});
- const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
+ page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
  let uploads=0,failUpload=false;
  await page.route('https://api.cloudinary.com/**',async route=>{
   const headers={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'*','Access-Control-Allow-Methods':'POST, OPTIONS'};
@@ -28,12 +28,16 @@ try{
  assert.equal((await order())[0],'events');
  assert.equal(await page.getByRole('button',{name:'Черновик 1',exact:true}).count(),1);
  assert.equal(await page.evaluate(()=>window.__runMounts),1,'reorder must not restart recorder');
+ await page.waitForTimeout(400); // Let the preceding arrow-driven layout animation settle.
  // Real touch drag via the handle, without dragging the scrollable page.
  const from=await page.getByRole('button',{name:'Перетащить: Календарь',exact:true}).boundingBox();
  const to=await page.getByRole('button',{name:'Перетащить: Мероприятия',exact:true}).boundingBox();
  const cdp=await context.newCDPSession(page),x=from.x+from.width/2,y=from.y+from.height/2;
  await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
- for(let i=1;i<=15;i++)await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y:y+(to.y-y)*i/15}]});
+ for(let i=1;i<=15;i++){
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y:y+(to.y-y)*i/15}]});
+  await page.waitForTimeout(24); // Pointer movement must span actual animation frames.
+ }
  await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
  await page.waitForFunction(()=>document.querySelector('[data-dashboard-section]').dataset.dashboardSection==='calendar');
  await page.screenshot({path:`${artifacts}/dashboard-order.png`,fullPage:true});
@@ -70,4 +74,5 @@ try{
  await open();await file.setInputFiles('public/running/park300-1.webp');await page.getByRole('button',{name:'Убрать вложение'}).click();await consent.check();assert.equal(await publish.isDisabled(),true);
  assert.deepEqual(errors,[]);
  console.log('PASS: touch reorder, persistence/account isolation, recorder mount, carousel, composer sizes, text/photo/video, consent, upload failure and retry');
-}finally{await browser?.close();server.kill();}
+}catch(error){if(page){await page.screenshot({path:`${artifacts}/failure.png`,fullPage:true});console.error('DOM order at failure:',await page.locator('[data-dashboard-section]').evaluateAll(nodes=>nodes.map(n=>n.dataset.dashboardSection)));}throw error;}
+finally{await browser?.close();server.kill();}
