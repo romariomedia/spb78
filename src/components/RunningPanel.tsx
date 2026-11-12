@@ -1,3 +1,4 @@
+import {RouteCarousel} from './RouteCarousel';
 import {useEffect,useRef,useState} from 'react';
 import {Capacitor} from '@capacitor/core';
 import {Geolocation} from '@capacitor/geolocation';
@@ -25,7 +26,7 @@ export default function RunningPanel({userId,visible,onTraining,onOpen}:{userId:
  const [draft,setDraft]=useState<Draft|null>(()=>{try{const d=JSON.parse(localStorage.getItem(key)||'null');return d&&typeof d.id==='string'&&Number.isFinite(d.startedAt)&&Number.isInteger(d.segment)&&typeof d.routeId==='string'&&(!d.endedAt||Number.isFinite(d.endedAt))&&Array.isArray(d.points)&&d.points.length<=MAX_POINTS&&d.points.every(validPoint)?d:null;}catch{return null;}});
  const ref=useRef(draft),stopRef=useRef<(()=>void)|null>(null),generation=useRef(0),leaderRequest=useRef(0);
  const [recording,setRecording]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[gps,setGps]=useState(''),[now,setNow]=useState(Date.now());
- const [history,setHistory]=useState<Result[]>([]),[selected,setSelected]=useState<RunningRoute|null>(null),[photo,setPhoto]=useState(0),[leaders,setLeaders]=useState('');
+ const [history,setHistory]=useState<Result[]>([]),[selected,setSelected]=useState<RunningRoute|null>(null),[leaders,setLeaders]=useState('');
  const [ranking,setRanking]=useState<{name:string;elapsedMs:number;paceSecPerKm:number;endedAt:number}[]>([]);
  const [resultCard,setResultCard]=useState<Result|null>(null);
  const [nativeReady,setNativeReady]=useState(!nativeRecorder);
@@ -157,12 +158,11 @@ export default function RunningPanel({userId,visible,onTraining,onOpen}:{userId:
    </div>}
    {draft?.endedAt&&<RunningResultCard result={{id:draft.id,routeId:draft.routeId,endedAt:draft.endedAt,distanceM:Math.round(meters),elapsedMs:draft.endedAt-draft.startedAt,paceSecPerKm:meters>0?Math.round((draft.endedAt-draft.startedAt)/meters):0,reason:'Завершить пробежку можно в любой точке. Сохраните фактический результат.'}} saved={false}/>}
    {resultCard&&<RunningResultCard result={resultCard} saved/>}
-   <div className="grid gap-3 sm:grid-cols-2">{routesData.map(r=><button key={r.id} onClick={()=>{leaderRequest.current++;setSelected(r);setPhoto(0);setLeaders('');setRanking([]);}} className="overflow-hidden rounded-2xl border border-slate-700 text-left hover:border-lime-300"><img loading="lazy" src={r.mapImage||r.images[0]} alt={`${r.mapImage?"Схема маршрута":"ИИ-иллюстрация"}: ${r.name}`} className="aspect-[5/4] w-full object-contain"/><div className="p-3"><strong>{r.name}</strong><p className="text-xs text-slate-400">{r.city} · {r.distanceLabel}</p></div></button>)}</div>
+   <div className="grid gap-3 sm:grid-cols-2">{routesData.map(r=><button key={r.id} onClick={()=>{leaderRequest.current++;setSelected(r);setLeaders('');setRanking([]);}} className="overflow-hidden rounded-2xl border border-slate-700 text-left hover:border-lime-300"><img loading="lazy" src={r.mapImage||r.images[0]} alt={`${r.mapImage?"Схема маршрута":"ИИ-иллюстрация"}: ${r.name}`} className="aspect-[5/4] w-full object-contain"/><div className="p-3"><strong>{r.name}</strong><p className="text-xs text-slate-400">{r.city} · {r.distanceLabel}</p></div></button>)}</div>
    {selected&&<div className="rounded-2xl border border-lime-300/30 p-3 space-y-3">
     <div className="flex justify-between"><h3 className="font-bold">{selected.name}</h3><button onClick={()=>{leaderRequest.current++;setSelected(null);}} aria-label="Закрыть маршрут">✕</button></div>
     {selected.mapImage&&<div className="space-y-2"><a href={selected.mapImage} target="_blank" rel="noreferrer" aria-label="Открыть схему маршрута крупно"><img src={selected.mapImage} alt={`Схема сверху: ${selected.name}, ${selected.distanceLabel}, лаймовая линия, старт и финиш`} className="rounded-xl w-full"/></a></div>}
-    <img src={selected.images[photo]} alt={`ИИ-иллюстрация ${selected.name}, вариант ${photo+1}`} className="rounded-xl w-full"/>
-    <div className="flex gap-2">{selected.images.map((_,i)=><button key={i} className={button} aria-pressed={photo===i} onClick={()=>setPhoto(i)}>Вид {i+1}</button>)}</div>
+    <RouteCarousel key={selected.id} images={selected.images} name={selected.name}/>
     <details className="rounded-xl bg-slate-900/60 p-3 text-sm"><summary className="cursor-pointer text-slate-300">О маршруте и точке встречи</summary><div className="mt-3 space-y-2">
      <p>{selected.description}</p><p className="text-xs text-slate-400">{selected.surface} · {selected.meetingPoint}</p>
      <p className="text-xs text-slate-400">Пейзажи — ИИ-иллюстрации. Для ориентирования используйте схему маршрута.</p>

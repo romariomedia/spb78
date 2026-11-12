@@ -4,6 +4,11 @@ on:
     paths:
       - 'android/**'
       - 'src/components/Running*.tsx'
+      - 'src/components/RouteCarousel.tsx'
+      - 'src/components/DashboardSections.tsx'
+      - 'src/components/FeedComposer.tsx'
+      - 'src/App.tsx'
+      - 'shared/dashboard-order*'
       - 'src/services/runningRecorder.ts'
       - 'src/lib/runningCard.ts'
       - 'scripts/running/**'
@@ -30,11 +35,21 @@ jobs:
         env:
           PLAYWRIGHT_PACKAGE: ${{ runner.temp }}/card-qa/node_modules/playwright
         run: node scripts/running/check-result-card.mjs
+      - name: Check dashboard, carousel and quick media composer
+        env:
+          PLAYWRIGHT_PACKAGE: ${{ runner.temp }}/card-qa/node_modules/playwright
+        run: node scripts/running/check-polish.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: running-card-previews
           path: artifacts/running-cards
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: interface-polish-previews
+          path: artifacts/interface-polish
           retention-days: 7
   debug-build:
     runs-on: ubuntu-24.04

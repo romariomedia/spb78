@@ -1,3 +1,5 @@
+import {DashboardSections} from './components/DashboardSections';
+import {FeedComposer,type FeedComposition} from './components/FeedComposer';
 import type {RunningRoute} from './components/RunningPanel';
 import {TrainerLevelBadge} from './components/TrainerLevelBadge';
 import {TrainerBookings} from './components/TrainerBookings';
@@ -14,7 +16,6 @@ import { useMobileNavigation, useBackLayer } from './hooks/useMobileNavigation';
 import {useOperationalConfig} from './services/operationalConfig';
 import { DistrictSelect } from './components/DistrictSelect';
 import { districtLabel, getDistrict, matchesDistrict } from '../shared/districts.js';
-import { PhotoEditor } from './components/PhotoEditor';
 import { Stories } from './components/Stories';
 import { AvatarImage } from './components/AvatarImage';
 import { NotificationSettings } from './components/NotificationSettings';
@@ -49,17 +50,16 @@ import {
 import { getCurrentCoords, calculateDistanceKm, Coords, DEFAULT_COORDS } from './services/geolocation';
 import { getAddressFromCoords } from './services/geocoding';
 import {
-  uploadToCloudinary, uploadMedia, uploadRemoteUrl,
+  uploadToCloudinary, uploadMedia,
   avatarUrl, photoUrl, cldUrl, videoPoster, CloudinaryUploadError
 } from './services/cloudinary';
 import { joinedTrainingIds } from './services/dataLoading';
 import { subscribeAppInvalidation } from './services/realtime';
 import { 
   triggerHapticImpact, triggerHapticNotification, takeAvatarPhoto,
-  pickPhotoFromGallery, shareContent, setupDeepLinkListener, launchMatchConfetti,
+  shareContent, setupDeepLinkListener, launchMatchConfetti,
   generateDemoNotifications, sendLocalNotification
 } from './services/native';
-import { isNativeApp } from './services/media';
 
 import { AuthAccount } from './lib/types';
 import { getSessionAccount, logout as clearLocalAuthSession, removeLocalAccount, syncLocalAccountIdentity } from './services/auth';
@@ -275,7 +275,6 @@ export default function App(): JSX.Element {
   const [trainingLevelFilter, setTrainingLevelFilter] = useState<'all' | 'amateur' | 'semi-pro' | 'pro'>('all');
   const [calendarDay, setCalendarDay] = useState<string | null>(null);
   // Bumps whenever the authenticated athlete joins/leaves a real training.
-  const [onlyMyTrainings, setOnlyMyTrainings] = useState<boolean>(false);
   const [selectedTraining, setSelectedTraining] = useState<Training | null>(null);
   const [isCreateTrainingOpen, setIsCreateTrainingOpen] = useState<boolean>(false);
 
@@ -303,10 +302,6 @@ export default function App(): JSX.Element {
 
   // Feed State
   const [isCreatePostOpen, setIsCreatePostOpen] = useState(false);
-  const [postContent, setPostContent] = useState('');
-  const [postSportTag, setPostSportTag] = useState('Общее');
-  const [editingFeedPhoto, setEditingFeedPhoto] = useState<File | null>(null);
-  const [postMediaUrl, setPostMediaUrl] = useState('');
   const [postPublicConsent, setPostPublicConsent] = useState(false);
   const [activeCommentPostId, setActiveCommentPostId] = useState<string | null>(null);
   const [newCommentText, setNewCommentText] = useState('');
@@ -393,7 +388,6 @@ export default function App(): JSX.Element {
   const [isAdminAccessOpen, setIsAdminAccessOpen] = useState(false);
   const [adminSessionVersion, setAdminSessionVersion] = useState(0);
   const [eventsRefreshKey, setEventsRefreshKey] = useState(0);
-  const mediaInputRef = React.useRef<HTMLInputElement>(null);
 
   /* --- Загрузка медиа: прогресс, отмена, подпись, неблокирующие тосты --- */
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
@@ -607,7 +601,7 @@ export default function App(): JSX.Element {
   }, [needsFullDirectory, loadMoreProfiles, profilesError]);
 
   const relatedTrainingIds = useMemo(() => {
-    const activities = [...(activeTab === 'trainings' ? trainings : []), ...[selectedTraining, ratingTraining, organizerRatingTraining].filter((item): item is Training => !!item)];
+    const activities = [...((activeTab === 'trainings'||activeTab === 'profile') ? trainings : []), ...[selectedTraining, ratingTraining, organizerRatingTraining].filter((item): item is Training => !!item)];
     return [...new Set(activities.flatMap(training => [training.createdBy, ...(training.participantIds || [])]))].filter(Boolean);
   }, [activeTab, trainings, selectedTraining, ratingTraining, organizerRatingTraining]);
   useEffect(() => {
@@ -1251,11 +1245,10 @@ export default function App(): JSX.Element {
       if (!matchesDistrict(tr, trainingDistrictFilter)) return false;
       if (trainingSportFilter !== 'Все' && tr.sport !== trainingSportFilter) return false;
       if (trainingLevelFilter !== 'all' && tr.level !== trainingLevelFilter) return false;
-      if (onlyMyTrainings && !tr.participantIds.includes(CURRENT_USER_ID)) return false;
       if (calendarDay && getTrainingDayKey(tr) !== calendarDay) return false;
       return true;
     });
-  }, [trainings, trainingDistrictFilter, trainingSportFilter, trainingLevelFilter, onlyMyTrainings, calendarDay]);
+  }, [trainings, trainingDistrictFilter, trainingSportFilter, trainingLevelFilter, calendarDay]);
 
   /** O(1) organiser lookup — avoids allUsers.find() inside every card */
   const creatorsById = useMemo(
@@ -1543,43 +1536,15 @@ export default function App(): JSX.Element {
     }
   };
 
-  // Create Post
-  const handleCreatePost = async () => {
-    if (!postContent.trim() || !currentUser) return;
-    if (!requirePublishingVerification()) return;
-    if (!postPublicConsent) {
-      notify('Перед публикацией отдельно подтвердите распространение содержания записи и данных автора.', 'err');
-      return;
-    }
-
-    let media = postMediaUrl.trim() || undefined;
-    if (media) {
-      try {
-        setUploadProgress(0);
-        media = await uploadRemoteUrl(media, {
-          folder: 'sportbuddy/feed/image',
-          tags: ['feed', 'remote', currentUser.id],
-          onProgress: setUploadProgress
-        });
-      } catch {
-        notify('Не удалось загрузить медиа по ссылке — публикуем без него.', 'err');
-        media = undefined;
-      } finally {
-        setUploadProgress(null);
-      }
-    }
-
-    const post = await createPost(postContent, postSportTag, media, 'image', currentUser, postPublicConsent);
-    if (post) {
-      setFeedPosts(prev => [post, ...prev]);
-      setPostContent('');
-      setPostMediaUrl('');
-      setPostPublicConsent(false);
-      setIsCreatePostOpen(false);
-      triggerHapticNotification('success');
-    } else {
-      notify('Не удалось опубликовать. Проверьте Premium, верификацию и связь.', 'err');
-    }
+  const publishComposition = async (composition: FeedComposition) => {
+    if (!currentUser || !requirePublishingVerification()) throw new Error('Публикация недоступна. Проверьте профиль и доступ к ленте.');
+    const owner=currentUser.id;
+    if (CURRENT_USER_ID!==owner) throw new Error('Аккаунт изменился. Откройте публикацию заново.');
+    const post=await createPost(composition.text,composition.sport,composition.mediaUrl,composition.mediaType,currentUser,true);
+    if (!post) throw new Error('Не удалось опубликовать. Проверьте связь и повторите.');
+    if (CURRENT_USER_ID!==owner) return;
+    setFeedPosts(prev=>[post,...prev.filter(p=>p.id!==post.id)]);
+    triggerHapticNotification('success');
   };
 
   // The admin entry is reachable by anyone, but the modal itself enforces
@@ -1800,36 +1765,9 @@ export default function App(): JSX.Element {
     setPostPublicConsent(false);
     setPendingMedia({ file, isVideo: isVideo ?? file.type.startsWith('video') });
     setPendingCaption(
-      (isVideo ?? file.type.startsWith('video'))
-        ? 'Моё видео с тренировки в Санкт-Петербурге 🎥'
-        : 'Фото с тренировки в Санкт-Петербурге 📸'
+      ''
     );
   }, []);
-
-  /** Кнопка «Из галереи»: native — системный picker, web — input[type=file]. */
-  const handleOpenGallery = async () => {
-    triggerHapticImpact('medium');
-    if (!requirePublishingVerification()) return;
-    if (!isNativeApp) { mediaInputRef.current?.click(); return; }
-    try {
-      const file = await pickPhotoFromGallery();
-      if (file) setEditingFeedPhoto(file);
-    } catch (error) {
-      notify(error instanceof Error ? error.message : 'Галерея недоступна', 'err');
-    }
-  };
-
-  /** Web-ветка input[type=file]: фото и видео. */
-  const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file || !currentUser) return;
-    if (!requirePublishingVerification()) return;
-
-    const isVideo = file.type.startsWith('video');
-    if (isVideo) openCaptionDialog(file, true);
-    else setEditingFeedPhoto(file);
-  };
 
   /** Публикация подготовленного медиа в ленту. */
   const publishPendingMedia = async () => {
@@ -2439,11 +2377,59 @@ export default function App(): JSX.Element {
               </div>
             )}
 
-            {currentUser && (runningLoaded || activeTab === 'trainings') && <Suspense fallback={null}><RunningPanel key={currentUser.id} userId={currentUser.id} visible={activeTab === 'trainings'} onOpen={() => handleTabChange('trainings')} onTraining={handleCreateTrainingFromRoute} /></Suspense>}
-            {/* ==================== TAB 2: TRAININGS (ТРЕНИРОВКИ) ==================== */}
-            {activeTab === 'trainings' && (
-              <div className="space-y-4">
-                {/* Header Actions & Filter */}
+            {currentUser && (runningLoaded || activeTab === 'trainings') && <DashboardSections key={currentUser.id} userId={currentUser.id} visible={activeTab === 'trainings'} sections={[
+              {id:'running',title:'Пробежки и маршруты',content:<><Suspense fallback={null}><RunningPanel key={currentUser.id} userId={currentUser.id} visible={activeTab === 'trainings'} onOpen={() => handleTabChange('trainings')} onTraining={handleCreateTrainingFromRoute} /></Suspense></>},
+              {id:'events',title:'Мероприятия SportBuddy',content:activeTab === 'trainings' ? <>                {/* Official SportBuddy events */}
+                {currentUser && (
+                  <OfficialEvents
+                    currentUser={currentUser}
+                    onOpenEvent={(e) => setSelectedEvent(e)}
+                    isAdminUser={isAdminUser}
+                    onOpenAdmin={() => {
+                      if (isAdminUser) setIsAdminOpen(true);
+                      else setIsAdminAccessOpen(true);
+                    }}
+                    refreshKey={eventsRefreshKey}
+                  />
+                )}
+
+</> : null},
+              {id:'calendar',title:'Календарь тренировок',content:activeTab === 'trainings' ? <>                {/* Calendar with date filter */}
+                <TrainingCalendar
+                  trainings={trainings}
+                  selectedDay={calendarDay}
+                  onSelectDay={setCalendarDay}
+                />
+
+</> : null},
+              {id:'trainers',title:'Персональные тренеры',content:activeTab === 'trainings' ? <>                {trainingIdentityError && <div role="status" className="rounded-xl bg-slate-900 p-3 text-sm text-amber-200">
+                  {trainingIdentityError} <button type="button" className="underline" onClick={()=>setTrainingIdentityRetry(value=>value+1)}>Повторить</button>
+                </div>}
+                <PersonalTrainers userId={CURRENT_USER_ID} onBooked={()=>setTrainerRequestsVersion(v=>v+1)} key={CURRENT_USER_ID} refreshKey={rankingRefreshKey} onSelectUser={async candidate=>{
+                  const epoch=directoryEpoch.current,uid=CURRENT_USER_ID;
+                  const user=candidate.id===currentUser?.id?currentUser:(await loadPublicProfilesByIds([candidate.id]))[0];
+                  if(epoch!==directoryEpoch.current||uid!==CURRENT_USER_ID)return;
+                  if(!user)throw new Error('Анкета недоступна');
+                  setSelectedUserModal(user);
+                }}/>
+
+</> : null},
+              {id:'leaderboard',title:'Таблица лидеров',content:activeTab === 'trainings' ? <>                {/* Community leaderboard */}
+                <Leaderboard
+                  onConfigureVisibility={()=>{setActiveTab('profile');setProfileSection('edit');}}
+                  currentUserId={CURRENT_USER_ID}
+                  refreshKey={rankingRefreshKey}
+                  onSelectUser={async (id) => {
+                    const epoch=directoryEpoch.current, uid=CURRENT_USER_ID;
+                    const user=id===currentUser?.id?currentUser:(await loadPublicProfilesByIds([id]))[0];
+                    if(epoch!==directoryEpoch.current || CURRENT_USER_ID!==uid)return;
+                    if(!user)throw new Error('Анкета недоступна');
+                    setSelectedUserModal(user);
+                  }}
+                />
+
+</> : null},
+              {id:'community',title:'Спортивные тренировки',content:activeTab === 'trainings' ? <>                {/* Header Actions & Filter */}
                 <div className="flex items-center justify-between gap-2">
                   <div>
                     <h2 className="text-lg font-black text-white tracking-tight">Спортивные тренировки</h2>
@@ -2495,67 +2481,13 @@ export default function App(): JSX.Element {
                   </div>
                 )}
 
-                {/* Official SportBuddy events */}
-                {currentUser && (
-                  <OfficialEvents
-                    currentUser={currentUser}
-                    onOpenEvent={(e) => setSelectedEvent(e)}
-                    isAdminUser={isAdminUser}
-                    onOpenAdmin={() => {
-                      if (isAdminUser) setIsAdminOpen(true);
-                      else setIsAdminAccessOpen(true);
-                    }}
-                    refreshKey={eventsRefreshKey}
-                  />
-                )}
-
-                {/* Calendar with date filter */}
-                <TrainingCalendar
-                  trainings={trainings}
-                  selectedDay={calendarDay}
-                  onSelectDay={setCalendarDay}
-                />
-
-                {trainingIdentityError && <div role="status" className="rounded-xl bg-slate-900 p-3 text-sm text-amber-200">
-                  {trainingIdentityError} <button type="button" className="underline" onClick={()=>setTrainingIdentityRetry(value=>value+1)}>Повторить</button>
-                </div>}
-                <PersonalTrainers userId={CURRENT_USER_ID} onBooked={()=>setTrainerRequestsVersion(v=>v+1)} key={CURRENT_USER_ID} refreshKey={rankingRefreshKey} onSelectUser={async candidate=>{
-                  const epoch=directoryEpoch.current,uid=CURRENT_USER_ID;
-                  const user=candidate.id===currentUser?.id?currentUser:(await loadPublicProfilesByIds([candidate.id]))[0];
-                  if(epoch!==directoryEpoch.current||uid!==CURRENT_USER_ID)return;
-                  if(!user)throw new Error('Анкета недоступна');
-                  setSelectedUserModal(user);
-                }}/>
-
-                <TrainerBookings key={`trainer-out-${CURRENT_USER_ID}`} refreshKey={trainerRequestsVersion} onChat={id=>setPendingNotificationLink('#chat='+encodeURIComponent(id))}/>
-                {/* Community leaderboard */}
-                <Leaderboard
-                  onConfigureVisibility={()=>{setActiveTab('profile');setProfileSection('edit');}}
-                  currentUserId={CURRENT_USER_ID}
-                  refreshKey={rankingRefreshKey}
-                  onSelectUser={async (id) => {
-                    const epoch=directoryEpoch.current, uid=CURRENT_USER_ID;
-                    const user=id===currentUser?.id?currentUser:(await loadPublicProfilesByIds([id]))[0];
-                    if(epoch!==directoryEpoch.current || CURRENT_USER_ID!==uid)return;
-                    if(!user)throw new Error('Анкета недоступна');
-                    setSelectedUserModal(user);
-                  }}
-                />
-
                 {/* Filter chip pills */}
                 <div className="bg-slate-900 p-3 rounded-2xl border border-slate-800 space-y-2.5">
                   <div className="flex items-center justify-between text-xs font-semibold text-slate-300">
                     <span className="flex items-center gap-1 text-emerald-400">
                       <Filter className="w-3.5 h-3.5" /> Фильтр по спорту:
                     </span>
-                    <button
-                      onClick={() => setOnlyMyTrainings(!onlyMyTrainings)}
-                      className={`px-2.5 py-1 rounded-lg border text-xs font-bold transition ${
-                        onlyMyTrainings ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500' : 'bg-slate-800 text-slate-400 border-slate-700'
-                      }`}
-                    >
-                      ✓ Мои записи
-                    </button>
+
                   </div>
                   
                   <div className="flex gap-1.5 overflow-x-auto no-scrollbar py-0.5">
@@ -2631,8 +2563,8 @@ export default function App(): JSX.Element {
                     components={{ Item: VirtuosoSpacedItem }}
                   />
                 )}
-              </div>
-            )}
+</> : null},
+            ]}/> }
 
             {/* ==================== TAB 3: CHATS (ЧАТЫ) — PREMIUM ONLY ==================== */}
             {activeTab === 'leisure' && operations.featureFlags.activeLeisureEnabled && currentUser && (
@@ -3134,8 +3066,19 @@ export default function App(): JSX.Element {
                     }`}
                   >
                     <Newspaper className="w-4 h-4" /> 
-                    <span>Пост {canPublishToFeed ? '👑' : '🔒'}</span>
+                    <span>Написать</span>
                   </button>
+                </div>
+
+                <div className="rounded-3xl border border-white/10 bg-slate-900 p-4">
+                  <button type="button" onClick={()=>{if(requirePublishingVerification())setIsCreatePostOpen(true);}} className="flex min-h-12 w-full items-center gap-3 text-left">
+                    <AvatarImage src={currentUser?.avatar} className="h-10 w-10 rounded-full object-cover"/>
+                    <span className="flex-1 text-sm text-slate-400">Что нового?</span><Plus className="text-lime-300" size={20}/>
+                  </button>
+                  <div className="mt-3 flex items-center gap-4 border-t border-white/5 pt-2">
+                    <button type="button" onClick={()=>{if(requirePublishingVerification())setIsCreatePostOpen(true);}} className="min-h-11 text-xs font-bold text-lime-300">Фото / видео</button>
+                    <button type="button" onClick={()=>{if(requirePublishingVerification())setIsBroadcastOpen(true);}} className="min-h-11 text-xs text-slate-400">Записать видео</button>
+                  </div>
                 </div>
 
                 {/* Спортивная афиша — медиа и поиск компании, не тренировки */}
@@ -3146,63 +3089,6 @@ export default function App(): JSX.Element {
                 )}
 
                 {currentUser && operations.featureFlags.storiesEnabled && <Stories key={currentUser.id} user={currentUser} canPublish={canPublishToFeed} onLocked={()=>{requirePublishingVerification();}}/>}
-
-                {/* Live broadcast & gallery publishing */}
-                <div className="grid grid-cols-2 gap-2.5">
-                  <button
-                    onClick={() => {
-                      triggerHapticImpact('medium');
-                      if (!requirePublishingVerification()) return;
-                      setIsBroadcastOpen(true);
-                    }}
-                    className={`p-3.5 rounded-3xl border-2 text-left transition active:scale-95 ${
-                      canPublishToFeed
-                        ? 'bg-gradient-to-br from-rose-950/60 to-slate-900 border-rose-500/60 shadow-[0_0_18px_rgba(244,63,94,0.2)]'
-                        : 'bg-slate-900 border-slate-800'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="relative flex h-2 w-2">
-                        <span className={`absolute inline-flex h-full w-full rounded-full ${canPublishToFeed ? 'bg-rose-400 animate-ping' : 'bg-slate-600'} opacity-75`} />
-                        <span className={`relative inline-flex rounded-full h-2 w-2 ${canPublishToFeed ? 'bg-rose-500' : 'bg-slate-600'}`} />
-                      </span>
-                      <span className={`text-xs font-black ${canPublishToFeed ? 'text-rose-300' : 'text-slate-400'}`}>
-                        Видеозапись {canPublishToFeed ? '' : '🔒'}
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-slate-400 leading-snug">
-                      Запись видео с места тренировки
-                    </p>
-                  </button>
-
-                  <button
-                    onClick={handleOpenGallery}
-                    disabled={uploadProgress !== null}
-                    className={`p-3.5 rounded-3xl border-2 text-left transition active:scale-95 ${
-                      canPublishToFeed
-                        ? 'bg-gradient-to-br from-emerald-950/60 to-slate-900 border-emerald-500/60 shadow-[0_0_18px_rgba(16,185,129,0.2)]'
-                        : 'bg-slate-900 border-slate-800'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-base">🖼</span>
-                      <span className={`text-xs font-black ${canPublishToFeed ? 'text-emerald-300' : 'text-slate-400'}`}>
-                        Из галереи {canPublishToFeed ? '' : '🔒'}
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-slate-400 leading-snug">
-                      Фото или видео с телефона
-                    </p>
-                  </button>
-                </div>
-
-                <input
-                  ref={mediaInputRef}
-                  type="file"
-                  accept="image/*,video/*"
-                  onChange={handleGalleryUpload}
-                  className="hidden"
-                />
 
                 <PartnerFeedSection key={currentUser?.id} />
 
@@ -3320,6 +3206,13 @@ export default function App(): JSX.Element {
 
                 {profileSection === 'overview' && (
                   <>
+                <details className="rounded-3xl border border-lime-300/20 bg-slate-900 p-4">
+                  <summary className="min-h-11 cursor-pointer py-2 font-bold text-white">Мои записи</summary>
+                  <p className="mb-4 text-xs text-slate-400">Тренировки, на которые вы записались или которые организуете.</p>
+                  <div className="space-y-3">{trainings.filter(tr=>tr.participantIds.includes(currentUser.id)||tr.createdBy===currentUser.id).map(tr=><TrainingCard key={tr.id} training={tr} creator={creatorsById.get(tr.createdBy)} currentUserId={currentUser.id} currentUser={currentUser} userCoords={hasCurrentLocation?userCoords:null} onSelect={setSelectedTraining} onJoin={handleJoinTraining} onShare={handleShareTraining}/>)}</div>
+                  {!trainings.some(tr=>tr.participantIds.includes(currentUser.id)||tr.createdBy===currentUser.id)&&<p className="py-3 text-sm text-slate-400">Пока нет записей на тренировки.</p>}
+                  <button type="button" onClick={()=>handleTabChange('trainings')} className="mt-3 min-h-11 text-sm font-bold text-lime-300">Найти тренировку</button>
+                </details>
                 <div id="trainer-requests"><TrainerBookings key={`trainer-in-${CURRENT_USER_ID}`} incoming={currentUser.personalTrainer?.enabled===true} refreshKey={trainerRequestsVersion} forceOpen={trainerRequestsOpen} onChat={id=>setPendingNotificationLink('#chat='+encodeURIComponent(id))}/></div>
                 {operations.featureFlags.sportPassportEnabled&&<PersonalTrainerPanel userId={currentUser.id} onOpenVerification={()=>{setProfileSection('passport');setTimeout(()=>document.getElementById('personal-trainer-verification')?.scrollIntoView({block:'start',behavior:'smooth'}),150);}} onChanged={trainer=>setCurrentUser(old=>old?{...old,personalTrainer:trainer}:old)}/>}
                 <BusinessBillingPanel />
@@ -4473,77 +4366,7 @@ export default function App(): JSX.Element {
         )}
       </Modal>
 
-      {editingFeedPhoto && <PhotoEditor file={editingFeedPhoto} onClose={()=>setEditingFeedPhoto(null)} onSave={file=>{setEditingFeedPhoto(null);openCaptionDialog(file);}}/>}
-
-      {/* MODAL 6: CREATE POST */}
-      <Modal
-        isOpen={isCreatePostOpen}
-        onClose={() => setIsCreatePostOpen(false)}
-        title="Новая публикация"
-        subtitle="Поделитесь достижением с сообществом"
-      >
-        <div className="space-y-4 text-xs">
-          <div>
-            <label className="block font-bold text-slate-300 mb-1">Спортивная дисциплина</label>
-            <select
-              value={postSportTag}
-              onChange={e => setPostSportTag(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-100 focus:border-emerald-500 font-semibold"
-            >
-              {SPORT_TAGS.map(s => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block font-bold text-slate-300 mb-1">Текст публикации</label>
-            <textarea
-              rows={4}
-              placeholder="Сколько километров преодолели сегодня, какой темп и впечатления..."
-              value={postContent}
-              onChange={e => setPostContent(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
-            />
-          </div>
-
-          <div>
-            <label className="block font-bold text-slate-300 mb-1">URL фото или видео к посту (опционально)</label>
-            <input
-              type="url"
-              placeholder="https://images.unsplash.com/photo-..."
-              value={postMediaUrl}
-              onChange={e => setPostMediaUrl(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-100 placeholder-slate-500"
-            />
-          </div>
-
-          <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-800 bg-slate-950 p-3">
-            <input type="checkbox" checked={postPublicConsent} onChange={e=>setPostPublicConsent(e.target.checked)}
-              className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-400"/>
-            <span className="text-[10px] leading-relaxed text-slate-300">
-              Я отдельно разрешаю распространение <b className="text-white">содержания этой публикации, моего имени и аватара</b>
-              среди пользователей SportBuddy78.
-            </span>
-          </label>
-
-          <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
-            <button
-              onClick={() => setIsCreatePostOpen(false)}
-              className="px-4 py-2 bg-slate-800 text-slate-300 font-bold rounded-xl transition"
-            >
-              Отмена
-            </button>
-            <button
-              onClick={handleCreatePost}
-              disabled={!postPublicConsent}
-              className="px-6 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl transition shadow-[0_0_20px_rgba(16,185,129,0.5)] active:scale-95 disabled:opacity-50"
-            >
-              Опубликовать в ленту
-            </button>
-          </div>
-        </div>
-      </Modal>
+      {isCreatePostOpen && currentUser && <FeedComposer key={currentUser.id} name={currentUser.name} avatar={currentUser.avatar} sports={SPORT_TAGS} onClose={()=>setIsCreatePostOpen(false)} onPublish={publishComposition}/>}
 
       {/* MODAL 7: NOTIFICATIONS (PUSH NOTIFICATIONS DEMO FOR PROMPT 3) */}
       <Modal
