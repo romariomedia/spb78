@@ -41,6 +41,10 @@ try{
  }
  await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
  await page.waitForFunction(()=>document.querySelector('[data-dashboard-section]').dataset.dashboardSection==='calendar');
+ await page.waitForFunction(()=>{
+  const rows=[...document.querySelector('[aria-label="Порядок разделов"] ul').children].map(e=>e.getBoundingClientRect());
+  return rows.every((r,i)=>!i||rows[i-1].bottom<=r.top+1);
+ });
  await page.screenshot({path:`${artifacts}/dashboard-order.png`,fullPage:true});
  await page.reload();await page.waitForSelector('[data-dashboard-section]');assert.equal((await order())[0],'calendar');
  await page.getByRole('button',{name:'Сменить вкладку',exact:true}).click();await page.getByRole('button',{name:'Сменить вкладку',exact:true}).click();assert.equal(await page.evaluate(()=>window.__runMounts),1);
