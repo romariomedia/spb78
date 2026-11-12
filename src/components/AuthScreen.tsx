@@ -481,10 +481,10 @@ export function AuthScreen({ onAuthenticated, initialNotice = '', onBrowse }: Pr
 
         {/* Authentication panel */}
         <motion.section
-          initial={{ opacity: 0, y: 22, scale: 0.985 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
+          initial={isNativeApp ? false : { opacity: 0, y: 22, scale: 0.985 }}
+          animate={isNativeApp ? undefined : { opacity: 1, y: 0, scale: 1 }}
           transition={{ delay: 0.2, type: 'spring', stiffness: 180, damping: 22 }}
-          className="sb-auth-card mx-auto mt-8 w-full max-w-[410px] rounded-[30px] border border-slate-700/70 p-5 backdrop-blur-xl sm:p-6 lg:mt-0 lg:mx-0"
+          className={`sb-auth-card mx-auto mt-8 w-full max-w-[410px] rounded-[30px] border border-slate-700/70 p-5 sm:p-6 lg:mt-0 lg:mx-0 ${isNativeApp ? 'sb-auth-card-native' : 'backdrop-blur-xl'}`}
         >
           <div className="mb-5 flex items-start justify-between gap-3">
             <div>
