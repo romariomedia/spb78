@@ -49,6 +49,23 @@ public class RunningLifecycleTest {
         scenario.onActivity(a -> result[0]=(RunningRecorderPlugin)a.getBridge().getPlugin("RunningRecorder").getInstance());
         return result[0];
     }
+    @Test public void workerStartRequestsPermissionOnMainThread() throws Exception {
+        try(ActivityScenario<MainActivity> scenario=ActivityScenario.launch(MainActivity.class)) {
+            MainActivity[] activity=new MainActivity[1];
+            scenario.onActivity(a -> activity[0]=a);
+            RunningRecorderPlugin plugin=new RunningRecorderPlugin() {
+                @Override public androidx.appcompat.app.AppCompatActivity getActivity() { return activity[0]; }
+                @Override public com.getcapacitor.PermissionState getPermissionState(String alias) { return com.getcapacitor.PermissionState.PROMPT; }
+                @Override protected void requestPermissionForAlias(String alias, PluginCall call, String callback) {
+                    assertEquals(android.os.Looper.getMainLooper(),android.os.Looper.myLooper());
+                    call.resolve(new JSObject().put("requested",alias));
+                }
+            };
+            Call call=new Call("start",new JSObject().put("owner","test-permission"));
+            plugin.start(call);
+            assertEquals("location",call.await().getString("requested"));
+        }
+    }
     @Test public void startPauseResumeAndFinishReplyWithoutLosingDraft() throws Exception {
         String owner="test-"+java.util.UUID.randomUUID();
         Instrumentation instrumentation=InstrumentationRegistry.getInstrumentation();
