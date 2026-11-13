@@ -7,13 +7,14 @@ const bundled = await build({
   entryPoints: ['src/services/repository.ts'], bundle: true, write: false, format: 'esm', platform: 'node',
   define: { 'import.meta.env.DEV': 'false', 'import.meta.env.VITE_ENABLE_SAMPLE_DATA': '"false"' },
   plugins: [{ name: 'fake-io', setup(b) {
-    b.onResolve({ filter: /^(firebase\/firestore|\.\.\/lib\/firebase|\.\/native|\.\/schedule|\.\/reset|\.\/serverApi)$/ }, args => ({ path: args.path, namespace: 'fake' }));
+    b.onResolve({ filter: /^(firebase\/firestore|\.\.\/lib\/firebase|\.\/native|\.\/schedule|\.\/reset|\.\/serverApi|\.\/firebaseAuth)$/ }, args => ({ path: args.path, namespace: 'fake' }));
     b.onLoad({ filter: /.*/, namespace: 'fake' }, args => {
       const sources = {
         'firebase/firestore': `export const collection=(_db,name)=>name; export const doc=(_db,name,id)=>name+'/'+id;
           const read=async path=>{const value=globalThis.__sbReads[path];if(value instanceof Error)throw value;return value;};
           export const getDocsFromServer=path=>{if(['users','feed','trainings'].includes(path))throw Error('Raw collection read forbidden');return read(path)},getDocFromServer=read;`,
         '../lib/firebase': 'export const db={};',
+        './firebaseAuth': 'export const auth={get currentUser(){return globalThis.__sbAuth;}};',
         './native': 'export const triggerHapticImpact=()=>{};',
         './schedule': 'export const getActiveTrainings=x=>x;',
         './reset': 'export const createFreshProfile=(id,extra={})=>({id,name:"New",...extra});',
@@ -40,6 +41,7 @@ const collectionSnapshot = (items) => ({ docs: items.map(([id, value]) => snapsh
 let storage;
 function reset() {
   globalThis.__sbApiHook=undefined;
+  globalThis.__sbAuth={uid:'alice'};
   Object.defineProperty(globalThis, "navigator", { value: { onLine: true }, configurable: true });
   storage = new Map();
   globalThis.localStorage = { getItem: k => storage.get(k) ?? null, setItem: (k,v) => storage.set(k,v), removeItem: k=>storage.delete(k) };
@@ -181,4 +183,14 @@ test('deferred startup and training deep link do not request feed or report a fa
  assert.equal(reads,0);assert.equal(data.loadWarning,undefined);assert.deepEqual(data.feedPosts,[]);
  await assert.rejects(repository.loadFeedPosts({strict:true}),/Не удалось обновить публикации/);
  assert.equal(reads,1);
+});
+
+test('late like response cannot update cache after changing authentication session',async()=>{
+ reset();await repository.loadAppData();
+ let finish;globalThis.__sbApiHook=async path=>path==='/api/sportbuddy-mutation'?new Promise(resolve=>{finish=resolve;}):undefined;
+ const pending=repository.toggleLikeProfile('bob');
+ globalThis.__sbAuth={uid:'alice'};
+ finish({isLiked:true,isMatch:true,isNewMatch:true,likedUserIds:['bob'],matchIds:['bob']});
+ const result=await pending;assert.ok(result.error);
+ const cache=JSON.parse(storage.get('sportbuddy_offline_cache_v7'));assert.deepEqual(cache.currentUser.matchIds,[]);
 });
