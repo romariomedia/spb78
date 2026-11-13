@@ -1,5 +1,14 @@
 name: Running Android check
 on:
+  push:
+    branches: ['feature/running-routes']
+    paths:
+      - 'src/components/DiscoverySettings.tsx'
+      - 'src/hooks/useDiscoveryHistory.ts'
+      - 'src/services/discoveryPolicy.ts'
+      - 'scripts/running/check-discovery.mjs'
+      - 'scripts/running/discovery-preview.*'
+      - '.github/workflows/running-android-check.yml'
   pull_request:
     paths:
       - 'android/**'
