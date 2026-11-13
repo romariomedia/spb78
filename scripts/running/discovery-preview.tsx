@@ -20,7 +20,7 @@ function Preview(){
  <button disabled={!history.canUndo} onClick={history.undo}>Вернуть</button>
  <button onClick={()=>setUid(uid==='a'?'b':'a')}>Сменить аккаунт</button>
  <button onClick={()=>setFail(!fail)}>Ошибка сохранения</button>
- <output data-testid="saved">{saved}</output>
+ <output className="break-all" data-testid="saved">{saved}</output>
  </main>;
 }
 createRoot(document.getElementById('root')!).render(<Preview/>);
