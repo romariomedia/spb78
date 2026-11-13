@@ -1,0 +1,121 @@
+name: Running Android check
+on:
+  push:
+    branches: ['feature/running-routes']
+    paths:
+      - 'src/components/DiscoverySettings.tsx'
+      - 'src/hooks/useDiscoveryHistory.ts'
+      - 'src/services/discoveryPolicy.ts'
+      - 'scripts/running/check-discovery.mjs'
+      - 'scripts/running/discovery-preview.*'
+      - '.github/workflows/running-android-check.yml'
+  pull_request:
+    paths:
+      - 'android/**'
+      - 'src/components/Running*.tsx'
+      - 'src/components/RouteCarousel.tsx'
+      - 'src/components/DashboardSections.tsx'
+      - 'src/components/FeedComposer.tsx'
+      - 'src/components/DiscoverySettings.tsx'
+      - 'src/hooks/useDiscoveryHistory.ts'
+      - 'src/services/discoveryPolicy.ts'
+      - 'src/App.tsx'
+      - 'shared/dashboard-order*'
+      - 'src/services/runningRecorder.ts'
+      - 'src/lib/runningCard.ts'
+      - 'scripts/running/**'
+      - 'tests/running-card.test.js'
+      - 'shared/running*'
+      - '.github/workflows/running-android-check.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  card-browser-check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --include=dev
+      - run: npm install --prefix "$RUNNER_TEMP/card-qa" playwright@1.65.0
+      - run: node "$RUNNER_TEMP/card-qa/node_modules/playwright/cli.js" install --with-deps chromium
+      - name: Check editor and exported PNGs in Chromium
+        env:
+          PLAYWRIGHT_PACKAGE: ${{ runner.temp }}/card-qa/node_modules/playwright
+        run: node scripts/running/check-result-card.mjs
+      - name: Check dashboard, carousel and quick media composer
+        env:
+          PLAYWRIGHT_PACKAGE: ${{ runner.temp }}/card-qa/node_modules/playwright
+        run: node scripts/running/check-polish.mjs
+      - name: Check discovery history and filters
+        env:
+          PLAYWRIGHT_PACKAGE: ${{ runner.temp }}/card-qa/node_modules/playwright
+        run: node scripts/running/check-discovery.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: discovery-previews
+          path: artifacts/discovery
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: running-card-previews
+          path: artifacts/running-cards
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: interface-polish-previews
+          path: artifacts/interface-polish
+          retention-days: 7
+  debug-build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - run: npm ci --include=dev
+      - run: node --test tests/running*.test.js
+      - run: npm run build
+      - run: npx cap sync android
+      - name: Install SDK
+        run: "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager 'platforms;android-36' 'build-tools;36.0.0'"
+      - name: Compile Android recorder and instrumentation tests
+        working-directory: android
+        run: bash gradlew --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest
+      - uses: actions/upload-artifact@v4
+        with:
+          name: running-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 7
+      - name: Enable KVM for Android lifecycle tests
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run recorder and card saving on Android 11
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          disable-animations: true
+          script: cd android && bash gradlew --no-daemon :app:connectedDebugAndroidTest
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: running-android-test-results
+          path: android/app/build/outputs/androidTest-results
+          retention-days: 7

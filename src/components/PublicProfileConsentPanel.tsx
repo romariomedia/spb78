@@ -9,7 +9,7 @@ import {LegalSection} from './LegalSection';
 
 const GROUPS:Array<{id:PublicConsentGroup;label:string;description:string}>=[
   {id:'identity',label:'Основные данные профиля',description:'Имя, возраст, пол и аватар.'},
-  {id:'profile',label:'Спортивная анкета',description:'Описание, виды спорта и статус поиска напарника.'},
+  {id:'profile',label:'Спортивная анкета',description:'Описание, виды спорта, уровень подготовки, удобное время тренировок и статус поиска напарника.'},
   {id:'portfolio',label:'Фото портфолио',description:'Спортивные фотографии, которые вы загрузили в портфолио.'},
   {id:'location',label:'Район и поиск рядом',description:'Район/локация и только округлённые сервером координаты. Точная точка устройства не публикуется.'},
   {id:'presence',label:'Статус активности',description:'Когда вы были активны в SportBuddy78.'},

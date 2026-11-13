@@ -18,7 +18,7 @@ export function evaluateDeletionSafety({email='',user={},counts={},authDisabled=
   if(Number(counts.chats||0)>0||Number(counts.friendships||0)>0||Number(counts.friendRequestsFrom||0)>0||Number(counts.friendRequestsTo||0)>0)blockers.push('Есть социальные связи или чаты.');
   if(Number(counts.feed||0)>0||Number(counts.trainingsOwned||0)>0||Number(counts.leisureOwned||0)>0||Number(counts.stories||0)>0)blockers.push('Есть созданный пользователем контент.');
   if(Number(counts.trainingsJoined||0)>0||Number(counts.leisureJoined||0)>0||Number(counts.checkins||0)>0)blockers.push('Есть участие в тренировках или активном отдыхе.');
-  if(Number(counts.goals||0)>0||Number(counts.workoutCredits||0)>0||Number(counts.promoCodes||0)>0)blockers.push('Есть прогресс, цели или промокоды.');
+  if(Number(counts.goals||0)>0||Number(counts.workoutCredits||0)>0||Number(counts.runningResults||0)>0||Number(counts.runningBest||0)>0||Number(counts.promoCodes||0)>0)blockers.push('Есть прогресс, цели или промокоды.');
   if(Number(counts.trainerBookingsAsTrainer||0)>0||Number(counts.trainerBookingsAsClient||0)>0)blockers.push('Есть заявки к персональному тренеру.');
   if(Number(counts.sportVerificationRequests||0)>0||Number(counts.sportVerifiedClaims||0)>0)blockers.push('Есть заявки или подтверждения Спортивного ID.');
   if(String(user.avatar||'').trim()||Array.isArray(user.photoPortfolio)&&user.photoPortfolio.length>0)blockers.push('Есть пользовательские фото — требуется отдельная очистка медиахранилища.');
@@ -60,6 +60,8 @@ export async function buildUserDeletionPlan(db,auth,userId,{now=Date.now()}={}){
     stories:db.collection('stories').where('authorId','==',userId),
     ratingsGiven:db.collection('ratings').where('reviewerId','==',userId),
     ratingsReceived:db.collection('ratings').where('targetUserId','==',userId),
+    runningResults:db.collection('runningResults').where('userId','==',userId),
+    runningBest:db.collection('runningBest').where('userId','==',userId),
     workoutCredits:db.collection('workoutCredits').where('userId','==',userId),
     promoCodes:db.collection('promoCodes').where('ownerId','==',userId),
     pushDevices:db.collection('pushDevices').where('uid','==',userId),
@@ -95,7 +97,7 @@ export async function executeSafeUserDeletion(db,auth,plan){
   const uid=plan.userId;
   const [
     goals,checkins,feed,chats,trainingsOwned,trainingsJoined,friendFrom,friendTo,friendships,
-    leisureOwned,leisureJoined,stories,workouts,promos,pushDevices
+    leisureOwned,leisureJoined,stories,workouts,promos,pushDevices,runningResults,runningBest
   ]=await Promise.all([
     docs(db.collection('goals').where('ownerId','==',uid)),
     docs(db.collection('checkins').where('userId','==',uid)),
@@ -111,11 +113,13 @@ export async function executeSafeUserDeletion(db,auth,plan){
     docs(db.collection('stories').where('authorId','==',uid)),
     docs(db.collection('workoutCredits').where('userId','==',uid)),
     docs(db.collection('promoCodes').where('ownerId','==',uid)),
-    docs(db.collection('pushDevices').where('uid','==',uid))
+    docs(db.collection('pushDevices').where('uid','==',uid)),
+    docs(db.collection('runningResults').where('userId','==',uid)),
+    docs(db.collection('runningBest').where('userId','==',uid))
   ]);
 
   const deleteMap=new Map();
-  for(const d of [...goals,...checkins,...feed,...chats,...trainingsOwned,...friendFrom,...friendTo,...friendships,...leisureOwned,...stories,...workouts,...promos,...pushDevices])deleteMap.set(d.ref.path,d.ref);
+  for(const d of [...goals,...checkins,...feed,...chats,...trainingsOwned,...friendFrom,...friendTo,...friendships,...leisureOwned,...stories,...workouts,...promos,...pushDevices,...runningResults,...runningBest])deleteMap.set(d.ref.path,d.ref);
 
   const writer=db.bulkWriter();
   for(const ref of deleteMap.values())writer.delete(ref);

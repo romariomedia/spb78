@@ -1,5 +1,5 @@
 const eventFields = 'title category sport description tagline coverUrl videoUrl locationName address lat lng dateLabel time participantsMax participantIds prizePool entryFee audienceMode dateKey startsAt league isMediaLeague homeTeam awayTeam officialSourceUrl ticketUrl ticketSourceName ticketVerified officialClubId organizerUrl isImported status createdBy createdAt isOfficial'.split(' ');
-const trainingFields = 'title sport dateLabel time districtId locationName address lat lng level participantsMax participantIds description participantGender isOfficial officialOrganizerName officialStatus cancelledAt venueId venueName venueRentalConfirmed createdBy createdAt dateKey isCompleted completedAt ratedParticipantIds organizerRatedByParticipantIds checkedInUserIds'.split(' ');
+const trainingFields = 'runningRouteId runningRouteVersion title sport dateLabel time districtId locationName address lat lng level participantsMax participantIds description participantGender isOfficial officialOrganizerName officialStatus cancelledAt venueId venueName venueRentalConfirmed createdBy createdAt dateKey isCompleted completedAt ratedParticipantIds organizerRatedByParticipantIds checkedInUserIds'.split(' ');
 export function trainingVisible(value) {
   return value.isHidden !== true && (value.isOfficial !== true || ['published','completed'].includes(value.officialStatus));
 }

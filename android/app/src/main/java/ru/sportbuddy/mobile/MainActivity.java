@@ -12,6 +12,7 @@ public class MainActivity extends BridgeActivity {
         if ((getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
             WebView.setWebContentsDebuggingEnabled(true);
         }
+        registerPlugin(RunningRecorderPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

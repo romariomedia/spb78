@@ -440,6 +440,9 @@ button:disabled { cursor: not-allowed; }
 .sb-auth-shell .sb-auth-grid { opacity:.3; }
 .sb-auth-shell .sb-auth-aurora, .sb-auth-shell .sb-particle { display:none; }
 .sb-auth-card { background:#111c2bea; box-shadow:0 24px 100px #0005; border-color:#ffffff20; }
+/* Keep editable content on a plain layer while Android resizes for the IME. */
+.sb-auth-card-native { background:#111c2b; }
+.sb-auth-card-native input { scroll-margin-block:24px; }
 .sb-auth-shell h1 { font-size:clamp(34px,5vw,62px); line-height:1.06; letter-spacing:-2px; }
 .sb-auth-greeting { background:none; color:#c9f86e; -webkit-text-fill-color:#c9f86e; }
 .sb-auth-neva { margin-top:26px; height:220px; overflow:hidden; border-radius:22px; border:1px solid #ffffff10; background:#142238; }

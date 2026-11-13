@@ -50,6 +50,8 @@ export interface PublicDisseminationState {
 }
 
 export interface UserProfile {
+  trainingLevel?: '' | 'beginner' | 'amateur' | 'advanced' | 'pro';
+  trainingTimes?: string[];
   relationshipOnly?: boolean;
   personalTrainer?: {enabled:boolean; sports:string[]; status:string; verifiedAt?:string;trainerLevel?:'start'|'pro'|''|null;hourlyRate?:number|null;serviceDescription?:string;isPromoted?:boolean};
   id: string;
@@ -418,6 +420,8 @@ export interface AuthAccount {
 }
 
 export interface Training {
+  runningRouteId?: string;
+  runningRouteVersion?: number;
   /** Missing on legacy trainings means open to everyone. Applies to new signups. */
   participantGender?: 'any' | 'male' | 'female';
   id: string;

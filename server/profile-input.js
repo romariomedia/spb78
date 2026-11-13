@@ -17,6 +17,11 @@ export function validateProfileInput(input, now=Date.now()) {
     if(key in out && typeof out[key]!=='boolean') fail(key);
   if('age' in out && (!Number.isInteger(out.age) || out.age<18 || out.age>100)) fail('age');
   if('gender' in out && !['male','female'].includes(out.gender)) fail('gender');
+  if('trainingLevel' in out && !['','beginner','amateur','advanced','pro'].includes(out.trainingLevel)) fail('trainingLevel');
+  if('trainingTimes' in out){
+    if(!Array.isArray(out.trainingTimes)||out.trainingTimes.length>4||out.trainingTimes.some(x=>!['morning','day','evening','weekend'].includes(x)))fail('trainingTimes');
+    out.trainingTimes=[...new Set(out.trainingTimes)];
+  }
   if('sports' in out){
     if(!Array.isArray(out.sports) || out.sports.length>20 || out.sports.some(v=>typeof v!=='string'||!v.trim()||v.length>80)) fail('sports');
     out.sports=[...new Set(out.sports.map(v=>v.trim()))];

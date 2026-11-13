@@ -5,7 +5,7 @@ import {consentedPublicProfile,publicConsentState} from './public-consent.js';
 // It excludes private database fields by default but does NOT decide whether
 // a profile is eligible for discovery. Discovery boundaries must use
 // publicDiscoveryProfile().
-const fields=['name','age','gender','avatar','bio','sports','districtId','locationName',
+const fields=['name','age','gender','avatar','bio','trainingLevel','trainingTimes','sports','districtId','locationName',
   'lat','lng','rating','ratingCount','totalWorkouts','totalDailyMedals','medalTier',
   'activeLooking','photoPortfolio','hasRealPhoto','isVerified','hasUsedGeolocation','lastSeenAt','lastGeoAt'];
 

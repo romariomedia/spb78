@@ -45,6 +45,7 @@ function fixture(initial,authUsers={}) {
   async function request(uid,body){globalThis.__uid=uid;const response={statusCode:200,status(code){this.statusCode=code;return this;},json(body){this.body=body;return this;}};const old=console.error;console.error=()=>{};try{await handler({method:'POST',headers:{authorization:'Bearer test'},body},response);}finally{console.error=old;}return response;}
   return {records,request};
 }
+const matchProfile=gender=>({name:'Athlete',gender,activeLooking:true,avatar:'https://example.org/photo.jpg',publicDissemination:{active:true,version:'SB78-PUBLIC-2026-10-26',groups:['identity','profile']}});
 const premium=()=>({name:'Athlete',premiumUntil:new Date(Date.now()+86400000).toISOString(),friendIds:[],friendRequestsSent:[],friendRequestsReceived:[],likedUserIds:[],matchIds:[]});
 const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Moscow',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 const training=()=>({title:'Теннис',sport:'Теннис',dateKey:today(),time:'18:00',lat:59.93,lng:30.31,participantsMax:2});
@@ -119,7 +120,7 @@ test('accepting then removing friendship cleans both users and both requests',as
 });
 test('sixth free match is blocked for either participant',async()=>{
   for(const limited of ['a','b']) {
-    const a={likedUserIds:[],matchIds:[]},b={likedUserIds:['a'],matchIds:[]};
+    const a={...matchProfile('male'),likedUserIds:[],matchIds:[]},b={...matchProfile('female'),likedUserIds:['a'],matchIds:[]};
     (limited==='a'?a:b).matchHistory=Array.from({length:5},(_,i)=>({userId:'u'+i,at:Date.now()}));
     const f=fixture({'users/a':a,'users/b':b});
     const result=await f.request('a',{action:'match',targetUserId:'b'});assert.equal(result.statusCode,409);assert.equal(result.body.code,'MATCH_LIMIT');
@@ -375,7 +376,7 @@ test('beta removes match quota and restores it at the deadline',async t=>{
   for(const now of ['2026-12-31T20:59:59Z','2026-12-31T21:00:00Z']) {
     t.mock.timers.setTime(Date.parse(now));
     const history=Array.from({length:5},(_,i)=>({userId:'u'+i,at:Date.now()}));
-    const f=fixture({'users/a':{matchHistory:history},'users/b':{likedUserIds:['a'],matchHistory:history}});
+    const f=fixture({'users/a':{...matchProfile('male'),matchHistory:history},'users/b':{...matchProfile('female'),likedUserIds:['a'],matchHistory:history}});
     const r=await f.request('a',{action:'match',targetUserId:'b'});
     assert.equal(r.statusCode,now.endsWith('59Z')?200:409);
   }
@@ -657,4 +658,15 @@ test('gym companions use the training flow and require venue access confirmation
   assert.equal(created.body.training.sport,'Фитнес-зал');
   assert.equal(created.body.training.venueId,'ddx-galereya');
   assert.equal((await f.request('b',{action:'training',operation:'toggleJoinTraining',trainingId:created.body.training.id})).body.joined,true);
+});
+test('route training preserves the canonical route version and rejects incompatible sports',async()=>{
+ const f=fixture({'users/a':premium()});
+ const value={...training(),sport:'Бег',runningRouteId:'neva-bridges',runningRouteVersion:999};
+ const created=await f.request('a',{action:'training',operation:'createTraining',training:value});
+ assert.equal(created.statusCode,200);
+ assert.equal(created.body.training.runningRouteId,'neva-bridges');
+ assert.equal(created.body.training.runningRouteVersion,1);
+ for(const extra of [{sport:'Футбол'},{runningRouteId:'missing'}]){
+  assert.equal((await f.request('a',{action:'training',operation:'createTraining',training:{...value,...extra}})).statusCode,400);
+ }
 });
