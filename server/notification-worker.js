@@ -13,6 +13,13 @@ export async function deliverNotification(db,messaging,job,uid,pushEnabled=true)
   if(user.isSuspended===true)return;
   if((user.blockedUserIds||[]).includes(job.actorId)||(job.kind!=='push_test'&&!prefs[job.category]))return;
   // A queued request may have been cancelled, accepted or replaced before delivery.
+  if(job.kind==='match') {
+    if(!job.entityId||!job.requestVersion)return;
+    const pair=(await db.collection('matchPairs').doc(job.entityId).get()).data();
+    if(!pair?.active||pair.version!==job.requestVersion)return;
+    const other=(await db.collection('users').doc(job.actorId).get()).data();
+    if(!other || other.isSuspended || (other.blockedUserIds||[]).includes(uid) || !(user.matchIds||[]).includes(job.actorId) || !(other.matchIds||[]).includes(uid))return;
+  }
   if(job.kind==='friend_request') {
     const latest=await db.collection('friendRequests').doc(job.entityId || `${job.actorId}__${uid}`).get();
     const request=latest.data();

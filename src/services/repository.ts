@@ -1,3 +1,4 @@
+import {auth} from './firebaseAuth';
 import {loadActivities} from './activities';
 import { createTrainingRequest } from './trainingRequests';
 import { hasPremiumAccess } from '../../shared/access-policy.js';
@@ -752,13 +753,16 @@ export async function toggleJoinTraining(trainingId: string, joined: boolean): P
 }
 
 // 4. toggleLikeProfile
-export async function toggleLikeProfile(targetUserId: string): Promise<{ isLiked: boolean; isMatch: boolean; error?: string }> {
-  triggerHapticImpact('light');
-  try {
-    const result = await callServer<{ isLiked: boolean; isMatch: boolean; matchIds: string[]; likedUserIds: string[] }>('/api/sportbuddy-mutation', { action: 'match', targetUserId });
-    const cached = getOfflineCache(); if (cached) { cached.currentUser.likedUserIds = result.likedUserIds; cached.currentUser.matchIds = result.matchIds; saveOfflineCache(cached); }
-    return { isLiked: result.isLiked, isMatch: result.isMatch };
-  } catch (error) { return { isLiked: false, isMatch: false, error: error instanceof Error ? error.message : 'Не удалось выполнить действие' }; }
+export interface MatchResult {isLiked:boolean;isMatch:boolean;isNewMatch?:boolean;matchIds?:string[];likedUserIds?:string[];error?:string}
+export async function toggleLikeProfile(targetUserId:string,operation:'like'|'remove'='like'):Promise<MatchResult>{
+  const owner=CURRENT_USER_ID,session=auth.currentUser;
+  try{
+    const result=await callServer<MatchResult>('/api/sportbuddy-mutation',{action:'match',targetUserId,operation});
+    if(CURRENT_USER_ID!==owner||auth.currentUser!==session)return {isLiked:false,isMatch:false,error:'Аккаунт изменился'};
+    const cached=getOfflineCache();
+    if(cached?.currentUser.id===owner&&result.likedUserIds&&result.matchIds){cached.currentUser.likedUserIds=result.likedUserIds;cached.currentUser.matchIds=result.matchIds;saveOfflineCache(cached);}
+    return result;
+  }catch(error){return {isLiked:false,isMatch:false,error:error instanceof Error?error.message:'Не удалось выполнить действие'};}
 }
 
 // 5. createPost

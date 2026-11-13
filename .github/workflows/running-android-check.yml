@@ -7,6 +7,9 @@ on:
       - 'src/components/RouteCarousel.tsx'
       - 'src/components/DashboardSections.tsx'
       - 'src/components/FeedComposer.tsx'
+      - 'src/components/DiscoverySettings.tsx'
+      - 'src/hooks/useDiscoveryHistory.ts'
+      - 'src/services/discoveryPolicy.ts'
       - 'src/App.tsx'
       - 'shared/dashboard-order*'
       - 'src/services/runningRecorder.ts'
@@ -39,6 +42,16 @@ jobs:
         env:
           PLAYWRIGHT_PACKAGE: ${{ runner.temp }}/card-qa/node_modules/playwright
         run: node scripts/running/check-polish.mjs
+      - name: Check discovery history and filters
+        env:
+          PLAYWRIGHT_PACKAGE: ${{ runner.temp }}/card-qa/node_modules/playwright
+        run: node scripts/running/check-discovery.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: discovery-previews
+          path: artifacts/discovery
+          retention-days: 7
       - uses: actions/upload-artifact@v4
         if: always()
         with:

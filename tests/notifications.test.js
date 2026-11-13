@@ -178,3 +178,12 @@ test('trainer request push is suppressed after cancellation or replacement and d
  const f=fixture({'users/b':{},'trainerBookings/r':request,'pushDevices/d':{uid:'b',token:'token',updatedAt:Date.now()}});
  await deliverNotification(f.db,f.messaging,j,'b');assert.equal(f.sends.length,1);assert.equal(f.rows.get('notificationInboxes/b').entries[0].link,'#trainer-requests');
 });
+
+test('match notifications honor preferences and reject removed, replaced or blocked relationships',async()=>{
+ const base={'users/a':{matchIds:['b']},'users/b':{matchIds:['a']},'matchPairs/chat_a__b':{active:true,version:'v1'}};
+ const match={...job(),category:'friends',kind:'match',entityId:'chat_a__b',requestVersion:'v1'};
+ for(const patch of [{'matchPairs/chat_a__b':{active:false}},{'matchPairs/chat_a__b':{active:true,version:'v2'}},{'users/a':{matchIds:['b'],blockedUserIds:['b']}},{'users/b':{matchIds:[]}},{'notificationSettings/b':{friends:false}}]){
+  const f=fixture({...base,...patch});await deliverNotification(f.db,f.messaging,match,'b');assert.equal(f.rows.has('notificationInboxes/b'),false);assert.equal(f.sends.length,0);
+ }
+ const f=fixture(base);await deliverNotification(f.db,f.messaging,match,'b');assert.ok(f.rows.has('notificationInboxes/b'));
+});

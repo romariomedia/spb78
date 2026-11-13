@@ -1,3 +1,4 @@
+import {matchMutation} from '../server/match-service.js';
 import runningRoutes from '../shared/running-routes.json' with {type:'json'};
 import { withoutLegacyLoginAvatar } from '../server/avatar-policy.js';
 import { eventStart } from '../shared/event-time.js';
@@ -133,7 +134,7 @@ async function syncIdentity(db, uid, candidateName) {
 
 async function profileMutation(db, uid, updates) {
   updates = validateProfileInput(withoutLegacyLoginAvatar(updates));
-  const publicAllowed = new Set(['age','gender','genderSet','bio','sports','districtId','locationName','lat','lng','activeLooking','avatar','photoPortfolio','legalAcceptedAt','themeAccent','themeSurface','hasUsedGeolocation','lastSeenAt','lastGeoAt']);
+  const publicAllowed = new Set(['age','gender','genderSet','bio','trainingLevel','trainingTimes','sports','districtId','locationName','lat','lng','activeLooking','avatar','photoPortfolio','legalAcceptedAt','themeAccent','themeSurface','hasUsedGeolocation','lastSeenAt','lastGeoAt']);
   const privateAllowed = new Set(['phone','hidePhone','birthDate','hideBirthDate','deviceId']);
   const pub={}, priv={};
   for (const [k,v] of Object.entries(updates||{})) { if(publicAllowed.has(k)) pub[k]=v; if(privateAllowed.has(k)) priv[k]=v; }
@@ -595,48 +596,6 @@ async function chatMutation(db, uid, body) {
   });
 }
 
-async function matchMutation(db, uid, targetUserId) {
-  if (!targetUserId || targetUserId === uid) throw Object.assign(new Error('Некорректный пользователь'), { status: 400 });
-  const configSnap = await db.collection('appConfig').doc('main').get().catch(() => null);
-  const product = configSnap?.exists ? (configSnap.data()?.product || {}) : {};
-  const freeMatchLimit = Number.isInteger(Number(product.freeMatches)) && Number(product.freeMatches) >= 0 && Number(product.freeMatches) <= 100 ? Number(product.freeMatches) : 5;
-  const matchWindowDays = Number.isInteger(Number(product.matchWindowDays)) && Number(product.matchWindowDays) >= 1 && Number(product.matchWindowDays) <= 365 ? Number(product.matchWindowDays) : 7;
-  const meRef = db.collection('users').doc(uid), targetRef = db.collection('users').doc(targetUserId);
-  return db.runTransaction(async tx => {
-    const meSnap = await tx.get(meRef); const targetSnap = await tx.get(targetRef);
-    if (!meSnap.exists || !targetSnap.exists) throw Object.assign(new Error('Пользователь не найден'), { status: 404 });
-    const me = meSnap.data(), target = targetSnap.data();
-    const liked = cleanArray(me.likedUserIds), targetLiked = cleanArray(target.likedUserIds);
-    const myMatches = cleanArray(me.matchIds), targetMatches = cleanArray(target.matchIds);
-    const now = Date.now(), cutoff = now - matchWindowDays * 24 * 60 * 60 * 1000;
-    const history = (Array.isArray(me.matchHistory) ? me.matchHistory : []).filter(x => x && typeof x.userId === 'string' && Number(x.at) > cutoff);
-    const targetHistory = (Array.isArray(target.matchHistory) ? target.matchHistory : []).filter(x => x && typeof x.userId === 'string' && Number(x.at) > cutoff);
-    if (liked.includes(targetUserId)) {
-      const nextLiked = liked.filter(id => id !== targetUserId);
-      tx.update(meRef, { likedUserIds: nextLiked, matchHistory: history });
-      return { isLiked: false, isMatch: myMatches.includes(targetUserId), matchIds: myMatches, likedUserIds: nextLiked };
-    }
-    const mutual = targetLiked.includes(uid);
-    if (mutual && !myMatches.includes(targetUserId) && !premiumActive(me) && history.length >= freeMatchLimit) {
-      throw Object.assign(new Error(`Бесплатный тариф: максимум ${freeMatchLimit} взаимных мэтчей за ${matchWindowDays} дней`), { status: 409, code: 'MATCH_LIMIT' });
-    }
-    if (mutual && !targetMatches.includes(uid) && !premiumActive(target) && targetHistory.length >= freeMatchLimit) {
-      throw Object.assign(new Error(`У второго участника исчерпан лимит мэтчей за ${matchWindowDays} дней`), { status: 409, code: 'MATCH_LIMIT' });
-    }
-    const nextLiked = [...liked, targetUserId];
-    if (!mutual) {
-      tx.update(meRef, { likedUserIds: nextLiked, matchHistory: history });
-      return { isLiked: true, isMatch: false, matchIds: myMatches, likedUserIds: nextLiked };
-    }
-    const nextMyMatches = myMatches.includes(targetUserId) ? myMatches : [...myMatches, targetUserId];
-    const nextTargetMatches = targetMatches.includes(uid) ? targetMatches : [...targetMatches, uid];
-    const nextHistory = history.some(x => x.userId === targetUserId) ? history : [...history, { userId: targetUserId, at: now }];
-    const nextTargetHistory = targetHistory.some(x => x.userId === uid) ? targetHistory : [...targetHistory, { userId: uid, at: now }];
-    tx.update(meRef, { likedUserIds: nextLiked, matchIds: nextMyMatches, matchHistory: nextHistory });
-    tx.update(targetRef, { matchIds: nextTargetMatches, matchHistory: nextTargetHistory });
-    return { isLiked: true, isMatch: true, matchIds: nextMyMatches, likedUserIds: nextLiked };
-  });
-}
 
 async function trainingMutation(db, uid, body) {
   if (body.operation === 'createTraining') {
@@ -902,7 +861,7 @@ export default async function handler(req,res) {
     switch(body.action) {
       case 'bootstrapProfile': result = await bootstrapProfile(db, decoded.uid, body.profile, decoded); break;
       case 'syncIdentity': result = await syncIdentity(db, decoded.uid, body.candidateName); break;
-      case 'match': result = await matchMutation(db, decoded.uid, String(body.targetUserId || '')); break;
+      case 'match': result = await matchMutation(db, decoded.uid, String(body.targetUserId || ''), body.operation || 'like'); break;
       case 'training': result = await trainingMutation(db, decoded.uid, body); break;
       case 'workoutCredit': result = await workoutCredit(db, decoded.uid, body); break;
       case 'myPromos': {

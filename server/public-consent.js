@@ -2,7 +2,7 @@ export const PUBLIC_DISSEMINATION_VERSION='SB78-PUBLIC-2026-10-26';
 
 export const PUBLIC_CONSENT_GROUPS=Object.freeze({
   identity:['name','age','gender','avatar'],
-  profile:['bio','sports','activeLooking'],
+  profile:['bio','trainingLevel','trainingTimes','sports','activeLooking'],
   portfolio:['photoPortfolio'],
   location:['districtId','locationName','lat','lng','hasUsedGeolocation','lastGeoAt'],
   presence:['lastSeenAt'],
